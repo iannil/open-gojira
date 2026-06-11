@@ -11,7 +11,6 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.holding import Holding
@@ -129,7 +128,6 @@ def get_theme_coverage(db: Session) -> list[dict[str, Any]]:
 
     Returns list of {"theme": str, "active_plan_count": int, "stock_codes": list[str]}.
     """
-    from app.models.plan import Plan
     from app.models.candidate import Candidate
     from app.models.stock import Stock
 

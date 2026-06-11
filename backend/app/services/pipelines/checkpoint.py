@@ -1,6 +1,6 @@
 """Checkpoint manager — persistent sync progress for resume-after-crash."""
 
-from datetime import date, datetime
+from datetime import date
 
 from sqlalchemy.orm import Session
 

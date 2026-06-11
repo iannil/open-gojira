@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date, timedelta
-from typing import Any
 
-from sqlalchemy.orm import Session
 
 from app.models.price_kline import PriceKline
 from app.services.pipelines.base import BasePipeline, PipelineContext

@@ -23,7 +23,6 @@ from functools import wraps
 from typing import Optional
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -32,7 +31,6 @@ from app.core.observability import (
     _generate_id as _obs_gen_id,
     set_trace_id as _obs_set_trace_id,
     _emit_obs_log,
-    should_observe as _should_observe,
 )
 from app.db.session import SessionLocal
 from app.models.holding import Holding

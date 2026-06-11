@@ -14,7 +14,6 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from datetime import date
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session

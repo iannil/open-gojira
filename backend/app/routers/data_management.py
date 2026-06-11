@@ -194,6 +194,5 @@ def api_usage(db: Session = Depends(get_db)):
 
 @router.get("/quality")
 def get_quality(db: Session = Depends(get_db)):
-    from app.schemas.data_quality import DataQualityResponse
     from app.services.data_quality_service import compute_quality
     return compute_quality(db)

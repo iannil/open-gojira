@@ -13,7 +13,6 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -23,9 +22,8 @@ from app.models.plan import Plan
 from app.models.stock import Stock
 from app.models.strategy import Strategy
 from app.models.watchlist import WatchlistItem
-from app.services import audit_log_service
-from app.services import draft_service, strategy_service
-from app.services.stock_context_builder import build_context, build_contexts_batch, build_screening_contexts
+from app.services import draft_service
+from app.services.stock_context_builder import build_context, build_screening_contexts
 from app.services.strategy_engine import StockContext
 from app.services.strategy_engine import evaluate as strategy_evaluate
 from app.services.strategy_engine import _resolve_field as resolve_field, _evaluate_condition

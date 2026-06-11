@@ -7,7 +7,9 @@
 > | 最后更新 | 2026-06-11 |
 > | 分支 | `master` |
 > | 测试 | **402 passed**, 0 failed (`pytest`) |
+> | 测试函数数 | 402 (静态可验证: `grep -rn "def test_" backend/tests/ \| wc -l`) |
 > | Alembic head | `3c5b80889c29` (strategy_driven_screening_system) |
+> | Alembic 版本文件数 | 19 (静态可验证: `ls backend/alembic/versions/*.py \| wc -l`) |
 > | 后端代码 | 17,518 行 (app/) + 6,980 行 (tests/) |
 > | 前端代码 | 8,115 行 (src/) |
 > | 远程仓库 | 暂无 (`git remote -v` 为空) |
@@ -224,10 +226,13 @@ Alembic 迁移链: 19 个版本文件,head = `3c5b80889c29` (strategy_driven_scr
 
 ### 5.3 待修复项 (从 roadmap.md 摘录)
 
-完整路线图见 `docs/active/roadmap.md`。简摘:
+完整路线图见 `docs/active/roadmap.md`。优先级排序简摘:
 
-- **P1**: 远程 Git 仓库 + CI (GitHub Actions)、cashflow_goal UI 编辑入口
-- **P2**: 月度复盘视图增强、预案 diff 视图、StockDetail 新建预案回填
+- **P1-1 [最高]**: 远程 Git 仓库 + push (当前 master 无 remote,无法备份/协作)
+- **P1-2 [高]**: CI (GitHub Actions: pytest + npm run build,阻止 main 腐烂)
+- **P1-3 [中]**: 端到端手动验收 (round6 修复后回归,起 ./dev.sh 全流程跑通)
+- **P1-4 [中]**: cashflow_goal UI 编辑入口 (Cockpit 加"设定目标"按钮)
+- **P2**: 月度复盘视图增强、预案 diff 视图、StockDetail 新建预案回填、候选池筛选持久化
 - **P3**: holding_service 拆纯计算+持久查询两层、datetime.utcnow() → datetime.now(UTC)、前端 bundle 分块
 
 ---
@@ -258,7 +263,10 @@ Alembic 迁移链: 19 个版本文件,head = `3c5b80889c29` (strategy_driven_scr
 | `docs/reports/completed/*.md` | 终态报告 (历史快照) | 想看某次完成的修改细节 (含 4 轮审计) |
 | `docs/reference/invest{1,2,3}.md` | 投资理论体系 (本地,gitignored) | 想理解业务背景与投资方法论 |
 | `docs/reference/investment-theory-source.md` | 投资理论原文合集 | 同上,完整版 |
-| `docs/reference/specs/*.md` | 已确认的设计规格 | 想看某个子系统 (Pipeline/EventBus/可观测性) 的设计决策 |
+| `docs/reference/specs/2026-06-08-data-management-design.md` | 数据管理 5 Tab 设计 | 修改 DataManagement 页面/Pipeline 时 |
+| `docs/reference/specs/2026-06-09-observability-design.md` | 可观测性装饰器设计 | 修改 tracker/observability 时 |
+| `docs/reference/specs/2026-06-10-candidates-filter-design.md` | 候选池 7 筛选条件设计 | 修改 Candidates 页面时 |
+| `docs/reference/specs/2026-06-10-event-driven-automation-design.md` | EventBus + 自动化设计 | 修改事件相关代码时 |
 | `docs/archive/*.md` | 归档的早期设计稿 | 想了解项目演进历史 |
 
 ### 路径变更记录 (2026-06-11 整理)
@@ -273,6 +281,37 @@ Alembic 迁移链: 19 个版本文件,head = `3c5b80889c29` (strategy_driven_scr
 - `docs/superpowers/plans/*.md` → `docs/reports/completed/plan-*.md`
 - `docs/superpowers/specs/*.md` → `docs/reference/specs/`
 - `docs/screenshots/lifecycle/lifecycle_report.md` → 删除 (一次性测试输出)
+
+### docs/ 目录树概览 (2026-06-11 整理后)
+
+```
+docs/
+├── progress/          # 时间线 + STATUS.md (本文件,AI 首读)
+│   ├── STATUS.md
+│   ├── 2026-06-05-phase1-kline-screener.md
+│   ├── 2026-06-05-phase2-financial-watchlist-alerts.md
+│   ├── 2026-06-05-stock-selection-audit{,-v2}.md
+│   ├── 2026-06-06-{audit-round2,autopilot-step{1,2,3,4},investment-system-alignment}.md
+│   └── 2026-06-09-data-management-upgrade.md
+├── active/            # 持续生效的计划
+│   └── roadmap.md
+├── standards/         # 持续生效的代码规范
+│   └── serialization.md
+├── templates/         # 文档骨架模板
+│   ├── progress-entry.md
+│   ├── completed-report.md
+│   └── acceptance-report.md
+├── reports/           # 验收报告 (根目录)
+│   ├── 2026-06-06-e2e-lifecycle-verification.md
+│   ├── 2026-06-11-docs-cleanup-acceptance.md
+│   └── completed/    # 已完成的修改 (13 个,含 4 轮审计)
+├── reference/         # 参考资料
+│   ├── invest{1,2,3}.md  (gitignored)
+│   ├── investment-theory-source.md
+│   └── specs/        # 已确认的设计规格 (4 个)
+└── archive/          # 早期归档
+    └── 2026-06-04-investment-system-design.md
+```
 
 ---
 

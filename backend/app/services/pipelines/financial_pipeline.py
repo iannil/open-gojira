@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import logging
 from datetime import date, datetime
-from typing import Any, Optional
+from typing import Optional
 
-from sqlalchemy.orm import Session
 
 from app.core.datetime_utils import utcnow
 from app.models.financial import FinancialStatement

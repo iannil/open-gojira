@@ -12,7 +12,6 @@ from __future__ import annotations
 import logging
 
 from app.core.events import (
-    AlertTriggered,
     DataSyncCompleted,
     DraftCreated,
     PlanEvaluationCompleted,

@@ -1,6 +1,6 @@
 """Response schemas for review and backfill endpoints."""
 
-from typing import Any, Optional
+from typing import Optional
 
 from pydantic import BaseModel
 

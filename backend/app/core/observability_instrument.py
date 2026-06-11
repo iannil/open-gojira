@@ -9,9 +9,7 @@ import importlib
 import inspect
 import logging
 import pkgutil
-from typing import Callable
 
-import wrapt
 
 from app.core.observability import (
     LifecycleTracker,

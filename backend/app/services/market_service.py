@@ -1,8 +1,6 @@
 """Market data service — fetches market indices, sector data, and capital flow from Lixinger."""
 
 import logging
-from datetime import date, timedelta
-from typing import Optional
 
 from app.services.lixinger_client import get_lixinger_client, LixingerError
 

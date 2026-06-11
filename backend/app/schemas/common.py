@@ -1,6 +1,5 @@
 """Common response schemas shared across endpoints."""
 
-from typing import Any
 
 from pydantic import BaseModel
 

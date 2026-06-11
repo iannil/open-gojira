@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import logging
 from datetime import date, timedelta
-from collections import defaultdict
 
 from pydantic import BaseModel, field_serializer
 from sqlalchemy import select, func

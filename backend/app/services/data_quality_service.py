@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, timedelta
-from typing import Optional
+from datetime import date
 
-from sqlalchemy import func as sa_func, text
+from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session
 
 from app.core.datetime_utils import utcnow
@@ -14,9 +13,7 @@ from app.models.dividend import DividendRecord
 from app.models.financial import FinancialStatement
 from app.models.pipeline import DeadLetterRecord, PipelineRun
 from app.models.price_kline import PriceKline
-from app.models.stock import Stock
 from app.models.valuation import ValuationSnapshot
-from app.models.watchlist import WatchlistItem
 from app.schemas.data_quality import (
     DataQualityResponse,
     DataTypeQuality,

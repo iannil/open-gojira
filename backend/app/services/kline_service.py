@@ -1,7 +1,7 @@
 """K-line service — fetch + cache daily candlesticks, derive valuation bands."""
 
 import logging
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from typing import Optional
 
 from sqlalchemy.orm import Session

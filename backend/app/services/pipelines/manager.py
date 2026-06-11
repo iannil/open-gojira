@@ -7,15 +7,14 @@ import logging
 import threading
 import uuid
 from datetime import datetime
-from typing import Any, Type
+from typing import Type
 
 from sqlalchemy.orm import Session
 
 from app.core.datetime_utils import utcnow
 from app.core.events import bus, DataSyncCompleted
 from app.models.pipeline import PipelineRun
-from app.services.pipelines.base import BasePipeline, PipelineResult, PipelineStatus
-from app.services.pipelines.checkpoint import CheckpointManager
+from app.services.pipelines.base import BasePipeline, PipelineStatus
 from app.services.pipelines.dead_letter import DeadLetterQueue
 from app.services.pipelines.metrics import MetricsCollector
 
@@ -166,7 +165,6 @@ class PipelineManager:
 
             for sr in result.stock_results:
                 if not sr.success and sr.error_type:
-                    from app.services.pipelines.base import ErrorType
                     DeadLetterQueue.push(
                         db,
                         pipeline_run_id=run_id,

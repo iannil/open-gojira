@@ -11,7 +11,6 @@ import logging
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.candidate import Candidate
 from app.models.plan import Plan
 from app.models.strategy import Strategy
 

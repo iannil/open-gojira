@@ -5,9 +5,7 @@ Implements invest3's "five-layer pyramid" requirement for structured self-assess
 
 import logging
 from datetime import date
-from typing import Optional
 
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.audit_log import AuditLog

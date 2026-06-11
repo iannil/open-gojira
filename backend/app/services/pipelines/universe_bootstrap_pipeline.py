@@ -4,11 +4,8 @@ from __future__ import annotations
 
 import logging
 from datetime import date as date_type
-from datetime import datetime
 from typing import Any
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 from app.core.datetime_utils import utcnow
 from app.models.stock import Stock

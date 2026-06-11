@@ -1,7 +1,7 @@
 """Universe service — builds the aggregate universe view for the dashboard."""
 
 import logging
-from sqlalchemy import desc, func as sa_func, select
+from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session
 
 from app.models.candidate import Candidate

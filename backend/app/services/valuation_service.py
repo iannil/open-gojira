@@ -9,7 +9,6 @@ valuation is the leash.
 """
 
 import logging
-from datetime import date, datetime
 from typing import Optional
 
 import numpy as np
@@ -227,7 +226,6 @@ def get_valuation_dashboard(db: Session, stock_code: str) -> dict:
         Dict with latest snapshot, real-time data, sustainability check,
         and an inline composite valuation (signal/floor/fair/ceiling).
     """
-    from app.services.data_service import fetch_pe_pb_history
     from app.services.lixinger_client import get_lixinger_client, LixingerError
 
     # Get the latest snapshot

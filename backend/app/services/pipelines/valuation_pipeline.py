@@ -6,7 +6,6 @@ import logging
 from datetime import date
 from typing import Any
 
-from sqlalchemy.orm import Session
 
 from app.core.datetime_utils import utcnow
 from app.models.valuation import ValuationSnapshot
@@ -66,7 +65,6 @@ class ValuationPipeline(BasePipeline):
                 else:
                     result.failed_items += 1
 
-        from datetime import datetime
         ctx.finished_at = utcnow()
 
         if result.failed_items == 0:

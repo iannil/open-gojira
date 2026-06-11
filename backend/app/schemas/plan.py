@@ -7,7 +7,7 @@ composition and scan scope configuration.
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, Optional, Union
+from typing import Annotated, Any, Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 

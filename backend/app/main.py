@@ -17,8 +17,6 @@ from app.core.observability import (
     set_trace_id,
     _generate_id,
     _emit_obs_log,
-    should_observe,
-    _safe_serialize,
 )
 from app.db.base import Base
 from app.db.engine import engine

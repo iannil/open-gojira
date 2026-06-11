@@ -1,6 +1,6 @@
 """Response schemas for market endpoints."""
 
-from typing import Any, Optional
+from typing import Optional
 
 from pydantic import BaseModel
 

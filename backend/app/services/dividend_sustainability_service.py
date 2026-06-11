@@ -8,7 +8,7 @@ Computes a composite 0-100 score based on:
 """
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 from typing import Optional
 
 from sqlalchemy import desc, select

@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, timedelta
-from typing import Any
+from datetime import date, timedelta
 
 from sqlalchemy import case, func as sa_func
 from sqlalchemy.orm import Session

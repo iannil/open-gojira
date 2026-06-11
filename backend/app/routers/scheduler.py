@@ -13,7 +13,6 @@ from app.schemas.scheduler import (
 )
 from app.services.scheduler_config_service import (
     cron_to_trigger,
-    get_config,
     list_executions,
     update_config,
 )

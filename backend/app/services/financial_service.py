@@ -16,7 +16,7 @@ from app.schemas.financial import (
     RatioDataPoint,
     RatioTrendResponse,
 )
-from app.services.lixinger_client import get_lixinger_client, LixingerError
+from app.services.lixinger_client import get_lixinger_client
 
 logger = logging.getLogger(__name__)
 

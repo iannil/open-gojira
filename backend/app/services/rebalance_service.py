@@ -13,14 +13,14 @@ from __future__ import annotations
 import json
 import logging
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.services import (
-    cashflow_service,
+    cashflow_service,  # noqa: F401 — mock target in tests
     cashflow_goal_service,
-    holding_service,
-    theme_service,
+    holding_service,  # noqa: F401 — mock target in tests
+    theme_service,  # noqa: F401 — mock target in tests
 )
 
 logger = logging.getLogger(__name__)
