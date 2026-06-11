@@ -1,0 +1,124 @@
+version: "3.9"
+
+services:
+  # ── PostgreSQL ─────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: gojira-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-gojira}
+      POSTGRES_USER: ${POSTGRES_USER:-gojira}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gojira_secret}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - gojira-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gojira} -d ${POSTGRES_DB:-gojira}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ── Backend API ───────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: gojira-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Override DATABASE_URL to use PostgreSQL inside Docker
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-gojira}:${POSTGRES_PASSWORD:-gojira_secret}@postgres:5432/${POSTGRES_DB:-gojira}
+      CORS_ORIGINS: '["http://localhost","http://localhost:80","http://localhost:3000"]'
+    expose:
+      - "3001"
+    networks:
+      - gojira-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:3001/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    volumes:
+      - backend_data:/app/data
+
+  # ── Frontend ──────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: gojira-frontend
+    restart: unless-stopped
+    expose:
+      - "80"
+    networks:
+      - gojira-network
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  # ── Caddy (HTTPS reverse proxy) ──────────────────────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    container_name: gojira-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - gojira-network
+    depends_on:
+      - frontend
+
+  # ── Database Backup ───────────────────────────────────────────────────────
+  db-backup:
+    image: postgres:16-alpine
+    container_name: gojira-db-backup
+    restart: "no"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-gojira}
+      POSTGRES_USER: ${POSTGRES_USER:-gojira}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gojira}
+      PGHOST: postgres
+      PGPORT: 5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data:ro
+      - backup_data:/backups
+      - ./scripts/backup.sh:/usr/local/bin/backup.sh:ro
+    networks:
+      - gojira-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "/usr/local/bin/backup.sh", "/backups"]
+
+# ── Volumes ─────────────────────────────────────────────────────────────────
+volumes:
+  postgres_data:
+    driver: local
+  backend_data:
+    driver: local
+  backup_data:
+    driver: local
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+
+# ── Network ─────────────────────────────────────────────────────────────────
+networks:
+  gojira-network:
+    driver: bridge
+    name: gojira-network

@@ -1,0 +1,16 @@
+[project]
+name = "gojira-backend"
+version = "0.1.0"
+description = "Gojira Investment System - Backend"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+show_missing = true

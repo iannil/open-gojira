@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+
+# Node
+node_modules/
+dist/
+build/
+
+# Data
+data/gojira.db
+
+# Environment
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+**/skills/lixinger/
+**/playwright-report/
+**/test-results
+
+.dev-pids/
+.dev-logs/
+
+invest*.md

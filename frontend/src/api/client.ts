@@ -1,0 +1,535 @@
+/**
+ * API client — strategy-driven investment system.
+ */
+
+import axios from 'axios';
+
+import type {
+  AnnualReview,
+  ApiUsageResponse,
+  AuditLogEntry,
+  CandidateResponse,
+  CashflowGoalResponse,
+  CashflowGoalUpdate,
+  CleanupPreview,
+  CleanupResult,
+  CockpitResponse,
+  DataQualityResponse,
+  DataStatusOverview,
+  DeadLetterStatsResponse,
+  DividendSummaryResponse,
+  DraftResponse,
+  HoldingResponse,
+  JobExecutionResponse,
+  KlineResponse,
+  KlineSyncSummary,
+  MarginTradingRecord,
+  NorthFlowRecord,
+  PipelineHealthResponse,
+  PipelineRunDetail,
+  PlanCreate,
+  PlanResponse,
+  PlanUpdate,
+  QuarterlyReview,
+  QiuScoreInput,
+  ReviewResponse,
+  SchedulerJobResponse,
+  SchedulerJobUpdate,
+  ShareholderRecord,
+  StockPoolItem,
+  StockResponse,
+  StockSearchResult,
+  StrategyCreate,
+  StrategyResponse,
+  StrategyTestResponse,
+  StrategyUpdate,
+  SyncTaskStatus,
+  SyncTriggerResponse,
+  ThemeExposure,
+  ThemeItem,
+  ThesisVariable,
+  RevenueComposition,
+  UniverseItem,
+  FullUniverseResponse,
+  UniverseCoverageStats,
+  WatchlistGroupResponse,
+} from './types';
+
+import { installTracer } from '../observability/tracer';
+
+export const apiClient = axios.create({
+  baseURL: '/api',
+  timeout: 30_000,
+});
+
+installTracer(apiClient);
+
+// ── Strategies ────────────────────────────────────────────────────────
+
+export async function listStrategies(): Promise<StrategyResponse[]> {
+  const res = await apiClient.get<StrategyResponse[]>('/strategies');
+  return res.data;
+}
+
+export async function createStrategy(payload: StrategyCreate): Promise<StrategyResponse> {
+  const res = await apiClient.post<StrategyResponse>('/strategies', payload);
+  return res.data;
+}
+
+export async function updateStrategy(id: number, payload: StrategyUpdate): Promise<StrategyResponse> {
+  const res = await apiClient.put<StrategyResponse>(`/strategies/${id}`, payload);
+  return res.data;
+}
+
+export async function deleteStrategy(id: number): Promise<void> {
+  await apiClient.delete(`/strategies/${id}`);
+}
+
+export async function testStrategy(id: number, stockCode: string): Promise<StrategyTestResponse> {
+  const res = await apiClient.post(`/strategies/${id}/test`, { stock_code: stockCode });
+  return res.data;
+}
+
+// ── Plans ─────────────────────────────────────────────────────────────
+
+export async function listPlans(): Promise<PlanResponse[]> {
+  const res = await apiClient.get<PlanResponse[]>('/plans');
+  return res.data;
+}
+
+export async function getPlan(id: number): Promise<PlanResponse> {
+  const res = await apiClient.get<PlanResponse>(`/plans/${id}`);
+  return res.data;
+}
+
+export async function createPlan(payload: PlanCreate): Promise<PlanResponse> {
+  const res = await apiClient.post<PlanResponse>('/plans', payload);
+  return res.data;
+}
+
+export async function updatePlan(id: number, payload: PlanUpdate): Promise<PlanResponse> {
+  const res = await apiClient.put<PlanResponse>(`/plans/${id}`, payload);
+  return res.data;
+}
+
+export async function deletePlan(id: number): Promise<void> {
+  await apiClient.delete(`/plans/${id}`);
+}
+
+export async function runPlan(id: number): Promise<unknown> {
+  const res = await apiClient.post(`/plans/${id}/run`);
+  return res.data;
+}
+
+// ── Candidates ────────────────────────────────────────────────────────
+
+export async function listCandidates(params?: {
+  plan_id?: number;
+  status?: string;
+}): Promise<CandidateResponse[]> {
+  const res = await apiClient.get<CandidateResponse[]>('/candidates', { params });
+  return res.data;
+}
+
+export async function promoteCandidate(id: number, groupId: number): Promise<void> {
+  await apiClient.post(`/candidates/${id}/promote`, { watchlist_group_id: groupId });
+}
+
+export async function updateCandidate(id: number, payload: {
+  pinned?: boolean;
+  notes?: string;
+}): Promise<CandidateResponse> {
+  const res = await apiClient.put<CandidateResponse>(`/candidates/${id}`, payload);
+  return res.data;
+}
+
+export async function removeCandidate(id: number): Promise<void> {
+  await apiClient.delete(`/candidates/${id}`);
+}
+
+// ── Cockpit ───────────────────────────────────────────────────────────
+
+export async function fetchCockpit(): Promise<CockpitResponse> {
+  const res = await apiClient.get<CockpitResponse>('/cockpit');
+  return res.data;
+}
+
+export async function fetchCashflowGoal(): Promise<CashflowGoalResponse> {
+  const res = await apiClient.get<CashflowGoalResponse>('/cashflow-goal');
+  return res.data;
+}
+
+export async function updateCashflowGoal(
+  payload: CashflowGoalUpdate,
+): Promise<CashflowGoalResponse> {
+  const res = await apiClient.put<CashflowGoalResponse>('/cashflow-goal', payload);
+  return res.data;
+}
+
+// ── Drafts ────────────────────────────────────────────────────────────
+
+export async function listDrafts(params?: {
+  status?: string;
+  code?: string;
+  limit?: number;
+}): Promise<DraftResponse[]> {
+  const res = await apiClient.get<DraftResponse[]>('/drafts', { params });
+  return res.data;
+}
+
+export async function executeDraft(
+  draftId: number,
+  holdingIdOrChecklist?: number | Record<string, boolean>,
+): Promise<DraftResponse> {
+  const payload: Record<string, unknown> = {};
+  if (typeof holdingIdOrChecklist === 'number') {
+    payload.holding_id = holdingIdOrChecklist;
+  } else if (typeof holdingIdOrChecklist === 'object') {
+    payload.discipline_checklist = holdingIdOrChecklist;
+  }
+  const res = await apiClient.post<DraftResponse>(`/drafts/${draftId}/execute`, payload);
+  return res.data;
+}
+
+export async function cancelDraft(draftId: number): Promise<DraftResponse> {
+  const res = await apiClient.post<DraftResponse>(`/drafts/${draftId}/cancel`);
+  return res.data;
+}
+
+export async function fetchAuditLog(params?: {
+  entity_type?: string;
+  entity_id?: string;
+  event?: string;
+  stock_code?: string;
+  limit?: number;
+}): Promise<AuditLogEntry[]> {
+  const res = await apiClient.get<AuditLogEntry[]>('/audit-log', { params });
+  return res.data;
+}
+
+export async function fetchMonthlyReview(params?: {
+  month?: string;
+  entry_limit?: number;
+}): Promise<ReviewResponse> {
+  const res = await apiClient.get<ReviewResponse>('/review', { params });
+  return res.data;
+}
+
+// ── Stock detail ──────────────────────────────────────────────────────
+
+export async function getStock(code: string): Promise<StockResponse> {
+  const res = await apiClient.get<StockResponse>(`/stocks/${code}`);
+  return res.data;
+}
+
+export async function listHoldings(): Promise<HoldingResponse[]> {
+  const res = await apiClient.get<HoldingResponse[]>('/portfolio');
+  return res.data;
+}
+
+export async function fetchShareholders(code: string): Promise<ShareholderRecord[]> {
+  const res = await apiClient.get<ShareholderRecord[]>(`/stocks/${code}/shareholders`);
+  return res.data;
+}
+
+export async function fetchNorthFlow(code: string): Promise<NorthFlowRecord[]> {
+  const res = await apiClient.get<NorthFlowRecord[]>(`/stocks/${code}/north-flow`);
+  return res.data;
+}
+
+export async function fetchMarginTrading(code: string): Promise<MarginTradingRecord[]> {
+  const res = await apiClient.get<MarginTradingRecord[]>(`/stocks/${code}/margin-trading`);
+  return res.data;
+}
+
+export async function listWatchlistGroups(): Promise<WatchlistGroupResponse[]> {
+  const res = await apiClient.get<WatchlistGroupResponse[]>('/watchlist/groups');
+  return res.data;
+}
+
+export async function bulkAddWatchlistItems(groupId: number, codes: string[]): Promise<void> {
+  await apiClient.post(`/watchlist/groups/${groupId}/items/bulk`, { stock_codes: codes });
+}
+
+export async function fetchRevenueComposition(
+  code: string,
+  years = 5,
+): Promise<RevenueComposition[]> {
+  const res = await apiClient.get<RevenueComposition[]>(
+    `/stocks/${code}/revenue-composition`,
+    { params: { years } },
+  );
+  return res.data;
+}
+
+export async function fetchKline(
+  code: string,
+  days = 365,
+  freq: 'day' | 'week' | 'month' = 'day',
+): Promise<KlineResponse> {
+  const res = await apiClient.get<KlineResponse>(`/stocks/${code}/kline`, {
+    params: { days, freq },
+  });
+  return res.data;
+}
+
+// ── Themes ────────────────────────────────────────────────────────────
+
+export async function listThemes(): Promise<ThemeItem[]> {
+  const res = await apiClient.get<ThemeItem[]>('/themes');
+  return res.data;
+}
+
+export async function getThemeExposure(): Promise<ThemeExposure> {
+  const res = await apiClient.get<ThemeExposure>('/themes/exposure/analysis');
+  return res.data;
+}
+
+// ── Thesis variables ──────────────────────────────────────────────────
+
+export async function updateThesisVariables(
+  code: string,
+  variables: ThesisVariable[],
+): Promise<StockResponse> {
+  const res = await apiClient.put<StockResponse>(`/stocks/${code}/thesis-variables`, variables);
+  return res.data;
+}
+
+export async function fetchThesisTemplates(code: string): Promise<{
+  industry: string | null;
+  templates: { name: string; unit: string; source: string }[];
+}> {
+  const res = await apiClient.get(`/stocks/${code}/thesis-templates`);
+  return res.data;
+}
+
+// ── Universe ──────────────────────────────────────────────────────────
+
+export async function fetchUniverse(): Promise<UniverseItem[]> {
+  const res = await apiClient.get<UniverseItem[]>('/stocks/universe');
+  return res.data;
+}
+
+export async function fetchFullUniverse(params?: {
+  page?: number;
+  page_size?: number;
+  pe_pct_max?: number;
+  pb_pct_max?: number;
+  dyr_min?: number;
+  pe_ttm_min?: number;
+  pe_ttm_max?: number;
+  pb_min?: number;
+  pb_max?: number;
+  industry?: string;
+  keyword?: string;
+}): Promise<FullUniverseResponse> {
+  const res = await apiClient.get<FullUniverseResponse>('/stocks/universe/full', { params });
+  return res.data;
+}
+
+export async function fetchUniverseStats(): Promise<UniverseCoverageStats> {
+  const res = await apiClient.get<UniverseCoverageStats>('/stocks/universe/stats');
+  return res.data;
+}
+
+// ── Qiu Score ─────────────────────────────────────────────────────────
+
+export async function updateQiuScore(
+  code: string,
+  payload: QiuScoreInput,
+): Promise<StockResponse> {
+  const res = await apiClient.put<StockResponse>(`/stocks/${code}/qiu-score`, payload);
+  return res.data;
+}
+
+// ── Periodic Review ───────────────────────────────────────────────────
+
+export async function fetchQuarterlyReview(year: number, q: number): Promise<QuarterlyReview> {
+  const res = await apiClient.get<QuarterlyReview>('/review/quarterly', { params: { year, q } });
+  return res.data;
+}
+
+export async function fetchAnnualReview(year: number): Promise<AnnualReview> {
+  const res = await apiClient.get<AnnualReview>('/review/annual', { params: { year } });
+  return res.data;
+}
+
+// ── Scheduler ──────────────────────────────────────────────────────────
+
+export async function listSchedulerJobs(): Promise<SchedulerJobResponse[]> {
+  const res = await apiClient.get<SchedulerJobResponse[]>('/scheduler/jobs');
+  return res.data;
+}
+
+export async function updateSchedulerJob(
+  jobId: string,
+  payload: SchedulerJobUpdate,
+): Promise<SchedulerJobResponse> {
+  const res = await apiClient.put<SchedulerJobResponse>(`/scheduler/jobs/${jobId}`, payload);
+  return res.data;
+}
+
+export async function triggerSchedulerJob(jobId: string): Promise<{
+  job: string;
+  started_at: string;
+  finished_at: string;
+  result: Record<string, unknown> | null;
+  execution_id: number;
+}> {
+  const res = await apiClient.post(`/scheduler/jobs/${jobId}/run`);
+  return res.data;
+}
+
+export async function listJobExecutions(
+  jobId?: string,
+  limit = 50,
+): Promise<JobExecutionResponse[]> {
+  const url = jobId
+    ? `/scheduler/jobs/${jobId}/executions`
+    : '/scheduler/executions';
+  const res = await apiClient.get<JobExecutionResponse[]>(url, { params: { limit } });
+  return res.data;
+}
+
+// ── Sync Data Summaries ───────────────────────────────────────────────
+
+export async function fetchKlineSyncSummary(): Promise<KlineSyncSummary[]> {
+  const res = await apiClient.get<KlineSyncSummary[]>('/stocks/kline-summary');
+  return res.data;
+}
+
+export async function fetchDividendSummary(): Promise<DividendSummaryResponse> {
+  const res = await apiClient.get<DividendSummaryResponse>('/dividends/summary');
+  return res.data;
+}
+
+// ── Data Management ──────────────────────────────────────────────────────
+
+export async function fetchStockPool(): Promise<StockPoolItem[]> {
+  const res = await apiClient.get<StockPoolItem[]>('/data-management/universe');
+  return res.data;
+}
+
+export async function searchStocks(keyword: string): Promise<StockSearchResult[]> {
+  const res = await apiClient.post<StockSearchResult[]>('/data-management/universe/search', null, {
+    params: { keyword },
+  });
+  return res.data;
+}
+
+export async function addToStockPool(stockCodes: string[]): Promise<{ added: number }> {
+  const res = await apiClient.post<{ added: number }>('/data-management/universe/add', {
+    stock_codes: stockCodes,
+  });
+  return res.data;
+}
+
+export async function removeFromStockPool(stockCodes: string[]): Promise<{ removed: number }> {
+  const res = await apiClient.post<{ removed: number }>('/data-management/universe/batch-remove', {
+    stock_codes: stockCodes,
+  });
+  return res.data;
+}
+
+export async function fetchDataStatus(): Promise<DataStatusOverview> {
+  const res = await apiClient.get<DataStatusOverview>('/data-management/status');
+  return res.data;
+}
+
+export async function triggerDataSync(
+  dataType: string,
+  stockCodes?: string[],
+  years?: number,
+): Promise<SyncTriggerResponse> {
+  const res = await apiClient.post<SyncTriggerResponse>(`/data-management/sync/${dataType}`, {
+    stock_codes: stockCodes ?? null,
+    years: years ?? 5,
+  });
+  return res.data;
+}
+
+export async function fetchSyncTaskStatus(taskId: string): Promise<SyncTaskStatus> {
+  const res = await apiClient.get<SyncTaskStatus>(`/data-management/sync/${taskId}/status`);
+  return res.data;
+}
+
+export async function previewCleanup(
+  dataType: string,
+  params?: { before_date?: string; after_date?: string; stock_codes?: string[] },
+): Promise<CleanupPreview> {
+  const res = await apiClient.get<CleanupPreview>(`/data-management/cleanup/${dataType}/preview`, {
+    params,
+  });
+  return res.data;
+}
+
+export async function executeCleanup(
+  dataType: string,
+  params?: { before_date?: string; after_date?: string; stock_codes?: string[] },
+): Promise<CleanupResult> {
+  const res = await apiClient.post<CleanupResult>(`/data-management/cleanup/${dataType}`, {
+    stock_codes: params?.stock_codes ?? null,
+    before_date: params?.before_date ?? null,
+    after_date: params?.after_date ?? null,
+  });
+  return res.data;
+}
+
+// ── Pipeline ─────────────────────────────────────────────────────────────
+
+export async function startPipelineRun(
+  pipelineType: string,
+  params?: { stock_codes?: string[]; force_full?: boolean; years?: number },
+): Promise<{ run_id: string; pipeline_type: string; stock_count: number; status: string }> {
+  const res = await apiClient.post(`/data-management/pipeline/${pipelineType}/start`, {
+    stock_codes: params?.stock_codes ?? null,
+    force_full: params?.force_full ?? false,
+    years: params?.years ?? 5,
+  });
+  return res.data;
+}
+
+export async function listPipelineRuns(params?: {
+  pipeline_type?: string;
+  status?: string;
+  limit?: number;
+}): Promise<PipelineRunDetail[]> {
+  const res = await apiClient.get<{ runs: PipelineRunDetail[] }>('/data-management/pipeline/runs', { params });
+  return res.data.runs;
+}
+
+export async function getPipelineRun(runId: string): Promise<PipelineRunDetail> {
+  const res = await apiClient.get<PipelineRunDetail>(`/data-management/pipeline/runs/${runId}`);
+  return res.data;
+}
+
+export async function retryPipelineRun(runId: string): Promise<{ run_id: string; pipeline_type: string; stock_count: number; status: string }> {
+  const res = await apiClient.post(`/data-management/pipeline/runs/${runId}/retry`);
+  return res.data;
+}
+
+export async function cancelPipelineRun(runId: string): Promise<void> {
+  await apiClient.post(`/data-management/pipeline/runs/${runId}/cancel`);
+}
+
+export async function fetchPipelineHealth(): Promise<PipelineHealthResponse> {
+  const res = await apiClient.get<PipelineHealthResponse>('/data-management/health');
+  return res.data;
+}
+
+export async function fetchApiUsage(): Promise<ApiUsageResponse> {
+  const res = await apiClient.get<ApiUsageResponse>('/data-management/api-usage');
+  return res.data;
+}
+
+export async function fetchDeadLetterStats(pipelineType?: string): Promise<DeadLetterStatsResponse> {
+  const res = await apiClient.get<DeadLetterStatsResponse>('/data-management/dead-letters/stats', {
+    params: pipelineType ? { pipeline_type: pipelineType } : undefined,
+  });
+  return res.data;
+}
+
+export async function fetchDataQuality(): Promise<DataQualityResponse> {
+  const res = await apiClient.get<DataQualityResponse>('/data-management/quality');
+  return res.data;
+}

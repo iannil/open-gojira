@@ -1,0 +1,2 @@
+backend/logs/observability/obs-*.jsonl
+logs/observability/obs-*.jsonl

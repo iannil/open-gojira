@@ -1,0 +1,36 @@
+"""Candidate CRUD schemas."""
+
+from __future__ import annotations
+
+from typing import Any, Literal, Optional
+
+from pydantic import BaseModel, Field
+
+
+class CandidateResponse(BaseModel):
+    id: int
+    plan_id: int
+    plan_name: str = ""
+    stock_code: str
+    stock_name: str = ""
+    stock_industry: Optional[str] = None
+    stock_security_theme: Optional[str] = None
+    stock_quadrant: Optional[str] = None
+    stock_tier: Optional[str] = None
+    stock_qiu_score: int = 0
+    stock_hq_region: Optional[str] = None
+    status: Literal["active", "removed", "promoted"]
+    first_seen_at: Any = None
+    last_confirmed_at: Any = None
+    last_eval: Optional[dict] = None
+    pinned: bool
+    notes: Optional[str] = None
+
+
+class CandidateUpdate(BaseModel):
+    pinned: Optional[bool] = None
+    notes: Optional[str] = None
+
+
+class CandidatePromote(BaseModel):
+    watchlist_group_id: int

@@ -1,0 +1,8 @@
+localhost {
+  reverse_proxy frontend:80
+}
+
+# Production example with a real domain:
+# yourdomain.com {
+#   reverse_proxy frontend:80
+# }

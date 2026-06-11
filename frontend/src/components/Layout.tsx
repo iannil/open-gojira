@@ -1,0 +1,102 @@
+import type { ReactNode } from 'react';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import {
+  DashboardOutlined,
+  AppstoreOutlined,
+  ScheduleOutlined,
+  LineChartOutlined,
+  ThunderboltOutlined,
+  UserOutlined,
+  DatabaseOutlined,
+  ClockCircleOutlined,
+} from '@ant-design/icons';
+
+const NAV_GROUPS: Array<{
+  label: string;
+  items: Array<{ key: string; label: string; labelEn: string; icon: ReactNode }>;
+}> = [
+  {
+    label: '驾驶舱',
+    items: [
+      { key: '/', label: '主看板', labelEn: 'Cockpit', icon: <DashboardOutlined /> },
+      { key: '/universe', label: '股票池', labelEn: 'Stock Pool', icon: <AppstoreOutlined /> },
+      { key: '/review', label: '复盘', labelEn: 'Review', icon: <LineChartOutlined /> },
+    ],
+  },
+  {
+    label: '策略中心',
+    items: [
+      { key: '/strategies', label: '策略库', labelEn: 'Strategies', icon: <ThunderboltOutlined /> },
+      { key: '/plans', label: '预案', labelEn: 'Plans', icon: <ScheduleOutlined /> },
+      { key: '/candidates', label: '候选池', labelEn: 'Candidates', icon: <UserOutlined /> },
+    ],
+  },
+  {
+    label: '系统',
+    items: [
+      { key: '/data-management', label: '数据管理', labelEn: 'Data Management', icon: <DatabaseOutlined /> },
+      { key: '/scheduler', label: '定时任务', labelEn: 'Scheduler', icon: <ClockCircleOutlined /> },
+    ],
+  },
+];
+
+export default function Layout() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const activeKey = '/' + (location.pathname.split('/')[1] || '');
+
+  return (
+    <div className="app-shell">
+      {/* ── Top Navigation ─────────────────────────────────────────────── */}
+      <header className="topnav" role="navigation" aria-label="主导航">
+        <div className="topnav-brand">
+          <span className="topnav-brand-name">Gojira</span>
+          <span className="topnav-brand-tagline">自动驾驶舱</span>
+        </div>
+
+        <nav className="topnav-nav" aria-label="功能导航">
+          {NAV_GROUPS.map((group, idx) => (
+            <span
+              key={group.label}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+            >
+              {idx > 0 && (
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: 1,
+                    height: 18,
+                    background: '#D6D3D1',
+                    margin: '0 6px',
+                  }}
+                />
+              )}
+              {group.items.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={`topnav-item ${activeKey === item.key ? 'active' : ''}`}
+                  onClick={() => navigate(item.key)}
+                  aria-current={activeKey === item.key ? 'page' : undefined}
+                  aria-label={`${group.label} · ${item.label} ${item.labelEn}`}
+                  title={`${group.label} · ${item.label} ${item.labelEn}`}
+                >
+                  <span className="topnav-item-icon" aria-hidden="true">
+                    {item.icon}
+                  </span>
+                  <span className="topnav-item-label">{item.label}</span>
+                </button>
+              ))}
+            </span>
+          ))}
+        </nav>
+
+        <div className="topnav-version">v1.0</div>
+      </header>
+
+      <main className="main-content">
+        <Outlet />
+      </main>
+    </div>
+  );
+}
