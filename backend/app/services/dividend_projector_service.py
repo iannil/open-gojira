@@ -141,11 +141,9 @@ def project(db: Session) -> DividendProjection:
 
         if avg_per_share and avg_per_share > 0:
             expected_per_share = avg_per_share
-            basis_detail = "3年平均"
         elif dyr and dyr > 0:
             price = h.buy_price
             expected_per_share = dyr * price
-            basis_detail = "当前股息率×成本价"
         else:
             continue
 

@@ -515,7 +515,6 @@ def calculate_rebalancing_guide(db: Session) -> dict:
     """
     summary = get_portfolio_summary(db)
     holdings = summary["holdings"]
-    total_value = summary["total_value"]
 
     if not holdings:
         return {

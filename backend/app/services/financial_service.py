@@ -122,7 +122,6 @@ def fetch_and_store_financials(
             from datetime import datetime as dt
             report_date = dt(report_date.year, report_date.month, report_date.day)
         revenue = _get_nested(ps, "toi.t")
-        net_profit = _get_nested(ps, "np.t")
         ocf = _get_nested(cfs, "ncffoa.t")
         icf = _get_nested(cfs, "ncffia.t")
         fcf = _get_nested(cfs, "ncfffa.t")

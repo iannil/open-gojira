@@ -65,7 +65,6 @@ def analyze(db: Session, code: str) -> BankBlindBox | None:
 
     details: list[str] = []
     score = 0
-    max_score = 3
 
     # 1. Dividend yield (pass/fail)
     dyr = _latest_dyr(db, code)
