@@ -79,3 +79,26 @@
 | `frontend/src/api/client.ts` | 错误信息脱敏 |
 | `.env.example` | 新建 — 环境变量模板 |
 | `backend/requirements.txt` | 版本锁定 + 新依赖 |
+
+---
+
+## 完成状态更新 (2026-06-11)
+
+> 本段落由第 6 轮文档整理时补充,作为终态归档说明。
+
+**整轮审计状态**: 已完成。
+
+- 上表中"进行中"的项 (R-01 Docker / R-02 HTTPS / R-03 数据备份 / A-02 Alembic / A-05+A-07 前端代码分割 / T-01 测试覆盖率) 在后续轮次中已分别处理:
+  - A-02 Alembic: 已实施 (见 `backend/alembic/versions/`,head `3c5b80889c29`)
+  - A-05+A-07 前端代码分割 + 错误边界: 已实施 (`App.tsx` 用 `React.lazy` + `ErrorBoundary`)
+  - T-01 测试覆盖率: 已从 <10% 提升到 402 测试用例 (2026-06-11)
+  - R-01/R-02/R-03 (Docker / HTTPS / 备份): 部分实施 (见 `docker-compose.yml` / `backend/Dockerfile` / `frontend/Dockerfile`);HTTPS 与外部备份机制仍待引入
+- "关键修改文件清单"中部分路径在后续重构中已改名或拆分:
+  - `backend/app/routers/data.py` → 拆分为 `routers/data_management.py` 等
+  - `backend/app/routers/screener.py` → 删除 (功能合并到 `routers/strategies.py` 与 `plans.py`)
+  - `backend/app/services/backtest_service.py` → 删除 (业务不再需要回测)
+  - `backend/app/core/observability.py` → 实际为 `backend/app/core/observability_report.py` + 装饰器模块
+- 后续更细粒度的审计见 `docs/reports/completed/` 下的 round4 / round5 / round6 审计报告。
+
+**本文档归档位置**: `docs/reports/completed/code-audit-2026-06-05.md` (历史快照,不再更新)。
+

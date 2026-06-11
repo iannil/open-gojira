@@ -4,7 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-Gojira 是一个面向中国 A 股市场的全栈投资分析系统，提供个股分析、估值工具、投资组合管理、分红追踪和交易纪律等功能。
+Gojira 是一台 **「个人股票自动驾驶舱」**：面向中国 A 股市场,基于 `docs/reference/invest{1,2,3}.md` 的投资体系,实现「策略组合 → 自动扫描 → 候选池 → 交易信号 → 持仓审计」全流程自动化。除了在券商真实下单外,筛选 / 监控 / 告警 / 订单草稿 / 再平衡建议 / 逻辑证伪全部自动。
+
+技术栈: FastAPI (Python 3.14) + React 19 (TypeScript) + SQLite (WAL) + Ant Design 6 + ECharts 6。Lixinger (理杏仁) 是唯一外部 A 股数据源。
+
+当前状态: 402 测试通过,业务闭环已打通 (2026-06-11)。详见 `docs/progress/STATUS.md`。
 
 ## 项目指南
 
@@ -127,22 +131,27 @@ npm run lint
 
 - `app/main.py` — FastAPI 应用入口，配置 CORS、生命周期（自动建表）及所有路由注册
 - `app/config.py` — Pydantic Settings，读取 `.env` 配置；默认使用 SQLite，路径为 `data/gojira.db`
-- `app/routers/` — 按业务域划分的 API 端点：health, stocks, valuation, portfolio, dividend, market, financial, watchlist, alerts, scheduler, cashflow_goal, audit_log, plans, drafts, plan_templates, cockpit, review, theme
-- `app/services/` — 业务逻辑层；通过依赖注入接收 SQLAlchemy `Session`
+- `app/routers/` — 按业务域划分的 API 端点 (21 个业务模块)：health, stocks, valuation, portfolio, dividend, market, financial, watchlist, alerts, scheduler, cashflow_goal, audit_log, plans, strategies, candidates, drafts, cockpit, review, theme, data_management, observability
+- `app/services/` — 业务逻辑层 (42 个模块)；通过依赖注入接收 SQLAlchemy `Session`
+- `app/services/pipelines/` — Pipeline 子系统 (11 个模块):manager 编排 + base/checkpoint/dead_letter/metrics/throttler 基础设施 + 5 个数据类型 Pipeline
 - `app/schemas/` — Pydantic v2 模型，用于请求/响应数据校验
-- `app/models/` — SQLAlchemy ORM 模型（Stock, Holding, Plan, Draft, ValuationSnapshot, FinancialStatement, DividendRecord, AlertRule, AuditLog, CashflowGoal, Theme, WatchlistItem, PlanTemplate）
-- `app/db/` — 数据库引擎（SQLite）、会话管理（`get_db` 依赖）、声明式基类
+- `app/models/` — SQLAlchemy ORM 模型 (17 个)：Stock, Holding, Plan, Draft, Candidate, Strategy, ValuationSnapshot, FinancialStatement, DividendRecord, PriceKline, AlertRule, AuditLog, CashflowGoal, Theme, WatchlistItem, SchedulerJob, PipelineRun
+- `app/db/` — 数据库引擎（SQLite + WAL）、会话管理（`get_db` 依赖）、声明式基类
 - `app/services/lixinger_client.py` — Lixinger (理杏仁) API 客户端，唯一的 A 股数据源
 - `app/scheduler.py` — APScheduler 后台调度（每日快照、K线、警报评估、Plan 评估、周度再平衡、月度论点同步）
-- `app/services/plan_evaluator.py` — Plan DSL 纯函数评估器
+- `app/services/plan_runner.py` — Plan DSL 执行器（扫描 → 评估 → 更新候选 → 生成 Draft；纯函数逻辑提取到 strategy_engine）
+- `app/services/strategy_engine.py` — 纯函数策略评估器（StrategyRule + StockContext → EvalResult）
+- `app/services/builtin_seeder.py` — 内置 6 策略 + 4 预案的硬编码定义（启动时初始化）
 - `app/services/thesis_variable_sync_service.py` — 论点变量行业模板 + 自动同步
+- `app/core/observability.py` + `app/core/observability_report.py` — 全链路可观测系统（装饰器驱动）
+- `app/core/events.py` + `app/core/event_handlers.py` — 进程内 EventBus（异步非阻塞派发）
 
 ### 前端 (React 19 / TypeScript / Vite)
 
 - `src/App.tsx` — Ant Design ConfigProvider + React Router，嵌套路由挂载在 Layout 下
 - `src/api/client.ts` — Axios 客户端，baseURL 为 `/api`；所有 API 函数集中定义在此
 - `src/api/types.ts` — TypeScript 类型定义，与后端 schemas 一一对应
-- `src/pages/` — 路由级页面组件（Cockpit, Universe, Plans, PlanEditor, Review, StockDetail）
+- `src/pages/` — 路由级页面组件 (9 个)：Cockpit, Universe, Strategies, Plans, Candidates, Review, StockDetail, DataManagement, Scheduler
 - `src/components/` — 按功能组织的组件：QiuScorerWizard, DisciplineChecklistModal, KlineChart 等
 - `src/styles/theme.css` — 全局 CSS 自定义属性主题（"墨韵金阁"风格）
 - `src/components/Layout.tsx` — 应用外壳，包含导航栏
@@ -155,14 +164,28 @@ npm run lint
 
 - 所有路由端点通过 `Depends(get_db)` 获取数据库会话，再委托给 service 层处理
 - 前端 API 客户端集中在 `src/api/client.ts`，新增接口在此添加函数
-- Pydantic schemas 与 ORM models 分离，由 service 层负责转换
-- 行业分析模板从 `backend/app/templates/industries/` 下的 JSON 文件加载
+- Pydantic schemas 与 ORM models 分离，由 service 层负责转换；序列化标准见 `docs/standards/serialization.md`
+- 内置策略与预案硬编码在 `backend/app/services/builtin_seeder.py`，启动时初始化（不读外部 JSON）
 - UI 组件库使用 Ant Design；图表使用 ECharts（通过 echarts-for-react）
+- 可观测性：`@tracked` 装饰器 + 模块级批量注入，158 函数自动埋点；trace_id 全链路唯一
+- EventBus 异步非阻塞：数据到达后的自动响应链（策略重评估 / 告警 / 审计）
 
 ## 文档索引
 
-- `docs/progress/STATUS.md` — 项目进展真相（AI 首先阅读此文件）
-- `docs/archive/2026-06-04-investment-system-design.md` — 原始设计稿（归档）
-- `docs/active/roadmap.md` — 下一步优先级计划
-- `docs/active/code-audit.md` — 代码审计发现
-- `docs/reference/investment-theory-source.md` — 投资理论原文
+- `docs/progress/STATUS.md` — **项目当前状态真相**（AI 首先阅读此文件）
+- `docs/active/roadmap.md` — 下一步优先级计划 (P1/P2/P3)
+- `docs/standards/serialization.md` — 序列化标准（持续生效的代码规范）
+- `docs/templates/` — 文档骨架模板（progress-entry / completed-report / acceptance-report）
+- `docs/reports/completed/` — 已完成的修改与历轮审计报告 (round4/5/6)
+- `docs/reports/` — 验收报告
+- `docs/reference/invest{1,2,3}.md` — 投资理论体系（本地,gitignored）
+- `docs/reference/investment-theory-source.md` — 投资理论原文合集
+- `docs/reference/specs/` — 已确认的子系统设计规格 (Pipeline / EventBus / 可观测性等)
+- `docs/archive/` — 归档的早期设计稿
+
+**文档规范**（详见项目指南）：
+- 未完成的修改 → `docs/progress/`
+- 已完成的修改 → `docs/reports/completed/`
+- 对修改进行验收 → `docs/reports/`
+- 持续生效的标准 → `docs/standards/`
+- 文档骨架模板 → `docs/templates/`
