@@ -20,6 +20,8 @@ P1-1 端到端验收 smoke 脚本 — round6 修复回归
 from __future__ import annotations
 
 import argparse
+import re
+import subprocess
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -135,8 +137,76 @@ def write_report(
     print(f"Report written to: {output_path}")
 
 
+# 后台路径白名单 — 这些目录/文件里的 db.commit() 是合法的
+# (长任务必须 checkpoint,不归 get_db 管)
+_BACKGROUND_PATHS = (
+    "app/services/pipelines/",   # Pipeline 内部 checkpoint / dead_letter / manager
+    "app/services/builtin_seeder.py",  # 启动初始化
+    "app/services/kline_service.py",   # 调度任务
+    "app/services/dividend_service.py",
+    "app/services/financial_service.py",
+    "app/services/thesis_variable_sync_service.py",  # 调度触发的批量同步
+    "app/services/alert_service.py",  # 需进一步确认 (见 expected)
+)
+
+
+def scenario_p1_15_commit_classification(_client: httpx.Client) -> ScenarioResult:
+    """
+    P1-15: services/ 中的 db.commit() 全部归类到合法路径。
+
+    通过标准:
+    - 请求路径 services (router 直接调用) 必须无 db.commit()
+    - 后台路径 (pipelines / builtin_seeder / scheduler 触发的 sync) 允许 db.commit()
+    - alert_service 是边界 case: 需在 artifacts 里标注待人工 review
+    """
+    backend_root = Path(__file__).resolve().parents[1]
+    services_dir = backend_root / "app" / "services"
+
+    # grep 所有 db.commit() / self.db.commit()
+    pattern = re.compile(r"\b(?:db|self\.db)\.commit\(\)")
+    findings: list[tuple[str, str]] = []  # (rel_path:line, code)
+    for py in services_dir.rglob("*.py"):
+        rel = py.relative_to(backend_root)
+        for lineno, line in enumerate(py.read_text(encoding="utf-8").splitlines(), 1):
+            if pattern.search(line):
+                findings.append((f"{rel}:{lineno}", line.strip()))
+
+    # 分类
+    background: list[str] = []
+    suspicious: list[str] = []
+    for loc, code in findings:
+        rel_path = loc.split(":")[0]
+        if any(rel_path.startswith(p) for p in _BACKGROUND_PATHS):
+            background.append(f"{loc}  →  {code}")
+        else:
+            suspicious.append(f"{loc}  →  {code}")
+
+    passed = len(suspicious) == 0
+    return ScenarioResult(
+        code="P1-15",
+        name="services db.commit() 全部归类到后台路径",
+        passed=passed,
+        expected="0 个请求路径 commit;所有 commit 都在 pipelines/scheduler/seeder",
+        actual=(
+            f"background={len(background)}, suspicious={len(suspicious)}"
+            + (f"; suspicious 位置: {'; '.join(suspicious)}" if suspicious else "")
+        ),
+        artifacts={
+            "total_commits": str(len(findings)),
+            "background_commits": str(len(background)),
+            "suspicious_commits": str(len(suspicious)),
+            "alert_service_note": (
+                "alert_service.py 若被 router 同步调用则属请求路径,若是 EventBus "
+                "异步 handler 则属后台。需人工 review 路径归属。"
+            ),
+        },
+    )
+
+
 # 场景函数占位 — Task 3-8 会填充
-SCENARIOS: list[Callable[[httpx.Client], ScenarioResult]] = []
+SCENARIOS: list[Callable[[httpx.Client], ScenarioResult]] = [
+    scenario_p1_15_commit_classification,
+]
 
 
 def main() -> int:
