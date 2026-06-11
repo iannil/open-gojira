@@ -26,7 +26,6 @@ data/gojira.db
 Thumbs.db
 
 **/skills/lixinger/
-**/playwright-report/
 **/test-results
 
 .dev-pids/
