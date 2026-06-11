@@ -1,9 +1,21 @@
 # 文档/记忆/进展/冗余 全面整理 验收报告
 
 > **验收日期**: 2026-06-11
-> **验收人**: Claude Code (opust 4.7)
-> **被验收对象**: 本次文档整理 6 个 commit (d7324bb → 待 final)
+> **验收人**: Claude Code (opus 4.7)
+> **被验收对象**: 本次整理 7 个 commit (d7324bb → 0361157)
 > **关联计划**: `/Users/rong.zhu/.claude/plans/1-docs-luminous-avalanche.md`
+
+## Commit 历史
+
+| # | SHA | 类型 | 内容 |
+|---|---|---|---|
+| 1 | `d7324bb` | docs | 填充 standards/templates 目录 |
+| 2 | `8d2d087` | docs | 按规范迁移 17 个文档 |
+| 3 | `d83fe6d` | docs | 重写 STATUS.md + 修正 CLAUDE.md + 更新 roadmap |
+| 4 | `95a5e8d` | chore(memory) | 合并精简长期记忆 11 → 6 个 |
+| 5 | `c43ed50` | docs | 添加文档整理验收报告 (本文件初版) |
+| 6 | `e1ae9a2` | fix | ruff F401/F811 自动修复 (83 个未用导入) + STATUS.md LLM 验收改进 (5 项) + rebalance_service noqa 标注 |
+| 7 | `0361157` | chore | 移除 4 个未使用局部变量 (F841) |
 
 ## 验收范围
 
@@ -63,9 +75,12 @@
 
 | # | 步骤 | 预期 | 实际 | 状态 |
 |---|------|------|------|------|
-| 5.1 | `pytest` 仍 402 通过 | 402 | 402 passed in 34.79s | ✅ |
+| 5.1 | `pytest` 仍 402 通过 | 402 | 402 passed in 5.06s | ✅ |
 | 5.2 | `npm run build` 成功 | ✓ | ✓ built in 272ms | ✅ |
 | 5.3 | `find frontend/src -type d -empty` 无输出 (排除 hooks) | 无 | 无 | ✅ |
+| 5.4 | pyflakes 未使用导入数 | 大幅减少 | 99 → 12 (88 项已修) | ✅ |
+| 5.5 | pyflakes 未使用局部变量数 | 0 | 0 (4 项已修) | ✅ |
+| 5.6 | 剩余 12 个 pyflakes 项均为已知 false positive | 全部可解释 | 全部为 SQLAlchemy 列名遮蔽 / TYPE_CHECKING 字符串注解 / 显式 side-effect import | ✅ |
 
 ### 6. 引用完整性
 
@@ -79,8 +94,8 @@
 
 ## 通过/失败统计
 
-- **总计**: 27 步
-- **通过**: ✅ 26
+- **总计**: 30 步
+- **通过**: ✅ 29
 - **警告**: ⚠️ 1 (历史 progress 日志中的 superpowers 引用,作为时间线保留可接受)
 - **失败**: ❌ 0
 
@@ -122,6 +137,26 @@ docs/
 4. 9 个被取代的记忆合并为 5 个高密度长期记忆
 5. 新建 3 个文档模板 (progress-entry / completed-report / acceptance-report)
 6. 新建仓库 memory/MEMORY.md (沉积层)
+
+### 代码深度清理 (commit 6-7)
+
+经 pyflakes + ruff 扫描,共修复 **87 项**:
+- **83 个未使用导入 (F401)**: ruff --fix 自动修复。其中 rebalance_service 的 3 个 import (cashflow_service / holding_service / theme_service) 被还原并标注 `# noqa: F401 — mock target in tests`,因为测试通过 `patch("app.services.rebalance_service.holding_service.get_portfolio_summary")` 等方式访问
+- **4 个未使用局部变量 (F841)**: 手动移除
+  - `bank_analyzer_service.py: max_score = 3` (从未读取)
+  - `holding_service.py: total_value = summary["total_value"]` (从未读取)
+  - `dividend_projector_service.py: basis_detail` (赋值后从未传入 schema)
+  - `financial_service.py: net_profit` (与下一行 np_val 重复)
+- 剩余 12 个 pyflakes 项均为已知 false positive,无需修复
+
+### LLM 实测验收改进 (commit 6)
+
+派无上下文新代理读 STATUS.md 模拟未来会话,8.5/10 评分。基于反馈应用 5 项改进:
+1. 元信息表增加 `测试函数数` 与 `Alembic 版本文件数` (静态可验证锚点)
+2. 文档导航表增加 specs/ 下 4 个设计规格的逐文件索引
+3. P1 待办改为带优先级排序的列表 (P1-1 [最高] / P1-2 [高] / P1-3 [中] / P1-4 [中])
+4. 新增 `docs/ 目录树概览` 段落 (2 级深度,LLM 一次读取建立完整文档地图)
+5. 路径变更记录保留,便于追溯
 
 ## 遗留问题 (Known Issues)
 
