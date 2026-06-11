@@ -1,4 +1,8 @@
-# Serialization Standard
+# 序列化标准 (Serialization Standard)
+
+> **类型**: 持续生效的代码规范
+> **适用范围**: 所有 ORM → API 响应的转换
+> **建立日期**: 2026-06-11 (从 `docs/active/serialization-standard.md` 迁入)
 
 ## Rule: All ORM-to-response conversions use Pydantic schemas
 
