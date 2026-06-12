@@ -3,6 +3,7 @@ from app.models.audit_log import AuditLog
 from app.models.broker_fee_config import BrokerFeeConfig
 from app.models.candidate import Candidate
 from app.models.cash_adjustment import CashAdjustment
+from app.models.corp_action import CorpAction
 from app.models.cash_balance import CashBalance
 from app.models.cashflow_goal import CashflowGoal
 from app.models.data_freshness import DataFreshness
@@ -35,6 +36,7 @@ __all__ = [
     "CashflowGoal",
     "CashBalance",
     "CashAdjustment",
+    "CorpAction",
     "BrokerFeeConfig",
     "AuditLog",
     "Plan",
