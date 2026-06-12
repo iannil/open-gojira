@@ -48,6 +48,10 @@ class Draft(Base):
     add_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
     reduce_pct_of_position: Mapped[float | None] = mapped_column(Float, nullable=True)
 
+    suggested_quantity: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    """Auto-computed suggested buy quantity (multiple of 100). Filled by
+    plan_runner using position_sizing_service. None for SELL or when sizing fails."""
+
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     """Human-readable explanation: which trigger fired, observed vs threshold."""
 

@@ -48,6 +48,7 @@ def emit(
     reason: str,
     add_pct: Optional[float] = None,
     reduce_pct_of_position: Optional[float] = None,
+    suggested_quantity: Optional[int] = None,
 ) -> Optional[Draft]:
     """Persist a Draft for a candidate stock evaluated by the plan.
 
@@ -93,6 +94,7 @@ def emit(
         existing.reason = reason
         existing.add_pct = add_pct
         existing.reduce_pct_of_position = reduce_pct_of_position
+        existing.suggested_quantity = suggested_quantity
         existing.triggered_at = _utcnow()
         db.flush()
         try:
@@ -117,6 +119,7 @@ def emit(
         step_index=step_index,
         add_pct=add_pct,
         reduce_pct_of_position=reduce_pct_of_position,
+        suggested_quantity=suggested_quantity,
         reason=reason,
     )
     db.add(draft)
