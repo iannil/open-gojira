@@ -14,6 +14,7 @@ from app.models.price_kline import PriceKline
 from app.models.scheduler_config import JobExecution, SchedulerJob
 from app.models.stock import Stock
 from app.models.strategy import Strategy
+from app.models.system_alert import SystemAlert
 from app.models.theme import Theme
 from app.models.trade import Trade
 from app.models.valuation import ValuationSnapshot
@@ -43,4 +44,5 @@ __all__ = [
     "SchedulerJob",
     "JobExecution",
     "Trade",
+    "SystemAlert",
 ]

@@ -31,6 +31,7 @@ from app.routers import (
     plans as plans_router, portfolio,
     review as review_router, scheduler as scheduler_router,
     stocks, strategies as strategies_router,
+    system_alerts as system_alerts_router,
     theme as theme_router, trades as trades_router,
     valuation, watchlist,
 )
@@ -233,3 +234,4 @@ app.include_router(observability_router.router)
 app.include_router(trades_router.router)
 app.include_router(cash_router.router)
 app.include_router(fee_configs_router.router)
+app.include_router(system_alerts_router.router)
