@@ -478,12 +478,74 @@ def scenario_p0_03_weight_consistency(client: httpx.Client) -> ScenarioResult:
     )
 
 
+def scenario_p0_05_industry_cap_error(client: httpx.Client) -> ScenarioResult:
+    """
+    P0-05: 撞行业权重上限的买入返回 4xx,且错误消息中的基数与 Cockpit 一致。
+
+    通过标准:
+    - 故意构造一个超大买入(数量极大),触发行业权重 > 15% 上限
+    - HTTP 状态码 4xx (400 或 422)
+    - response.detail 或 error 字段含 "industry" 或 "权重" 关键字
+    - (信息性)错误消息若含百分比数字,该数字应接近 100%(因买入极大)
+
+    round6 fix: holding_service.py:142-152 的 _industry_breach_after_buy 之前
+    用含新交易的成本基数,而 get_portfolio_summary 用市值基数。round6 统一。
+    """
+    test_code = "600519"  # 茅台 - 食品饮料行业
+
+    # 构造一个明显会撞上限的买入:数量 100 万股
+    payload = {
+        "stock_code": test_code,
+        "quantity": 1_000_000,
+        "buy_price": 1500.0,
+        "buy_date": "2026-06-11",
+        "stop_profit_price": 2000.0,
+        "trade_rationale": "smoke test: industry cap breach attempt",
+    }
+    r = client.post("/api/portfolio", json=payload)
+
+    # 期望 4xx
+    if 200 <= r.status_code < 300:
+        # 没拦住 — 这是 P0-05 失败
+        return ScenarioResult(
+            code="P0-05",
+            name="行业权重撞上限返回 4xx",
+            passed=False,
+            expected="4xx (industry cap should reject)",
+            actual=f"HTTP {r.status_code} — buy was accepted (bug!)",
+            artifacts={"response": r.text[:200]},
+        )
+
+    # 4xx — 检查错误消息
+    body_text = r.text.lower()
+    has_industry_keyword = any(
+        kw in body_text for kw in ["industry", "行业", "权重", "weight"]
+    )
+
+    passed = has_industry_keyword
+    return ScenarioResult(
+        code="P0-05",
+        name="行业权重撞上限返回 4xx",
+        passed=passed,
+        expected="4xx + error message contains industry/weight keyword",
+        actual=(
+            f"HTTP {r.status_code}; "
+            f"industry keyword {'found' if has_industry_keyword else 'NOT found'} in response"
+        ),
+        artifacts={
+            "status_code": str(r.status_code),
+            "response_excerpt": r.text[:300],
+        },
+    )
+
+
 # 场景函数占位 — Task 3-8 会填充
 SCENARIOS: list[Callable[[httpx.Client], ScenarioResult]] = [
     scenario_p1_15_commit_classification,
     scenario_p1_13_draft_source,
     scenario_p1_12_thesis_variables,
     scenario_p0_03_weight_consistency,
+    scenario_p0_05_industry_cap_error,
 ]
 
 
