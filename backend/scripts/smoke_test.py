@@ -48,8 +48,39 @@ def setup_test_data(client: httpx.Client) -> list[str]:
     返回创建的 artifact 列表(写进报告的 Setup 段)。
     """
     artifacts: list[str] = []
-    # Task 5 会在这里加入 "create OR plan" 的逻辑
-    # Task 6 会在这里加入 "create test holding" 的逻辑
+
+    # 1) 创建一个测试 holding(P0-03 / P0-05 / P1-13 都依赖至少一条 holding)
+    #    选 600519 (贵州茅台) — DB 里几乎肯定有 valuation/kline 数据
+    test_code = "600519"
+    holding_payload = {
+        "stock_code": test_code,
+        "quantity": 100,
+        "buy_price": 1500.0,
+        "buy_date": "2026-01-10",
+        "rationale": "smoke test setup — will be cleaned via DB restore",
+    }
+    r = client.post("/api/portfolio", json=holding_payload)
+    if r.status_code == 201:
+        holding_id = r.json().get("id")
+        artifacts.append(f"created holding id={holding_id} for {test_code}")
+    else:
+        artifacts.append(
+            f"WARN: create holding failed ({r.status_code}): {r.text[:200]}"
+        )
+
+    # 2) 触发预案运行,生成 draft(P1-13 需要 drafts 非空)
+    #    用内置 bank_anchor 预案 — 它在 600519 上不会触发(茅台不是银行股),
+    #    但跑一次确保 drafts 表至少有最近一次运行的产物(若有)。
+    plans = client.get("/api/plans").json()
+    if plans:
+        first_plan_id = plans[0]["id"]
+        run_r = client.post(f"/api/plans/{first_plan_id}/run")
+        artifacts.append(
+            f"triggered plan id={first_plan_id} run: status={run_r.status_code}"
+        )
+    else:
+        artifacts.append("WARN: no plans found, cannot trigger draft generation")
+
     return artifacts
 
 
@@ -207,9 +238,58 @@ def scenario_p1_15_commit_classification(_client: httpx.Client) -> ScenarioResul
     )
 
 
+def scenario_p1_13_draft_source(client: httpx.Client) -> ScenarioResult:
+    """
+    P1-13: CockpitDraft.source 字段非空。
+
+    通过标准: GET /api/cockpit 的 response.drafts 数组中,每条 draft 的 source
+    字段必须存在且非空字符串。
+
+    round6 fix: cockpit_service._serialize_draft 之前漏掉 source 字段,
+    修复后应该返回。
+    """
+    r = client.get("/api/cockpit")
+    if r.status_code != 200:
+        return ScenarioResult(
+            code="P1-13",
+            name="CockpitDraft.source 非空",
+            passed=False,
+            expected="200 OK with drafts array",
+            actual=f"HTTP {r.status_code}: {r.text[:200]}",
+        )
+
+    data = r.json()
+    drafts = data.get("drafts", [])
+    if not drafts:
+        return ScenarioResult(
+            code="P1-13",
+            name="CockpitDraft.source 非空",
+            passed=False,
+            expected="drafts non-empty (setup should have created some)",
+            actual="drafts=[] — setup failed or no plan produced drafts",
+        )
+
+    missing = [d.get("id", "?") for d in drafts if not d.get("source")]
+    passed = len(missing) == 0
+    return ScenarioResult(
+        code="P1-13",
+        name="CockpitDraft.source 非空",
+        passed=passed,
+        expected=f"all {len(drafts)} drafts have non-empty source",
+        actual=(
+            f"{len(drafts) - len(missing)}/{len(drafts)} drafts have source; "
+            f"missing: {missing[:5]}"
+        ),
+        artifacts={
+            "sample_draft": str(drafts[0]) if drafts else "none",
+        },
+    )
+
+
 # 场景函数占位 — Task 3-8 会填充
 SCENARIOS: list[Callable[[httpx.Client], ScenarioResult]] = [
     scenario_p1_15_commit_classification,
+    scenario_p1_13_draft_source,
 ]
 
 
