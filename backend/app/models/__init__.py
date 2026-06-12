@@ -1,5 +1,6 @@
 from app.models.alert import AlertEvent, AlertRule
 from app.models.audit_log import AuditLog
+from app.models.broker_fee_config import BrokerFeeConfig
 from app.models.candidate import Candidate
 from app.models.cash_adjustment import CashAdjustment
 from app.models.cash_balance import CashBalance
@@ -32,6 +33,7 @@ __all__ = [
     "CashflowGoal",
     "CashBalance",
     "CashAdjustment",
+    "BrokerFeeConfig",
     "AuditLog",
     "Plan",
     "Draft",
