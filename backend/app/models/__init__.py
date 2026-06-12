@@ -10,6 +10,9 @@ from app.models.data_freshness import DataFreshness
 from app.models.dividend import DividendRecord
 from app.models.draft import Draft
 from app.models.financial import FinancialStatement
+from app.models.historical_financial import HistoricalFinancial
+from app.models.historical_kline import HistoricalKline
+from app.models.historical_valuation import HistoricalValuation
 from app.models.holding import Holding
 from app.models.plan import Plan
 from app.models.price_kline import PriceKline
@@ -29,6 +32,9 @@ __all__ = [
     "PriceKline",
     "DividendRecord",
     "FinancialStatement",
+    "HistoricalFinancial",
+    "HistoricalKline",
+    "HistoricalValuation",
     "WatchlistGroup",
     "WatchlistItem",
     "AlertRule",
