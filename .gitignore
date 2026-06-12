@@ -11,6 +11,14 @@ build/
 
 # Data
 data/gojira.db
+backend/data/gojira.db
+backend/data/gojira.db-shm
+backend/data/gojira.db-wal
+backend/data/gojira.db.bak
+**/data/*.db
+**/data/*.db-shm
+**/data/*.db-wal
+**/data/*.db.bak
 
 # Environment
 .env
