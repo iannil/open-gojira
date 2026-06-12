@@ -536,6 +536,59 @@ def _monthly_thesis_variable_sync_job() -> dict:
     return result
 
 
+# ── Phase S4A: corporate action pipeline ──────────────────────────────────
+
+
+def weekly_dividend_sync_job() -> dict:
+    """Weekly pull of Lixinger dividend history for held/watched/candidate stocks.
+
+    The dividend endpoint returns cash + stock dividends + capitalization
+    in one record per ex-date; sync_service splits these into one
+    CorpAction row per action_type. Existing rows are skipped (unique
+    constraint on (stock_code, ex_date, action_type, source)).
+
+    Weekly cadence balances freshness against Lixinger call volume:
+    the daily_apply job consumes these rows on the morning of the
+    ex-date, so a one-week window is plenty of headroom.
+    """
+    from app.services.corp_action_sync_service import sync_dividends_batch
+
+    with SessionLocal() as db:
+        codes = _watched_held_and_candidate_codes(db)
+        if not codes:
+            logger.info("weekly_dividend_sync_job: no codes, skipping")
+            return {"synced": 0, "codes": 0}
+        new = sync_dividends_batch(db, codes)
+        logger.info(
+            "weekly_dividend_sync_job: %d new corp_actions across %d codes",
+            new, len(codes),
+        )
+        return {"new_count": new, "codes": len(codes)}
+
+
+def daily_corp_action_apply_job() -> dict:
+    """Apply pending corp_actions whose ex_date <= today (trading days).
+
+    Runs at 09:00 every weekday. On non-trading days there are usually
+    no ex-dates either, but to be safe we apply any pending backlog
+    regardless of trading-day status (idempotent — applied rows are
+    skipped on the next run).
+
+    `as_of=today` ensures we never apply an action whose ex_date is in
+    the future (those stay in pending until the morning they take effect).
+    """
+    from app.services.corp_action_processor_service import (
+        process_pending_corp_actions,
+    )
+
+    with SessionLocal() as db:
+        count = process_pending_corp_actions(db, as_of=date.today())
+        if count > 0:
+            logger.info("daily_corp_action_apply_job: applied %d", count)
+        db.commit()
+        return {"applied_count": count}
+
+
 # ── Job Registry ──────────────────────────────────────────────────────────
 
 # Maps job_id → unwrapped function (tracking is applied during scheduling)
@@ -555,6 +608,8 @@ JOB_REGISTRY = {
     "weekly_rebalancing_review": weekly_rebalancing_review_job,
     "monthly_thesis_variable_sync": _monthly_thesis_variable_sync_job,
     "intraday_monitor": intraday_monitor_job,
+    "weekly_dividend_sync": weekly_dividend_sync_job,
+    "daily_corp_action_apply": daily_corp_action_apply_job,
 }
 
 

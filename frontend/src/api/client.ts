@@ -19,6 +19,11 @@ import type {
   CleanupPreview,
   CleanupResult,
   CockpitResponse,
+  CorpAction,
+  ListCorpActionsParams,
+  ProcessPendingResult,
+  SyncDividendsRequest,
+  SyncDividendsResult,
   DataQualityResponse,
   DataStatusOverview,
   DeadLetterStatsResponse,
@@ -641,6 +646,51 @@ export async function resolveSystemAlert(
   const res = await apiClient.post<SystemAlert>(
     `/system-alerts/${id}/resolve`,
     { resolved_by: resolvedBy },
+  );
+  return res.data;
+}
+
+// ── Corporate actions (S4A.4) ─────────────────────────────────────────
+
+export async function listCorpActions(
+  params?: ListCorpActionsParams,
+): Promise<CorpAction[]> {
+  const res = await apiClient.get<CorpAction[]>('/corp-actions', { params });
+  return res.data;
+}
+
+export async function listPendingCorpActions(
+  limit = 100,
+): Promise<CorpAction[]> {
+  const res = await apiClient.get<CorpAction[]>('/corp-actions/pending', {
+    params: { limit },
+  });
+  return res.data;
+}
+
+export async function getCorpAction(id: number): Promise<CorpAction> {
+  const res = await apiClient.get<CorpAction>(`/corp-actions/${id}`);
+  return res.data;
+}
+
+export async function processCorpAction(id: number): Promise<CorpAction> {
+  const res = await apiClient.post<CorpAction>(`/corp-actions/${id}/process`);
+  return res.data;
+}
+
+export async function processPendingCorpActions(): Promise<ProcessPendingResult> {
+  const res = await apiClient.post<ProcessPendingResult>(
+    '/corp-actions/process-pending',
+  );
+  return res.data;
+}
+
+export async function syncDividends(
+  payload: SyncDividendsRequest,
+): Promise<SyncDividendsResult> {
+  const res = await apiClient.post<SyncDividendsResult>(
+    '/corp-actions/sync-dividends',
+    payload,
   );
   return res.data;
 }

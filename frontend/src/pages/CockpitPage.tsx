@@ -44,6 +44,7 @@ import { useAntdStatic } from '../hooks/useAntdStatic';
 import DisciplineChecklistModal from '../components/DisciplineChecklistModal';
 import DraftAvailableCell from '../components/DraftAvailableCell';
 import PageHeader from '../components/PageHeader';
+import { PendingCorpActionsCard } from '../components/PendingCorpActionsCard';
 import {
   cancelDraft,
   executeDraft,
@@ -1204,6 +1205,10 @@ export default function CockpitPage() {
         </div>
         <div className="cockpit-span-10">
           <PlansList plans={data.plans} />
+        </div>
+
+        <div className="cockpit-span-full">
+          <PendingCorpActionsCard />
         </div>
       </div>
 

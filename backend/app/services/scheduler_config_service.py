@@ -72,6 +72,14 @@ DEFAULT_JOBS: dict[str, dict] = {
         "cron_expr": "*/5 9-14 * * 1-5",
         "description": "盘中价格监控（每5分钟检查止盈告警，默认关闭）",
     },
+    "weekly_dividend_sync": {
+        "cron_expr": "0 9 * * 1",
+        "description": "周度分红历史同步（持仓+关注+候选股）",
+    },
+    "daily_corp_action_apply": {
+        "cron_expr": "0 9 * * 1-5",
+        "description": "每日公司行为应用（ex_date<=今日的 pending actions）",
+    },
 }
 
 

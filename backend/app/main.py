@@ -24,7 +24,8 @@ from app.models import *  # noqa: F401,F403 — ensure all models register with 
 from app.routers import (
     alerts, audit_log, cashflow_goal, candidates as candidates_router,
     cash as cash_router,
-    cockpit as cockpit_router, data_management, dividend,
+    cockpit as cockpit_router, corp_actions as corp_actions_router,
+    data_management, dividend,
     drafts as drafts_router, fee_configs as fee_configs_router, financial,
     health, market,
     observability as observability_router,
@@ -235,3 +236,4 @@ app.include_router(trades_router.router)
 app.include_router(cash_router.router)
 app.include_router(fee_configs_router.router)
 app.include_router(system_alerts_router.router)
+app.include_router(corp_actions_router.router)

@@ -22,6 +22,8 @@ def test_job_registry_has_expected_jobs():
         "weekly_rebalancing_review",
         "monthly_thesis_variable_sync",
         "intraday_monitor",
+        "weekly_dividend_sync",
+        "daily_corp_action_apply",
     }
 
 

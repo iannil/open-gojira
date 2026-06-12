@@ -1006,3 +1006,53 @@ export interface SystemAlert {
 export interface UnresolvedCount {
   count: number;
 }
+
+// ── Corporate actions (S4A) ───────────────────────────────────────────
+
+export type CorpActionType =
+  | 'cash_dividend'
+  | 'stock_dividend'
+  | 'capitalization'
+  | 'rights_issue'
+  | 'delist'
+  | 'merger'
+  | 'code_change';
+
+export type CorpActionStatus = 'pending' | 'processed';
+
+export interface CorpAction {
+  id: number;
+  stock_code: string;
+  ex_date: string;
+  action_type: CorpActionType;
+  params_json: Record<string, unknown>;
+  source: string;
+  created_at: string;
+  processed_at: string | null;
+  applied_trade_id: number | null;
+  note: string | null;
+}
+
+export interface ListCorpActionsParams {
+  stock_code?: string;
+  action_type?: CorpActionType;
+  source?: string;
+  status?: CorpActionStatus;
+  limit?: number;
+}
+
+export interface ProcessPendingResult {
+  processed_count: number;
+  skipped_count: number;
+}
+
+export interface SyncDividendsRequest {
+  stock_codes: string[];
+  start_date?: string;
+  end_date?: string;
+}
+
+export interface SyncDividendsResult {
+  new_count: number;
+  failed_codes: string[];
+}
