@@ -370,11 +370,120 @@ def scenario_p1_12_thesis_variables(client: httpx.Client) -> ScenarioResult:
     )
 
 
+def scenario_p0_03_weight_consistency(client: httpx.Client) -> ScenarioResult:
+    """
+    P0-03: 同一持仓在 Universe 页和 Cockpit 页显示的 weight_pct 一致。
+
+    通过标准: |universe.weight_pct - cockpit.weight_pct| < 0.1%
+    (允许小数四舍五入误差)
+
+    round6 fix: stocks.py:91-108 (Universe) 用 buy_price*quantity 成本基数,
+    holding_service.py:369-387 (Cockpit) 用 current_value 市值基数。
+    round6 统一为市值基数。
+
+    Schema 适配 (Task 6 实测):
+    - GET /api/stocks/universe 不接受 scope=holdings 参数,返回全部 UniverseItem 列表,
+      需用 item.is_held=True 过滤 (不是 scope 查询参数)
+    - UniverseItem 字段: code (不是 stock_code), weight_pct, is_held
+    - CockpitResponse.holdings 是 CockpitHoldings 对象,不是数组,
+      实际持仓在 holdings.items[*] (不是 holdings[*])
+    - CockpitHoldingItem 字段: stock_code, weight_pct
+    """
+    # 从 Universe 取所有持仓股的 weight_pct
+    universe_r = client.get("/api/stocks/universe")
+    if universe_r.status_code != 200:
+        return ScenarioResult(
+            code="P0-03",
+            name="Universe vs Cockpit 权重一致",
+            passed=False,
+            expected="200 OK",
+            actual=f"universe HTTP {universe_r.status_code}: {universe_r.text[:200]}",
+        )
+
+    universe_items = universe_r.json()
+    # Universe 端点不接受 scope=holdings,需用 is_held 字段过滤
+    universe_weights = {
+        item["code"]: item.get("weight_pct")
+        for item in universe_items
+        if item.get("is_held") is True
+        and item.get("weight_pct") is not None
+        and item.get("weight_pct") > 0
+    }
+
+    # 从 Cockpit 取持仓的 weight_pct
+    cockpit_r = client.get("/api/cockpit")
+    if cockpit_r.status_code != 200:
+        return ScenarioResult(
+            code="P0-03",
+            name="Universe vs Cockpit 权重一致",
+            passed=False,
+            expected="200 OK",
+            actual=f"cockpit HTTP {cockpit_r.status_code}: {cockpit_r.text[:200]}",
+        )
+
+    cockpit_data = cockpit_r.json()
+    # CockpitResponse.holdings 是 CockpitHoldings 对象 (含 items/warnings/summary),
+    # 不是数组 — 实际持仓在 holdings.items
+    cockpit_holdings_obj = cockpit_data.get("holdings", {})
+    cockpit_holdings = cockpit_holdings_obj.get("items", [])
+    cockpit_weights = {
+        h["stock_code"]: h.get("weight_pct")
+        for h in cockpit_holdings
+        if h.get("weight_pct") is not None
+    }
+
+    if not cockpit_weights:
+        return ScenarioResult(
+            code="P0-03",
+            name="Universe vs Cockpit 权重一致",
+            passed=False,
+            expected="cockpit has >=1 holding",
+            actual="cockpit.holdings.items empty — setup failed?",
+        )
+
+    # 比对每个持仓的 weight_pct
+    diffs: dict[str, float] = {}
+    for code, u_w in universe_weights.items():
+        c_w = cockpit_weights.get(code)
+        if c_w is None:
+            continue
+        diffs[code] = abs(u_w - c_w)
+
+    if not diffs:
+        return ScenarioResult(
+            code="P0-03",
+            name="Universe vs Cockpit 权重一致",
+            passed=False,
+            expected="至少 1 个持仓在两个端点都能取到",
+            actual=(
+                f"universe 和 cockpit 的持仓 code 无交集 "
+                f"(universe={list(universe_weights.keys())[:5]}, "
+                f"cockpit={list(cockpit_weights.keys())[:5]})"
+            ),
+        )
+
+    max_diff = max(diffs.values())
+    passed = max_diff < 0.1
+    return ScenarioResult(
+        code="P0-03",
+        name="Universe vs Cockpit 权重一致",
+        passed=passed,
+        expected="max |diff| < 0.1%",
+        actual=f"max diff = {max_diff:.4f}% across {len(diffs)} holdings",
+        artifacts={
+            "diffs": "; ".join(
+                f"{c}={d:.4f}%" for c, d in sorted(diffs.items(), key=lambda x: -x[1])[:5]
+            ),
+        },
+    )
+
+
 # 场景函数占位 — Task 3-8 会填充
 SCENARIOS: list[Callable[[httpx.Client], ScenarioResult]] = [
     scenario_p1_15_commit_classification,
     scenario_p1_13_draft_source,
     scenario_p1_12_thesis_variables,
+    scenario_p0_03_weight_consistency,
 ]
 
 
