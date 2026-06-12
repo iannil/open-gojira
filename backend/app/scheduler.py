@@ -69,7 +69,14 @@ def _utcnow() -> datetime:
 
 
 def _with_tracking(job_id: str, func):
-    """Wrap a job function to record start/finish in JobExecution table."""
+    """Wrap a job function to record start/finish in JobExecution table.
+
+    S3.5 — on failure, also emits a critical system_alert (category=scheduler)
+    via ``scheduler_alerting.emit_job_failure_alert``. Deduplicated within a
+    10-minute window so a chronically failing job doesn't drown the feed.
+    """
+    from app.services.scheduler_alerting import emit_job_failure_alert
+
     @wraps(func)
     def wrapper():
         # Assign a dedicated trace_id for the entire job execution
@@ -116,6 +123,16 @@ def _with_tracking(job_id: str, func):
                 db.commit()
             except Exception:
                 logger.exception("failed to record job execution error")
+
+            # S3.5 — surface the failure as a system_alert so the UI can
+            # show a red banner. Dedup is handled inside the helper.
+            try:
+                emit_job_failure_alert(db, job_id=job_id, error=e)
+                db.commit()
+            except Exception:
+                logger.exception(
+                    "failed to emit scheduler alert for job_id=%s", job_id,
+                )
 
             error_event = {
                 "job_id": job_id,

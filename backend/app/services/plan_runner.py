@@ -365,6 +365,15 @@ def _evaluate_trading_rules(
 
 def run_plan(db: Session, plan: Plan) -> PlanRunResult:
     """Run a single plan: scan scope → evaluate strategies → update candidates."""
+    # S3.5 — freshness gate. Refuse to run on stale data so we don't generate
+    # phantom drafts from yesterday's prices / dividends. 48h tolerance covers
+    # weekends and a single missed sync. Raises DataStaleError (HTTP 503) and
+    # emits a system_alert so the UI can surface the failure.
+    from app.services.data_freshness_service import assert_fresh_enough
+
+    for _category in ("stocks", "valuation"):
+        assert_fresh_enough(db, _category, max_age_hours=48)
+
     result = PlanRunResult(plan_id=plan.id, plan_name=plan.name)
 
     # 1. Resolve scope

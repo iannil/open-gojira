@@ -134,6 +134,13 @@ def setup(db_session):
         stamp_duty_rate=0.0005, transfer_fee_rate=0.00001,
         effective_from=date(2023, 10, 23), is_active=True,
     ))
+    # S3.5 — seed data_freshness so plan_runner.run_plan's freshness gate
+    # does not reject the run. stocks + valuation both gate, both fresh.
+    from app.services.data_freshness_service import (
+        record_sync_success as _rss,
+    )
+    _rss(db_session, "stocks", record_count=2)
+    _rss(db_session, "valuation", record_count=2)
     db_session.flush()
 
 

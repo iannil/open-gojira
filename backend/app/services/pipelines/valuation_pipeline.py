@@ -132,12 +132,52 @@ class ValuationPipeline(BasePipeline):
         pass
 
     def validate_batch(self, batch: list[str], data: dict[str, dict], ctx: PipelineContext) -> dict[str, dict]:
-        valid = {}
+        """S3.5 — apply data_sanity rules before persisting.
+
+        Records that fail sanity are dropped from the batch. High violation
+        rate also emits a warning system_alert so the operator can
+        investigate upstream API drift.
+        """
+        from app.services.data_sanity_service import (
+            alert_on_high_violation_rate,
+            validate_record,
+        )
+
+        valid: dict[str, dict] = {}
+        invalid_entries: list[dict] = []
         for code in batch:
             d = data.get(code)
             if d is None:
                 continue
-            valid[code] = d
+            # Map transformed keys back to canonical Lixinger names that
+            # data_sanity_service.SANITY_RULES expects (pe_ttm / pb / dyr / sp).
+            probe = {
+                "pe_ttm": d.get("pe_ttm"),
+                "pb": d.get("pb"),
+                "dyr": d.get("dividend_yield"),
+            }
+            violations = validate_record(probe)
+            if violations:
+                invalid_entries.append({
+                    "record": probe, "id": code, "violations": violations,
+                })
+            else:
+                valid[code] = d
+
+        if invalid_entries:
+            self._logger.warning(
+                "Valuation batch sanity: %d/%d records rejected",
+                len(invalid_entries), len(batch),
+            )
+            try:
+                alert_on_high_violation_rate(
+                    self.db, invalid_entries, len(batch),
+                )
+            except Exception:
+                self._logger.exception(
+                    "alert_on_high_violation_rate failed (non-fatal)",
+                )
+
         return valid
 
     def load(self, stock_code: str, data: Any, ctx: PipelineContext) -> int:
