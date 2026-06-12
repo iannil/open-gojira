@@ -12,6 +12,7 @@ from app.models.scheduler_config import JobExecution, SchedulerJob
 from app.models.stock import Stock
 from app.models.strategy import Strategy
 from app.models.theme import Theme
+from app.models.trade import Trade
 from app.models.valuation import ValuationSnapshot
 from app.models.watchlist import WatchlistGroup, WatchlistItem
 
@@ -35,4 +36,5 @@ __all__ = [
     "Candidate",
     "SchedulerJob",
     "JobExecution",
+    "Trade",
 ]
