@@ -9,6 +9,7 @@ const UniversePage = lazy(() => import('./pages/UniversePage'));
 const StrategiesPage = lazy(() => import('./pages/StrategiesPage'));
 const PlansPage = lazy(() => import('./pages/PlansPage'));
 const CandidatesPage = lazy(() => import('./pages/CandidatesPage'));
+const TradesPage = lazy(() => import('./pages/TradesPage'));
 const ReviewPage = lazy(() => import('./pages/ReviewPage'));
 const StockDetailPage = lazy(() => import('./pages/StockDetailPage'));
 const DataManagementPage = lazy(() => import('./pages/DataManagementPage'));
@@ -79,6 +80,7 @@ function App() {
                 <Route path="strategies" element={<StrategiesPage />} />
                 <Route path="plans" element={<PlansPage />} />
                 <Route path="candidates" element={<CandidatesPage />} />
+                <Route path="trades" element={<TradesPage />} />
                 <Route path="review" element={<ReviewPage />} />
                 <Route path="stock/:code" element={<StockDetailPage />} />
                 <Route path="data-management" element={<DataManagementPage />} />

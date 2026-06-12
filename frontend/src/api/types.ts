@@ -881,3 +881,88 @@ export interface DataQualityResponse {
   };
   recommendations: string[];
 }
+
+// ── Trades ────────────────────────────────────────────────────────────
+
+export type TradeSide = 'BUY' | 'SELL' | 'DIVIDEND' | 'CORP_ACTION';
+export type TradeSource =
+  | 'manual'
+  | 'csv_import'
+  | 'broker_api'
+  | 'corp_action'
+  | 'migration'
+  | 'reversal';
+
+export interface Trade {
+  id: number;
+  stock_code: string;
+  side: TradeSide;
+  price: number;
+  quantity: number;
+  filled_at: string;
+  commission: number;
+  stamp_duty: number;
+  transfer_fee: number;
+  total_value: number;
+  source: TradeSource;
+  source_ref: string | null;
+  fee_source: 'auto' | 'manual_override';
+  note: string | null;
+  created_at: string;
+  reversed_by_trade_id: number | null;
+}
+
+export interface TradeListResponse {
+  items: Trade[];
+  total: number;
+}
+
+export interface TradeCreateInput {
+  stock_code: string;
+  side: TradeSide;
+  price: number;
+  quantity: number;
+  filled_at: string;
+  source?: TradeSource;
+  source_ref?: string;
+  commission_override?: number;
+  note?: string;
+}
+
+// ── Cash ──────────────────────────────────────────────────────────────
+
+export interface CashBalance {
+  balance: number;
+  as_of_at: string;
+  last_trade_id: number | null;
+  last_adjustment_id: number | null;
+}
+
+export interface CashAdjustment {
+  id: number;
+  amount: number;
+  happened_at: string;
+  reason: 'deposit' | 'withdrawal' | 'dividend' | 'other';
+  note: string | null;
+  created_at: string;
+}
+
+export interface CashAdjustmentInput {
+  amount: number;
+  happened_at: string;
+  reason: 'deposit' | 'withdrawal' | 'dividend' | 'other';
+  note?: string;
+}
+
+// ── Broker fee configs ────────────────────────────────────────────────
+
+export interface BrokerFeeConfig {
+  id: number;
+  broker_name: string;
+  commission_rate: number;
+  commission_min: number;
+  stamp_duty_rate: number;
+  transfer_fee_rate: number;
+  effective_from: string;
+  is_active: boolean;
+}

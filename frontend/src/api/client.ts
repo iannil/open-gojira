@@ -8,7 +8,11 @@ import type {
   AnnualReview,
   ApiUsageResponse,
   AuditLogEntry,
+  BrokerFeeConfig,
   CandidateResponse,
+  CashAdjustment,
+  CashAdjustmentInput,
+  CashBalance,
   CashflowGoalResponse,
   CashflowGoalUpdate,
   CleanupPreview,
@@ -48,6 +52,9 @@ import type {
   ThemeExposure,
   ThemeItem,
   ThesisVariable,
+  Trade,
+  TradeCreateInput,
+  TradeListResponse,
   RevenueComposition,
   UniverseItem,
   FullUniverseResponse,
@@ -531,5 +538,63 @@ export async function fetchDeadLetterStats(pipelineType?: string): Promise<DeadL
 
 export async function fetchDataQuality(): Promise<DataQualityResponse> {
   const res = await apiClient.get<DataQualityResponse>('/data-management/quality');
+  return res.data;
+}
+
+// ── Trades ────────────────────────────────────────────────────────────
+
+export async function listTrades(params?: {
+  code?: string;
+  side?: string;
+  source?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<TradeListResponse> {
+  const res = await apiClient.get<TradeListResponse>('/trades', { params });
+  return res.data;
+}
+
+export async function getTrade(id: number): Promise<Trade> {
+  const res = await apiClient.get<Trade>(`/trades/${id}`);
+  return res.data;
+}
+
+export async function createTrade(payload: TradeCreateInput): Promise<Trade> {
+  const res = await apiClient.post<Trade>('/trades', payload);
+  return res.data;
+}
+
+export async function reverseTrade(id: number): Promise<Trade> {
+  const res = await apiClient.post<Trade>(`/trades/${id}/reverse`);
+  return res.data;
+}
+
+// ── Cash ──────────────────────────────────────────────────────────────
+
+export async function getCashBalance(): Promise<CashBalance> {
+  const res = await apiClient.get<CashBalance>('/cash/balance');
+  return res.data;
+}
+
+export async function listCashAdjustments(limit = 100): Promise<CashAdjustment[]> {
+  const res = await apiClient.get<CashAdjustment[]>('/cash/adjustments', {
+    params: { limit },
+  });
+  return res.data;
+}
+
+export async function createCashAdjustment(
+  payload: CashAdjustmentInput,
+): Promise<CashAdjustment> {
+  const res = await apiClient.post<CashAdjustment>('/cash/adjustments', payload);
+  return res.data;
+}
+
+// ── Broker fee configs ────────────────────────────────────────────────
+
+export async function listFeeConfigs(brokerName?: string): Promise<BrokerFeeConfig[]> {
+  const res = await apiClient.get<BrokerFeeConfig[]>('/fee-configs', {
+    params: brokerName ? { broker_name: brokerName } : undefined,
+  });
   return res.data;
 }

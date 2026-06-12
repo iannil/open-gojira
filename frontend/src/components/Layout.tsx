@@ -9,6 +9,7 @@ import {
   UserOutlined,
   DatabaseOutlined,
   ClockCircleOutlined,
+  TransactionOutlined,
 } from '@ant-design/icons';
 
 const NAV_GROUPS: Array<{
@@ -29,6 +30,7 @@ const NAV_GROUPS: Array<{
       { key: '/strategies', label: '策略库', labelEn: 'Strategies', icon: <ThunderboltOutlined /> },
       { key: '/plans', label: '预案', labelEn: 'Plans', icon: <ScheduleOutlined /> },
       { key: '/candidates', label: '候选池', labelEn: 'Candidates', icon: <UserOutlined /> },
+      { key: '/trades', label: '成交流水', labelEn: 'Trades', icon: <TransactionOutlined /> },
     ],
   },
   {
