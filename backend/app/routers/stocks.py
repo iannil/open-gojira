@@ -14,6 +14,7 @@ from app.schemas.stocks_detail import ShareholdersNumRecord, ThesisTemplatesResp
 from app.schemas.stock import (
     MarginTradingRecord,
     NorthFlowRecord,
+    PriceBandResponse,
     QiuScoreInput,
     ShareholderRecord,
     StockCreate,
@@ -434,3 +435,48 @@ def api_get_bank_blindbox(code: str, db: Session = Depends(get_db)):
     if result is None:
         raise HTTPException(status_code=404, detail=f"Stock {code} not found")
     return result.to_dict()
+
+
+@router.get("/{code}/price-band", response_model=PriceBandResponse)
+def api_price_band(code: str, db: Session = Depends(get_db)):
+    """Return 涨跌停 band + 板块 + ST/停牌状态 for UI price validation.
+
+    Returns:
+        code, low, high, prev_close, board, is_st, is_suspended,
+        listing_status. ``low`` / ``high`` / ``prev_close`` are ``None``
+        when ``prev_close`` is missing (e.g. IPO day).
+    """
+    from app.services.price_validator_service import (
+        NoPrevCloseError,
+        detect_board,
+        is_suspended,
+        is_st_stock,
+        price_band,
+    )
+
+    stock = db.query(Stock).filter(Stock.code == code).first()
+    if not stock:
+        raise HTTPException(status_code=404, detail=f"Stock {code} not found")
+    try:
+        low, high = price_band(stock)
+    except NoPrevCloseError:
+        return PriceBandResponse(
+            code=code,
+            low=None,
+            high=None,
+            prev_close=None,
+            board=detect_board(stock.exchange, stock.code),
+            is_st=is_st_stock(stock.listing_status),
+            is_suspended=is_suspended(stock.listing_status),
+            listing_status=stock.listing_status,
+        )
+    return PriceBandResponse(
+        code=code,
+        low=low,
+        high=high,
+        prev_close=stock.prev_close,
+        board=detect_board(stock.exchange, stock.code),
+        is_st=is_st_stock(stock.listing_status),
+        is_suspended=is_suspended(stock.listing_status),
+        listing_status=stock.listing_status,
+    )

@@ -125,3 +125,16 @@ class SyncResult(BaseModel):
     updated: int
     skipped: int
     industry_updated: int = 0
+
+
+class PriceBandResponse(BaseModel):
+    """涨跌停 band + 板块 + ST/停牌状态 (for UI price validation)."""
+
+    code: str
+    low: float | None
+    high: float | None
+    prev_close: float | None
+    board: str
+    is_st: bool
+    is_suspended: bool
+    listing_status: str | None = None

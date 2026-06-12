@@ -8,6 +8,7 @@ import type {
   AnnualReview,
   ApiUsageResponse,
   AuditLogEntry,
+  AvailableQuantity,
   BrokerFeeConfig,
   CandidateResponse,
   CashAdjustment,
@@ -34,6 +35,7 @@ import type {
   PlanCreate,
   PlanResponse,
   PlanUpdate,
+  PriceBand,
   QuarterlyReview,
   QiuScoreInput,
   ReviewResponse,
@@ -596,5 +598,17 @@ export async function listFeeConfigs(brokerName?: string): Promise<BrokerFeeConf
   const res = await apiClient.get<BrokerFeeConfig[]>('/fee-configs', {
     params: brokerName ? { broker_name: brokerName } : undefined,
   });
+  return res.data;
+}
+
+// ── Price band / available quantity (S2 UI validation) ────────────────
+
+export async function getPriceBand(code: string): Promise<PriceBand> {
+  const res = await apiClient.get<PriceBand>(`/stocks/${code}/price-band`);
+  return res.data;
+}
+
+export async function getAvailableQuantity(code: string): Promise<AvailableQuantity> {
+  const res = await apiClient.get<AvailableQuantity>(`/portfolio/${code}/available`);
   return res.data;
 }

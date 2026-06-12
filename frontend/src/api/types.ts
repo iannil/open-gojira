@@ -956,6 +956,26 @@ export interface CashAdjustmentInput {
 
 // ── Broker fee configs ────────────────────────────────────────────────
 
+// ── Price band / available quantity (S2 UI validation) ────────────────
+
+export interface PriceBand {
+  code: string;
+  low: number | null;
+  high: number | null;
+  prev_close: number | null;
+  board: string;
+  is_st: boolean;
+  is_suspended: boolean;
+  listing_status: string | null;
+}
+
+export interface AvailableQuantity {
+  code: string;
+  available: number;
+  frozen: number;
+  total: number;
+}
+
 export interface BrokerFeeConfig {
   id: number;
   broker_name: string;
