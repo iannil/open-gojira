@@ -12,6 +12,8 @@ import {
   TransactionOutlined,
 } from '@ant-design/icons';
 
+import { SystemAlertBanner } from './SystemAlertBanner';
+
 const NAV_GROUPS: Array<{
   label: string;
   items: Array<{ key: string; label: string; labelEn: string; icon: ReactNode }>;
@@ -97,6 +99,7 @@ export default function Layout() {
       </header>
 
       <main className="main-content">
+        <SystemAlertBanner />
         <Outlet />
       </main>
     </div>

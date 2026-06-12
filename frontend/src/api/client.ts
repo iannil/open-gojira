@@ -45,6 +45,9 @@ import type {
   StockPoolItem,
   StockResponse,
   StockSearchResult,
+  SystemAlert,
+  SystemAlertCategory,
+  SystemAlertSeverity,
   StrategyCreate,
   StrategyResponse,
   StrategyTestResponse,
@@ -57,6 +60,7 @@ import type {
   Trade,
   TradeCreateInput,
   TradeListResponse,
+  UnresolvedCount,
   RevenueComposition,
   UniverseItem,
   FullUniverseResponse,
@@ -610,5 +614,33 @@ export async function getPriceBand(code: string): Promise<PriceBand> {
 
 export async function getAvailableQuantity(code: string): Promise<AvailableQuantity> {
   const res = await apiClient.get<AvailableQuantity>(`/portfolio/${code}/available`);
+  return res.data;
+}
+
+// ── System alerts (S3 infra-level alerts) ──────────────────────────────
+
+export async function listSystemAlerts(params?: {
+  severity?: SystemAlertSeverity;
+  category?: SystemAlertCategory;
+  unresolved_only?: boolean;
+  limit?: number;
+}): Promise<SystemAlert[]> {
+  const res = await apiClient.get<SystemAlert[]>('/system-alerts', { params });
+  return res.data;
+}
+
+export async function getUnresolvedCriticalCount(): Promise<number> {
+  const res = await apiClient.get<UnresolvedCount>('/system-alerts/unresolved-count');
+  return res.data.count;
+}
+
+export async function resolveSystemAlert(
+  id: number,
+  resolvedBy = 'manual',
+): Promise<SystemAlert> {
+  const res = await apiClient.post<SystemAlert>(
+    `/system-alerts/${id}/resolve`,
+    { resolved_by: resolvedBy },
+  );
   return res.data;
 }

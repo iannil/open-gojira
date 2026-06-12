@@ -986,3 +986,23 @@ export interface BrokerFeeConfig {
   effective_from: string;
   is_active: boolean;
 }
+
+// ── System alerts (S3 infra-level alerts) ─────────────────────────────
+
+export type SystemAlertSeverity = 'info' | 'warning' | 'critical';
+export type SystemAlertCategory = 'data' | 'scheduler' | 'api' | 'db' | 'token';
+
+export interface SystemAlert {
+  id: number;
+  severity: SystemAlertSeverity;
+  category: SystemAlertCategory;
+  message: string;
+  detail_json: Record<string, unknown> | null;
+  created_at: string;
+  resolved_at: string | null;
+  resolved_by: string | null;
+}
+
+export interface UnresolvedCount {
+  count: number;
+}
