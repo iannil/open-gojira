@@ -33,6 +33,20 @@ class Stock(Base):
     """JSON: {upstream_power: 0|1, downstream_power: 0|1, government_power: 0|1, evidence: {...}}"""
     hq_region: Mapped[str | None] = mapped_column(String, nullable=True)
     """Headquarter region (省/市), used for bank blind-box analysis."""
+    # ── Trading-status fields (sourced from Lixinger /cn/company) ──────────
+    # These are the raw source values for derived board/ST/suspension detection.
+    # Storing raw beats inferring from code prefix or name (S0.6 spike finding).
+    listing_status: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    """8-value Lixinger enum: normally_listed | delisting_risk_warning |
+    special_treatment | delisting_transitional_period | ipo_suspension |
+    issued_but_not_listed | issue_failure | unauthorized."""
+    exchange: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    """sh | sz | bj — used with listing_status to derive board/ST/suspended."""
+    fs_table_type: Mapped[str | None] = mapped_column(String, nullable=True)
+    """non_financial | bank | security | insurance | other_financial.
+    Routes per-stock fundamentals/financials to the correct Lixinger endpoint."""
+    ipo_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    """IPO date (raw from Lixinger). Distinct from listed_date (legacy)."""
     sync_source: Mapped[str | None] = mapped_column(String, nullable=True, default="manual")
     """How this stock entered the system: manual | bootstrap | delta."""
     delisted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

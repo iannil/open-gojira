@@ -28,8 +28,8 @@ from app.schemas.stock import (
 )
 from app.services.data_service import fetch_stock_info, stock_to_response
 from app.services.kline_service import get_klines, get_valuation_bands
-from app.services.lixinger_client import get_lixinger_client, LixingerError
-from app.services.stocks_sync_service import fetch_industry_constituents
+from app.services.lixinger_client import LixingerError
+from app.services.stocks_sync_service import fetch_industry_constituents, sync_stocks_from_lixinger as run_stock_sync
 from app.services.stocks_detail_service import (
     get_customers,
     get_majority_shareholders,
@@ -415,109 +415,15 @@ def get_thesis_templates(code: str, db: Session = Depends(get_db)):
 def sync_stocks_from_lixinger(db: Session = Depends(get_db)):
     """Sync all A-share stocks from Lixinger into local database.
 
-    Two-phase sync:
-    1. Fetch full company list and upsert into stocks table.
-    2. Fetch SW 2021 industry classifications and update industry field.
+    Thin router wrapper — the actual two-phase sync lives in
+    ``stocks_sync_service.sync_stocks_from_lixinger`` so it can be unit-tested
+    without a FastAPI TestClient. See that function for the contract.
     """
-    client = get_lixinger_client()
-
-    # ── Phase 1: Company list ──────────────────────────────────────────
-    all_companies: list[dict] = []
-    page = 0
-    page_size = 500
-
-    while True:
-        try:
-            batch = client.get_company_list(page=page, page_size=page_size)
-        except LixingerError:
-            logger.exception("Failed to fetch company list page %d", page)
-            raise HTTPException(status_code=502, detail="Failed to fetch data from Lixinger")
-
-        if not batch:
-            break
-        all_companies.extend(batch)
-        if len(batch) < page_size:
-            break
-        page += 1
-
-    existing_codes = {code for (code,) in db.query(Stock.code).all()}
-
-    inserted = 0
-    updated = 0
-    skipped = 0
-
-    from datetime import date as date_type
-
-    def _parse_listed_date(raw) -> "date_type | None":
-        if not raw:
-            return None
-        s = str(raw)[:10]
-        try:
-            parts = s.split("-")
-            return date_type(int(parts[0]), int(parts[1]), int(parts[2]))
-        except (ValueError, IndexError):
-            return None
-
-    for c in all_companies:
-        code = c.get("stockCode", "").strip()
-        if not code:
-            skipped += 1
-            continue
-
-        name = c.get("name", "").strip()
-        listed = _parse_listed_date(c.get("ipoDate") or c.get("listingDate") or c.get("listDate"))
-
-        if code in existing_codes:
-            stock = db.query(Stock).filter(Stock.code == code).first()
-            changed = False
-            if stock and stock.name != name and name:
-                stock.name = name
-                changed = True
-            if stock and listed and stock.listed_date != listed:
-                stock.listed_date = listed
-                changed = True
-            if changed:
-                updated += 1
-            else:
-                skipped += 1
-        else:
-            db.add(Stock(code=code, name=name or code, listed_date=listed))
-            existing_codes.add(code)
-            inserted += 1
-
-    db.commit()
-    logger.info("Phase 1 complete: fetched=%d, inserted=%d, updated=%d", len(all_companies), inserted, updated)
-
-    # ── Phase 2: Industry classification ───────────────────────────────
-    industry_updated = 0
     try:
-        industries = client.get_industry_list(source="sw_2021")
-        level1 = [i for i in industries if i.get("level") == "one"]
-        level1_codes = [i["stockCode"] for i in level1]
-        level1_name_map = {i["stockCode"]: i["name"] for i in level1}
-
-        stock_industry_map = fetch_industry_constituents(level1_codes, level1_name_map, client)
-        logger.info("Fetched industry mapping for %d stocks", len(stock_industry_map))
-
-        for stock_code, industry_name in stock_industry_map.items():
-            stock = db.query(Stock).filter(Stock.code == stock_code).first()
-            if stock and stock.industry != industry_name:
-                stock.industry = industry_name
-                industry_updated += 1
-
-        db.commit()
-    except Exception:
-        logger.exception("Industry sync failed, continuing without industry data")
-
-    result = SyncResult(
-        total_fetched=len(all_companies),
-        inserted=inserted,
-        updated=updated,
-        skipped=skipped,
-        industry_updated=industry_updated,
-    )
-    logger.info("Stock sync complete: %s", result)
-    return result
+        return run_stock_sync(db)
+    except LixingerError:
+        logger.exception("Stock sync aborted: Lixinger API failure")
+        raise HTTPException(status_code=502, detail="Failed to fetch data from Lixinger")
 
 
 @router.get("/{code}/bank-blindbox")

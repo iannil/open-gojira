@@ -40,7 +40,7 @@ class TestFetchStockInfo:
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
         mock_client.get_company_profile.return_value = None
-        mock_client.get_company_list.return_value = [
+        mock_client.get_company_list_all.return_value = [
             {"stockCode": "000001", "name": "平安银行"},
             {"stockCode": "600519", "name": "贵州茅台"},
         ]
@@ -63,7 +63,7 @@ class TestFetchStockInfo:
         assert result is not None
         assert result["name"] == "贵州茅台"
         assert result["industry"] == "白酒"
-        mock_client.get_company_list.assert_not_called()
+        mock_client.get_company_list_all.assert_not_called()
 
     @patch("app.services.data_service.get_lixinger_client")
     def test_returns_none_when_lixinger_raises(self, mock_get_client):
@@ -79,7 +79,7 @@ class TestFetchStockInfo:
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
         mock_client.get_company_profile.return_value = None
-        mock_client.get_company_list.return_value = []
+        mock_client.get_company_list_all.return_value = []
 
         result = fetch_stock_info("600519")
         assert result is None
