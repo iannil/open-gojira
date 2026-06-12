@@ -11,8 +11,14 @@ from app.models.stock import Stock
 
 @pytest.fixture
 def setup(client, db_session):
-    db_session.add(Stock(code="600519", name="贵州茅台", exchange="sh"))
-    db_session.add(Stock(code="000001", name="平安银行", exchange="sz"))
+    db_session.add(Stock(
+        code="600519", name="贵州茅台", exchange="sh",
+        listing_status="normally_listed", prev_close=100.0,
+    ))
+    db_session.add(Stock(
+        code="000001", name="平安银行", exchange="sz",
+        listing_status="normally_listed", prev_close=10.0,
+    ))
     db_session.add(CashBalance(id=1, balance=500000.0))
     db_session.add(BrokerFeeConfig(
         broker_name="default", commission_rate=0.00025, commission_min=5.0,
@@ -25,7 +31,7 @@ def setup(client, db_session):
 def test_create_buy_trade(client, setup):
     resp = client.post("/api/trades", json={
         "stock_code": "600519", "side": "BUY",
-        "price": 1680.0, "quantity": 100,
+        "price": 100.0, "quantity": 100,
         "filled_at": "2026-06-12T10:30:00",
         "source": "manual",
     })
@@ -34,8 +40,10 @@ def test_create_buy_trade(client, setup):
     assert data["stock_code"] == "600519"
     assert data["side"] == "BUY"
     assert data["quantity"] == 100
-    assert data["commission"] == pytest.approx(42.0, abs=0.01)
-    assert data["total_value"] == pytest.approx(168043.68, abs=0.01)
+    # price 100 × 100 = 10000; commission = max(10000×0.00025, 5) = 5;
+    # stamp_duty 0 (BUY); transfer_fee = 10000 × 0.00001 = 0.1
+    assert data["commission"] == pytest.approx(5.0, abs=0.01)
+    assert data["total_value"] == pytest.approx(10005.1, abs=0.01)
 
 
 def test_create_sell_trade(client, setup):
@@ -59,7 +67,10 @@ def test_create_sell_trade(client, setup):
 
 
 def test_create_trade_insufficient_cash(client, db_session):
-    db_session.add(Stock(code="600519", name="贵州茅台", exchange="sh"))
+    db_session.add(Stock(
+        code="600519", name="贵州茅台", exchange="sh",
+        listing_status="normally_listed", prev_close=100.0,
+    ))
     db_session.add(CashBalance(id=1, balance=100.0))
     db_session.add(BrokerFeeConfig(
         broker_name="default", commission_rate=0.00025, commission_min=5.0,
@@ -69,7 +80,7 @@ def test_create_trade_insufficient_cash(client, db_session):
     db_session.flush()
     resp = client.post("/api/trades", json={
         "stock_code": "600519", "side": "BUY",
-        "price": 1000.0, "quantity": 100,
+        "price": 100.0, "quantity": 100,  # notional 10000, balance 100
         "filled_at": "2026-06-12T10:30:00",
     })
     assert resp.status_code == 400
@@ -78,7 +89,10 @@ def test_create_trade_insufficient_cash(client, db_session):
 
 def test_create_trade_no_fee_config(client, db_session):
     """No broker_fee_config in DB → 500 from NoActiveFeeConfigError."""
-    db_session.add(Stock(code="600519", name="贵州茅台", exchange="sh"))
+    db_session.add(Stock(
+        code="600519", name="贵州茅台", exchange="sh",
+        listing_status="normally_listed", prev_close=100.0,
+    ))
     db_session.add(CashBalance(id=1, balance=100000.0))
     db_session.flush()
     resp = client.post("/api/trades", json={
@@ -232,7 +246,7 @@ def test_reverse_updates_cash_balance(client, setup):
 def test_commission_override_via_api(client, setup):
     resp = client.post("/api/trades", json={
         "stock_code": "600519", "side": "BUY",
-        "price": 1680.0, "quantity": 100,
+        "price": 100.0, "quantity": 100,
         "filled_at": "2026-06-12T10:30:00",
         "commission_override": 50.0,
     })

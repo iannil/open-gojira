@@ -7,8 +7,11 @@ API, corp_action processor, migration script) go through here.
 Invariants:
 - trades + cash_balance written in same transaction (atomic)
 - BUY: cash sufficient check before write
-- SELL/DIVIDEND/CORP_ACTION: no cash check (always valid)
-- T+1 check on SELL is NOT here (lives in S2 holding_view_service layer)
+- SELL: T+1 available_quantity check before write (exchange rule)
+- BUY/SELL: price within [prev_close × (1-limit), prev_close × (1+limit)]
+  (A-share 涨跌停); bypassable via force=True (rare: 新股首日 / 复牌)
+- DIVIDEND/CORP_ACTION: skip both price + T+1 checks (no tradeable
+  price/quantity concept)
 """
 
 from __future__ import annotations
@@ -22,8 +25,11 @@ from sqlalchemy.orm import Session
 
 from app.models.broker_fee_config import BrokerFeeConfig
 from app.models.cash_balance import CashBalance
+from app.models.stock import Stock
 from app.models.trade import Trade
 from app.services.fee_calculator_service import compute_fees
+from app.services.holding_view_service import available_quantity_at
+from app.services.price_validator_service import assert_tradable
 
 
 class InsufficientBalanceError(HTTPException):
@@ -31,6 +37,19 @@ class InsufficientBalanceError(HTTPException):
         super().__init__(
             status_code=400,
             detail=f"Insufficient cash: need ¥{required:.2f}, have ¥{available:.2f}",
+        )
+
+
+class InsufficientQuantityError(HTTPException):
+    """SELL exceeds T+1 available quantity (today's buys are frozen)."""
+
+    def __init__(self, code: str, requested: int, available: int, filled_at):
+        super().__init__(
+            status_code=400,
+            detail=(
+                f"Insufficient T+1 available quantity for {code}: "
+                f"requested {requested}, available {available} at {filled_at}"
+            ),
         )
 
 
@@ -85,6 +104,7 @@ def record_trade(
     fee_config: Optional[BrokerFeeConfig] = None,
     commission_override: Optional[float] = None,
     note: Optional[str] = None,
+    force: bool = False,
 ) -> Trade:
     """Atomically write a trade and update cash_balance.
 
@@ -101,14 +121,41 @@ def record_trade(
                     auto-select by filled_at.
         commission_override: Force commission value. If None, auto-compute.
         note: Optional human-readable note.
+        force: Bypass price band check (BUY/SELL). Reserved for rare cases
+               where 涨跌停 does not apply (新股首日 / 复牌 / 大宗交易).
+               T+1 and cash checks are NEVER bypassed. When True, an audit
+               marker is appended to ``note``.
 
     Returns:
         The created Trade.
 
     Raises:
         InsufficientBalanceError: BUY total_value > cash_balance.balance.
+        InsufficientQuantityError: SELL quantity > available_quantity_at(filled_at).
+        PriceOutOfBandError / StockSuspendedError / NoPrevCloseError: propagated
+            from assert_tradable (only when force=False).
         NoActiveFeeConfigError: No broker_fee_config effective as of filled_at.
     """
+    # Stock must exist (we need prev_close + listing_status for checks).
+    stock = db.get(Stock, stock_code)
+    if stock is None:
+        raise HTTPException(404, f"Stock {stock_code} not found")
+
+    # --- Hard constraints (only for BUY/SELL) ------------------------------
+    # DIVIDEND / CORP_ACTION have no tradeable price/quantity concept; skip.
+    if side in ("BUY", "SELL"):
+        # 1. Price band check — bypassable via force (audit trail in note).
+        if not force:
+            assert_tradable(stock, price, filled_at.date())
+
+        # 2. T+1 check (SELL only) — NEVER bypassed (exchange would reject).
+        if side == "SELL":
+            available = available_quantity_at(db, stock_code, filled_at)
+            if quantity > available:
+                raise InsufficientQuantityError(
+                    stock_code, quantity, available, filled_at,
+                )
+
     cfg = fee_config or _get_active_fee_config(db, filled_at)
     fees = compute_fees(side=side, price=price, quantity=quantity, broker_config=cfg)
     commission = (
@@ -155,6 +202,12 @@ def record_trade(
         if cb.balance < total_value:
             raise InsufficientBalanceError(required=total_value, available=cb.balance)
 
+    # force=True → audit trail marker appended to note
+    final_note = note
+    if force:
+        marker = "[FORCE: price band bypassed]"
+        final_note = f"{marker} {note}" if note else marker
+
     # Write trade
     trade = Trade(
         stock_code=stock_code,
@@ -169,7 +222,7 @@ def record_trade(
         source=source,
         source_ref=source_ref,
         fee_source=fee_source,
-        note=note,
+        note=final_note,
     )
     db.add(trade)
     db.flush()  # populate trade.id

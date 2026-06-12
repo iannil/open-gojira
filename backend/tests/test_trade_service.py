@@ -38,7 +38,12 @@ def db_session():
 @pytest.fixture
 def setup(db_session):
     """初始 cash 200000 + 一只股票 + 默认费率配置."""
-    db_session.add(Stock(code="600519", name="贵州茅台", exchange="sh"))
+    # prev_close=1680 → price band [1512, 1848] covers all BUY/SELL prices
+    # used in this test module (1680 / 1700 / 1000).
+    db_session.add(Stock(
+        code="600519", name="贵州茅台", exchange="sh",
+        listing_status="normally_listed", prev_close=1680.0,
+    ))
     db_session.add(CashBalance(id=1, balance=200000.0))
     db_session.add(BrokerFeeConfig(
         broker_name="default",
@@ -98,7 +103,10 @@ def test_buy_exceeding_cash_raises(db_session, setup):
 
 def test_no_active_fee_config_raises(db_session):
     """No broker_fee_config in DB → raise NoActiveFeeConfigError."""
-    db_session.add(Stock(code="600519", name="贵州茅台", exchange="sh"))
+    db_session.add(Stock(
+        code="600519", name="贵州茅台", exchange="sh",
+        listing_status="normally_listed", prev_close=100.0,
+    ))
     db_session.add(CashBalance(id=1, balance=100000.0))
     db_session.flush()
     with pytest.raises(NoActiveFeeConfigError):
@@ -116,7 +124,7 @@ def test_cash_balance_auto_created_if_missing(db_session, setup):
     # 试图买任何东西都会 InsufficientBalanceError(balance=0)
     with pytest.raises(InsufficientBalanceError):
         record_trade(db_session, stock_code="600519", side="BUY",
-                     price=100.0, quantity=10,
+                     price=1680.0, quantity=10,
                      filled_at=datetime(2026, 6, 12, 10, 0), source="manual")
 
 
@@ -145,11 +153,16 @@ def test_historical_fee_config_selected_by_filled_at(db_session, setup):
         effective_from=date(2022, 1, 1), is_active=True,
     ))
     db_session.flush()
-    # 用 2022-06-01 成交日
+    # Seed an earlier BUY so SELL has T+1 available quantity.
+    record_trade(db_session, stock_code="600519", side="BUY",
+                 price=1680.0, quantity=100,
+                 filled_at=datetime(2022, 5, 31, 10, 0), source="manual")
+    # 用 2022-06-01 成交日; price out of band for setup prev_close=1680,
+    # use force=True to focus this test on fee-config selection.
     trade = record_trade(db_session, stock_code="600519", side="SELL",
                          price=1000.0, quantity=100,
                          filled_at=datetime(2022, 6, 1, 10, 0),
-                         source="manual")
+                         source="manual", force=True)
     # 卖出:100000 - max(30, 5) - 100 - 2 = 100000 - 30 - 100 - 2 = 99868
     assert trade.commission == pytest.approx(30.0, abs=0.01)  # 100000 × 0.0003 = 30
     assert trade.stamp_duty == pytest.approx(100.0, abs=0.01)  # 100000 × 0.001 = 100 (旧税率)
@@ -159,7 +172,7 @@ def test_historical_fee_config_selected_by_filled_at(db_session, setup):
 def test_source_ref_stored(db_session, setup):
     """source_ref (e.g. draft_id) should be stored."""
     trade = record_trade(db_session, stock_code="600519", side="BUY",
-                         price=100.0, quantity=10,
+                         price=1680.0, quantity=10,
                          filled_at=datetime(2026, 6, 12, 10, 0),
                          source="manual", source_ref="draft:42")
     assert trade.source_ref == "draft:42"

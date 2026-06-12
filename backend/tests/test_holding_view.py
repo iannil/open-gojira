@@ -35,8 +35,14 @@ def db_session():
 
 @pytest.fixture
 def setup(db_session):
-    db_session.add(Stock(code="600519", name="贵州茅台", exchange="sh"))
-    db_session.add(Stock(code="000001", name="平安银行", exchange="sz"))
+    db_session.add(Stock(
+        code="600519", name="贵州茅台", exchange="sh",
+        listing_status="normally_listed", prev_close=110.0,
+    ))
+    db_session.add(Stock(
+        code="000001", name="平安银行", exchange="sz",
+        listing_status="normally_listed", prev_close=15.0,
+    ))
     db_session.add(CashBalance(id=1, balance=1000000.0))
     db_session.add(BrokerFeeConfig(
         broker_name="default", commission_rate=0.00025, commission_min=5.0,
