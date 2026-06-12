@@ -539,6 +539,132 @@ def scenario_p0_05_industry_cap_error(client: httpx.Client) -> ScenarioResult:
     )
 
 
+def scenario_p0_01_02_or_plan(client: httpx.Client) -> ScenarioResult:
+    """
+    P0-01/02: Plan DSL OR composition 真正生效。
+
+    通过标准:
+    - POST /api/plans 创建一个 logic='OR' 的预案 (用 2 个内置策略)
+    - POST /api/plans/{id}/run 触发评估
+    - GET /api/plans/{id}/candidates 必须非空 (至少 1 个候选)
+    - 若结果为空,要么是 OR 没生效(被当 AND 处理),
+      要么是策略本身过滤太严 (需检查 rule_json)
+
+    round6 fix: plan_runner._strategy_definitely_fails 和双 pass 筛选
+    之前忽略 composition,把所有 plan 当 AND 处理。OR plan 完全失效。
+
+    Schema 适配 (Task 8 实测 backend/app/schemas/plan.py):
+    - PlanCreate 必填 slug (pattern ^[a-z][a-z0-9_]*$),非 task plan 里的 is_active
+    - scan_scope 字段名是 type (不是 scope),值用 all_stocks (不是 all)
+    - 字段名是 trading_rules (不是 trade_rules),Optional[TradingRules]
+    - PlanCreate 没有 is_active 字段 — 用 schedule_cron 占位即可
+      (Plan.status 由后端管理,默认 active;但这不影响 /run 触发)
+    """
+    # 1) 取内置策略 ID
+    strategies = client.get("/api/strategies").json()
+    by_slug = {s["slug"]: s for s in strategies}
+    needed = ["high_dividend_cushion", "undervalued_entry"]
+    missing = [s for s in needed if s not in by_slug]
+    if missing:
+        return ScenarioResult(
+            code="P0-01/02",
+            name="Plan DSL OR composition 生效",
+            passed=False,
+            expected=f"built-in strategies present: {needed}",
+            actual=f"missing slugs: {missing}",
+        )
+
+    s1 = by_slug["high_dividend_cushion"]
+    s2 = by_slug["undervalued_entry"]
+
+    # 2) 创建 OR plan (字段名/结构按实际 schema)
+    #    slug pattern ^[a-z][a-z0-9_]*$ — 不允许前导下划线,故用 smoke- 前缀
+    plan_payload = {
+        "name": "smoke test or plan",
+        "slug": "smoke_test_or_plan",
+        "description": "smoke test for round6 P0-01/02 OR fix",
+        "strategy_composition": {
+            "strategy_ids": [s1["id"], s2["id"]],
+            "logic": "OR",
+        },
+        "scan_scope": {
+            "type": "all_stocks",
+            "values": [],
+        },
+        # 不传 trading_rules — Optional,默认 None
+        # 不传 schedule_cron — 默认 "0 18 * * 1-5" (我们手动 /run,调度无所谓)
+    }
+    create_r = client.post("/api/plans", json=plan_payload)
+    if create_r.status_code != 201:
+        return ScenarioResult(
+            code="P0-01/02",
+            name="Plan DSL OR composition 生效",
+            passed=False,
+            expected="201 created",
+            actual=f"HTTP {create_r.status_code}: {create_r.text[:200]}",
+        )
+    plan_id = create_r.json()["id"]
+
+    # 3) 触发评估
+    #    注意: 全市场扫描(5624 股)可能较慢,httpx 30s timeout 是已知风险。
+    #    若 timeout,会把这种情况作为失败上报,不会硬编码通过。
+    try:
+        run_r = client.post(f"/api/plans/{plan_id}/run")
+    except httpx.ReadTimeout as e:
+        client.delete(f"/api/plans/{plan_id}")
+        return ScenarioResult(
+            code="P0-01/02",
+            name="Plan DSL OR composition 生效",
+            passed=False,
+            expected="200 run ok (or 4xx on rule error)",
+            actual=f"httpx timeout on /run: {type(e).__name__}: {e}",
+            artifacts={
+                "note": "全市场扫描超过 httpx 30s timeout — 需调大 client timeout",
+            },
+        )
+    if run_r.status_code != 200:
+        client.delete(f"/api/plans/{plan_id}")
+        return ScenarioResult(
+            code="P0-01/02",
+            name="Plan DSL OR composition 生效",
+            passed=False,
+            expected="200 run ok",
+            actual=f"HTTP {run_r.status_code}: {run_r.text[:200]}",
+        )
+
+    # 从 run 响应里取 scanned/passed 数 (信息性,方便诊断)
+    run_body: dict = {}
+    try:
+        run_body = run_r.json()
+    except Exception:
+        pass
+
+    # 4) 取候选
+    cand_r = client.get(f"/api/plans/{plan_id}/candidates")
+    candidates = cand_r.json() if cand_r.status_code == 200 else []
+
+    passed = len(candidates) > 0
+    result = ScenarioResult(
+        code="P0-01/02",
+        name="Plan DSL OR composition 生效",
+        passed=passed,
+        expected="≥1 candidate after OR plan run",
+        actual=f"{len(candidates)} candidates produced",
+        artifacts={
+            "plan_id": str(plan_id),
+            "strategies_used": f"{s1['slug']} OR {s2['slug']}",
+            "run_scanned": str(run_body.get("scanned", "?")),
+            "run_passed": str(run_body.get("passed", "?")),
+            "sample_candidate": str(candidates[0]) if candidates else "none",
+        },
+    )
+
+    # 5) 清理 (DB 还原也会处理,但删 plan 避免污染后续场景)
+    client.delete(f"/api/plans/{plan_id}")
+
+    return result
+
+
 # 场景函数占位 — Task 3-8 会填充
 SCENARIOS: list[Callable[[httpx.Client], ScenarioResult]] = [
     scenario_p1_15_commit_classification,
@@ -546,6 +672,7 @@ SCENARIOS: list[Callable[[httpx.Client], ScenarioResult]] = [
     scenario_p1_12_thesis_variables,
     scenario_p0_03_weight_consistency,
     scenario_p0_05_industry_cap_error,
+    scenario_p0_01_02_or_plan,
 ]
 
 
