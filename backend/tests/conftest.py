@@ -43,3 +43,19 @@ def setup_db():
 @pytest.fixture
 def client():
     return TestClient(app)
+
+
+@pytest.fixture
+def db_session():
+    """Shared session bound to the same StaticPool in-memory engine that
+    ``client`` (via override_get_db) uses.
+
+    Tests that need to seed data outside of HTTP can use this fixture and
+    rely on the fact that autoflush will push pending rows before the
+    request handler's separate session reads them.
+    """
+    session = TestSessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()
