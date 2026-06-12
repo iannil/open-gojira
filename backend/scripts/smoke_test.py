@@ -287,10 +287,94 @@ def scenario_p1_13_draft_source(client: httpx.Client) -> ScenarioResult:
     )
 
 
+def scenario_p1_12_thesis_variables(client: httpx.Client) -> ScenarioResult:
+    """
+    P1-12: PUT /api/stocks/{code}/thesis-variables 返回 StockResponse。
+
+    通过标准:
+    - HTTP 200
+    - response body 含 code / name 等 StockResponse 标准字段
+      (注意 StockResponse.code 是 "code",不是 "stock_code")
+    - 前端类型定义期望 Promise<StockResponse>,所以必须有完整 body(不能是空)
+
+    round6 fix: 之前前端 client.ts 类型写 Promise<void>,
+    后端实际返回 StockResponse,导致更新后 UI 不刷新。
+
+    ThesisVariable schema (app/schemas/stock.py:7):
+        name (required), current_value, target_condition, unit, source
+    """
+    test_code = "600519"
+    # 先取当前值,确保改的是已知字段
+    get_r = client.get(f"/api/stocks/{test_code}")
+    if get_r.status_code != 200:
+        return ScenarioResult(
+            code="P1-12",
+            name="thesis-variables 返回 StockResponse",
+            passed=False,
+            expected=f"GET /api/stocks/{test_code} 200",
+            actual=f"HTTP {get_r.status_code}: {get_r.text[:200]}",
+        )
+
+    original = get_r.json()
+    original_vars = original.get("thesis_variables", []) or []
+
+    # 修改: 加一个 smoke test marker 变量
+    # ThesisVariable 必填 name;其余可选
+    new_vars = list(original_vars)
+    new_vars.append({
+        "name": "_smoke_test_marker",
+        "current_value": 1.0,
+        "target_condition": "> 0",
+        "unit": "",
+        "source": "manual",
+    })
+
+    put_r = client.put(
+        f"/api/stocks/{test_code}/thesis-variables",
+        json=new_vars,
+    )
+
+    if put_r.status_code != 200:
+        return ScenarioResult(
+            code="P1-12",
+            name="thesis-variables 返回 StockResponse",
+            passed=False,
+            expected="200 OK with StockResponse body",
+            actual=f"HTTP {put_r.status_code}: {put_r.text[:200]}",
+        )
+
+    body = put_r.json()
+    # StockResponse 用 code (不是 stock_code)
+    required_fields = {"code", "name"}
+    missing = required_fields - set(body.keys())
+    passed = len(missing) == 0
+
+    # 还原 thesis_variables (DB 还原也会处理,但保险起见)
+    client.put(
+        f"/api/stocks/{test_code}/thesis-variables",
+        json=original_vars,
+    )
+
+    return ScenarioResult(
+        code="P1-12",
+        name="thesis-variables 返回 StockResponse",
+        passed=passed,
+        expected=f"response contains: {required_fields}",
+        actual=(
+            f"missing fields: {missing}" if missing else
+            f"all required fields present (code={body.get('code')})"
+        ),
+        artifacts={
+            "response_keys": ",".join(sorted(body.keys())[:15]),
+        },
+    )
+
+
 # 场景函数占位 — Task 3-8 会填充
 SCENARIOS: list[Callable[[httpx.Client], ScenarioResult]] = [
     scenario_p1_15_commit_classification,
     scenario_p1_13_draft_source,
+    scenario_p1_12_thesis_variables,
 ]
 
 
