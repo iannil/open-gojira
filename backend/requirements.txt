@@ -31,5 +31,8 @@ wrapt==1.17.2
 # Scheduling
 APScheduler==3.10.4
 
+# Resilience (retry + circuit breaker)
+tenacity==9.0.0
+
 # Testing
 pytest==9.0.3
