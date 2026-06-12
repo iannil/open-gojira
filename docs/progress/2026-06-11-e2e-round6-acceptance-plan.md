@@ -890,7 +890,8 @@ def scenario_p0_05_industry_cap_error(client: httpx.Client) -> ScenarioResult:
         "quantity": 1_000_000,
         "buy_price": 1500.0,
         "buy_date": "2026-06-11",
-        "rationale": "smoke test: industry cap breach attempt",
+        "stop_profit_price": 2000.0,
+        "trade_rationale": "smoke test: industry cap breach attempt",
     }
     r = client.post("/api/portfolio", json=payload)
 

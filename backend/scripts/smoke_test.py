@@ -57,7 +57,8 @@ def setup_test_data(client: httpx.Client) -> list[str]:
         "quantity": 100,
         "buy_price": 1500.0,
         "buy_date": "2026-01-10",
-        "rationale": "smoke test setup — will be cleaned via DB restore",
+        "stop_profit_price": 2000.0,
+        "trade_rationale": "smoke test setup — will be cleaned via DB restore",
     }
     r = client.post("/api/portfolio", json=holding_payload)
     if r.status_code == 201:
