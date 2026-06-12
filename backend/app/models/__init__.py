@@ -5,6 +5,7 @@ from app.models.candidate import Candidate
 from app.models.cash_adjustment import CashAdjustment
 from app.models.cash_balance import CashBalance
 from app.models.cashflow_goal import CashflowGoal
+from app.models.data_freshness import DataFreshness
 from app.models.dividend import DividendRecord
 from app.models.draft import Draft
 from app.models.financial import FinancialStatement
@@ -45,4 +46,5 @@ __all__ = [
     "JobExecution",
     "Trade",
     "SystemAlert",
+    "DataFreshness",
 ]
