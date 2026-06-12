@@ -126,6 +126,36 @@ class LixingerClient:
         )
         return data or []
 
+    def get_company_list_all(self, page_size: int = 500) -> list[dict]:
+        """Fetch all A-share stocks, auto-paginating past Lixinger's silent 500 cap.
+
+        Lixinger's /cn/company endpoint silently truncates pageSize to 500 regardless
+        of the requested value. This method loops pages until a page returns fewer
+        than `page_size` records (or empty), accumulating all stocks.
+
+        Args:
+            page_size: Page size to request per call (max 500 enforced by Lixinger).
+
+        Returns:
+            All stocks across all pages.
+        """
+        page_size = min(page_size, 500)  # Lixinger cap
+        all_records: list[dict] = []
+        page = 0
+        while True:
+            batch = self._post(
+                "/cn/company",
+                {"pageIndex": page, "pageSize": page_size},
+                cache_ttl=86400,
+            ) or []
+            if not batch:
+                break
+            all_records.extend(batch)
+            if len(batch) < page_size:
+                break  # last page
+            page += 1
+        return all_records
+
     def get_company_profile(self, stock_code: str) -> Optional[dict]:
         """Get company profile for a single stock."""
         data = self._post(
@@ -479,6 +509,51 @@ class LixingerClient:
         if end_date:
             payload["endDate"] = end_date
         return self._post("/cn/company/dividend", payload, cache_ttl=3600) or []
+
+    def get_dividend_full(
+        self,
+        stock_code: str,
+        start_date: str,
+        end_date: str,
+    ) -> list[dict]:
+        """Fetch dividend history, auto-segmenting past Lixinger's 10-year window cap.
+
+        Lixinger's /cn/company/dividend endpoint rejects ranges > 10 years with
+        HTTP 403 "时间跨度不能超过10年". This method splits the range into
+        consecutive ≤10-year segments and concatenates results.
+
+        Args:
+            stock_code: Single stock code.
+            start_date: Required start (YYYY-MM-DD).
+            end_date: Required end (YYYY-MM-DD).
+
+        Returns:
+            Concatenated dividend records across all segments.
+        """
+        from datetime import timedelta
+
+        start = datetime.strptime(start_date, "%Y-%m-%d")
+        end = datetime.strptime(end_date, "%Y-%m-%d")
+        if end <= start:
+            return []
+
+        MAX_SEGMENT_DAYS = 3650  # ~10 years, safely under Lixinger's cap
+        results: list[dict] = []
+        cursor = start
+        while cursor < end:
+            seg_end = min(cursor + timedelta(days=MAX_SEGMENT_DAYS), end)
+            seg = self._post(
+                "/cn/company/dividend",
+                {
+                    "stockCode": stock_code,
+                    "startDate": cursor.strftime("%Y-%m-%d"),
+                    "endDate": seg_end.strftime("%Y-%m-%d"),
+                },
+                cache_ttl=3600,
+            ) or []
+            results.extend(seg)
+            cursor = seg_end + timedelta(days=1)
+        return results
 
     # ── Shareholders / Customers / Suppliers ─────────────────────────────
 

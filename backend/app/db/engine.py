@@ -6,6 +6,16 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
+# ⚠️ DO NOT use poolclass=pool.StaticPool in production code.
+# StaticPool shares a single DBAPI connection across threads, breaking
+# transaction isolation and producing phantom data corruption under
+# concurrent writes. It is ONLY acceptable in test fixtures
+# (see tests/conftest.py) for in-memory SQLite test isolation.
+#
+# Production uses the default QueuePool which gives each thread its own
+# connection. Verified by spike_sqlite_concurrency.py (S0.5).
+# See docs/reports/spike-results-2026-06-12.md for details.
+
 # SQLite requires check_same_thread=False for multi-threaded use;
 # PostgreSQL does not accept this argument.
 _is_sqlite = settings.DATABASE_URL.startswith("sqlite")
