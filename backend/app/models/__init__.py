@@ -1,6 +1,8 @@
 from app.models.alert import AlertEvent, AlertRule
 from app.models.audit_log import AuditLog
 from app.models.candidate import Candidate
+from app.models.cash_adjustment import CashAdjustment
+from app.models.cash_balance import CashBalance
 from app.models.cashflow_goal import CashflowGoal
 from app.models.dividend import DividendRecord
 from app.models.draft import Draft
@@ -28,6 +30,8 @@ __all__ = [
     "AlertRule",
     "AlertEvent",
     "CashflowGoal",
+    "CashBalance",
+    "CashAdjustment",
     "AuditLog",
     "Plan",
     "Draft",
