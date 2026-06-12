@@ -146,7 +146,9 @@ _BACKGROUND_PATHS = (
     "app/services/dividend_service.py",
     "app/services/financial_service.py",
     "app/services/thesis_variable_sync_service.py",  # 调度触发的批量同步
-    "app/services/alert_service.py",  # 需进一步确认 (见 expected)
+    # 注: alert_service.py 不在白名单 — 它的 2 处 db.commit() 经 call-graph
+    # 分析确认在请求路径上 (经 holding_service / routers/alerts.py)。
+    # 这是 round6 P1-15 修复的尾巴,Task 11 处理。
 )
 
 
@@ -196,8 +198,10 @@ def scenario_p1_15_commit_classification(_client: httpx.Client) -> ScenarioResul
             "background_commits": str(len(background)),
             "suspicious_commits": str(len(suspicious)),
             "alert_service_note": (
-                "alert_service.py 若被 router 同步调用则属请求路径,若是 EventBus "
-                "异步 handler 则属后台。需人工 review 路径归属。"
+                "alert_service.py 的 2 处 db.commit() 经 call-graph 确认在请求路径 "
+                "(sync_stop_profit_rules_from_holdings 经 holding_service 被 router 调; "
+                "evaluate_all_rules 被 routers/alerts.py:82 直接调)。属 round6 P1-15 尾巴, "
+                "Task 11 修。"
             ),
         },
     )
