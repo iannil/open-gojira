@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import TYPE_CHECKING, List
 
-from sqlalchemy import Date, DateTime, Integer, String, Text, func
+from sqlalchemy import Date, DateTime, Float, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -51,6 +51,9 @@ class Stock(Base):
     """How this stock entered the system: manual | bootstrap | delta."""
     delisted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     """When this stock was delisted. Non-NULL = delisted."""
+    prev_close: Mapped[float | None] = mapped_column(Float, nullable=True)
+    """Latest close price (previous trading day). Used for price band (涨跌停)
+    calculation. Synced daily via update_prev_close_batch before market open."""
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now()
     )

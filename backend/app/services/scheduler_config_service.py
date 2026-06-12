@@ -32,6 +32,10 @@ DEFAULT_JOBS: dict[str, dict] = {
         "cron_expr": "15 17 * * 1-5",
         "description": "日K线同步（关注+持仓股）",
     },
+    "daily_prev_close_sync": {
+        "cron_expr": "20 17 * * 1-5",
+        "description": "prev_close同步（持仓+关注+候选股，涨跌停校验用）",
+    },
     "alert_evaluation": {
         "cron_expr": "30 17 * * 1-5",
         "description": "警报规则评估",

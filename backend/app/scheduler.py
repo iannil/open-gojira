@@ -266,6 +266,44 @@ def daily_kline_sync_job() -> dict:
         return {"synced": ok, "codes": len(codes)}
 
 
+def _watched_held_and_candidate_codes(db: Session) -> list[str]:
+    """Codes the user actively cares about + current plan candidates.
+
+    Extends _watched_and_held_codes with active Candidate stocks —
+    needed so prev_close is fresh for price validation on candidate
+    promotions to drafts.
+    """
+    base = set(_watched_and_held_codes(db))
+    from app.models.candidate import Candidate
+    candidates = {
+        c.stock_code
+        for c in db.query(Candidate).filter(Candidate.status == "active").all()
+    }
+    return sorted(base | candidates)
+
+
+def daily_prev_close_sync_job() -> dict:
+    """Refresh prev_close for held + watched + candidate stocks.
+
+    Must run AFTER daily_kline_sync (17:15) so the latest K-line is
+    already cached. prev_close is the reference price for 涨跌停
+    (price band) validation in trade_service.
+
+    Scope is intentionally narrow (held/watched/candidate, NOT full
+    market) — full-market sync would burn ~5625 Lixinger calls/day
+    for a field only needed at order-draft time.
+    """
+    from app.services.kline_service import update_prev_close_batch
+    with SessionLocal() as db:
+        codes = _watched_held_and_candidate_codes(db)
+        if not codes:
+            logger.info("daily_prev_close_sync_job: no codes to sync, skipping")
+            return {"synced": 0, "codes": 0}
+        count = update_prev_close_batch(db, codes)
+        logger.info("daily_prev_close_sync_job: synced %d / %d", count, len(codes))
+        return {"synced": count, "codes": len(codes)}
+
+
 def intraday_monitor_job() -> dict:
     """盘中监控：每 5 分钟检查 watchlist 股票价格，触发止盈告警。
 
@@ -492,6 +530,7 @@ JOB_REGISTRY = {
     "daily_cycle_assessment": daily_cycle_assessment_job,
     "alert_evaluation": alert_evaluation_job,
     "daily_kline_sync": daily_kline_sync_job,
+    "daily_prev_close_sync": daily_prev_close_sync_job,
     "monthly_dividend_sync": monthly_dividend_sync_job,
     "quarterly_financials_refresh": quarterly_financials_refresh_job,
     "quarterly_shareholders_refresh": quarterly_shareholders_refresh_job,
