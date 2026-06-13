@@ -589,6 +589,92 @@ def daily_corp_action_apply_job() -> dict:
         return {"applied_count": count}
 
 
+# ── Phase S5: intraday price polling ──────────────────────────────────────
+
+
+def intraday_price_poll_job() -> dict:
+    """Poll realtime prices every 5 min during A-share trading hours.
+
+    Guards:
+      1. ``is_trading_day()`` — skips weekends + holidays (S5.1)
+      2. Local-time hour check — only runs 9:00-11:30 + 13:00-15:00
+         (skips the 12:00-13:00 lunch break + outside sessions)
+
+    Pipeline (delegates to S5.3 services):
+      - ``intraday_watch_list`` — union of held + watched + drafts + candidates
+      - ``get_realtime_prices`` — one batched Sina call
+      - ``check_holding`` — per-position stop-loss / take-profit
+      - ``dispatch_alert`` — pushes any new alerts to notification channels
+
+    Returns a summary dict consumed by the tracking wrapper.
+    """
+    from datetime import datetime as _dt
+
+    from sqlalchemy import select
+
+    from app.models.system_alert import SystemAlert
+    from app.services.intraday_monitor_service import poll_once
+    from app.services.notification_service import dispatch_alert
+    from app.services.trading_calendar_service import is_trading_day
+
+    with SessionLocal() as db:
+        # Guard 1: trading day
+        if not is_trading_day(db, date.today()):
+            logger.info("intraday_price_poll: non-trading day, skipping")
+            return {"skipped": "non_trading_day"}
+
+        # Guard 2: trading hours (local time, Asia/Shanghai)
+        # 9:30-11:30 morning, 13:00-15:00 afternoon. Skip lunch (12:xx).
+        now = _dt.now()
+        hour_min = now.hour * 100 + now.minute
+        in_morning = 930 <= hour_min <= 1130
+        in_afternoon = 1300 <= hour_min <= 1500
+        if not (in_morning or in_afternoon):
+            logger.info(
+                "intraday_price_poll: outside trading hours (now=%s), skipping",
+                now.strftime("%H:%M"),
+            )
+            return {"skipped": "outside_trading_hours"}
+
+        # Poll: fetch + check rules + emit alerts (poll_once commits)
+        result = poll_once(db)
+
+        # Dispatch alerts created in the last 5 minutes. poll_once creates
+        # them via stop_loss_service._trigger → system_alert_service.
+        from datetime import timedelta
+
+        cutoff = _utcnow() - timedelta(minutes=5)
+        recent_alerts = list(
+            db.execute(
+                select(SystemAlert).where(
+                    SystemAlert.created_at >= cutoff,
+                    SystemAlert.resolved_at.is_(None),
+                )
+            ).scalars().all()
+        )
+        dispatched = 0
+        for alert in recent_alerts:
+            try:
+                dispatch_alert(db, alert)
+                dispatched += 1
+            except Exception as e:
+                logger.warning(
+                    "Dispatch failed for alert %s: %s", alert.id, e
+                )
+        db.commit()
+
+        summary = {
+            "codes_checked": result.codes_checked,
+            "prices_fetched": result.prices_fetched,
+            "stop_loss_events": len(result.stop_loss_events),
+            "take_profit_events": len(result.take_profit_events),
+            "errors": len(result.errors),
+            "dispatched_alerts": dispatched,
+        }
+        logger.info("intraday_price_poll: %s", summary)
+        return summary
+
+
 # ── Job Registry ──────────────────────────────────────────────────────────
 
 # Maps job_id → unwrapped function (tracking is applied during scheduling)
@@ -610,6 +696,7 @@ JOB_REGISTRY = {
     "intraday_monitor": intraday_monitor_job,
     "weekly_dividend_sync": weekly_dividend_sync_job,
     "daily_corp_action_apply": daily_corp_action_apply_job,
+    "intraday_price_poll": intraday_price_poll_job,
 }
 
 

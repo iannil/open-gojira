@@ -32,11 +32,16 @@ import type {
   DividendSummaryResponse,
   DraftResponse,
   HoldingResponse,
+  HoldingRiskRule,
   JobExecutionResponse,
   KlineResponse,
   KlineSyncSummary,
   MarginTradingRecord,
   NorthFlowRecord,
+  NotificationChannel,
+  NotificationChannelCreate,
+  NotificationChannelUpdate,
+  NotificationTestResult,
   PipelineHealthResponse,
   PipelineRunDetail,
   PlanCreate,
@@ -46,6 +51,8 @@ import type {
   QuarterlyReview,
   QiuScoreInput,
   ReviewResponse,
+  RiskRuleCreate,
+  RiskRuleUpdate,
   SchedulerJobResponse,
   SchedulerJobUpdate,
   ShareholderRecord,
@@ -712,4 +719,73 @@ export async function listBacktests(limit = 20): Promise<BacktestRun[]> {
 export async function getBacktest(id: number): Promise<BacktestRun> {
   const res = await apiClient.get<BacktestRun>(`/backtests/${id}`);
   return res.data;
+}
+
+// ── Notifications (S5.4) ──────────────────────────────────────────────
+
+export async function listNotificationChannels(
+  enabledOnly = false,
+): Promise<NotificationChannel[]> {
+  const res = await apiClient.get<NotificationChannel[]>('/notifications/channels', {
+    params: enabledOnly ? { enabled_only: true } : undefined,
+  });
+  return res.data;
+}
+
+export async function createNotificationChannel(
+  payload: NotificationChannelCreate,
+): Promise<NotificationChannel> {
+  const res = await apiClient.post<NotificationChannel>('/notifications/channels', payload);
+  return res.data;
+}
+
+export async function updateNotificationChannel(
+  id: number,
+  payload: NotificationChannelUpdate,
+): Promise<NotificationChannel> {
+  const res = await apiClient.patch<NotificationChannel>(
+    `/notifications/channels/${id}`,
+    payload,
+  );
+  return res.data;
+}
+
+export async function deleteNotificationChannel(id: number): Promise<void> {
+  await apiClient.delete(`/notifications/channels/${id}`);
+}
+
+export async function testNotificationChannel(id: number): Promise<NotificationTestResult> {
+  const res = await apiClient.post<NotificationTestResult>(`/notifications/test/${id}`);
+  return res.data;
+}
+
+// ── Holding risk rules (S5.4) ─────────────────────────────────────────
+
+export async function listRiskRules(): Promise<HoldingRiskRule[]> {
+  const res = await apiClient.get<HoldingRiskRule[]>('/risk-rules');
+  return res.data;
+}
+
+export async function getRiskRule(
+  stockCode: string,
+): Promise<HoldingRiskRule | null> {
+  const res = await apiClient.get<HoldingRiskRule | null>(`/risk-rules/${stockCode}`);
+  return res.data;
+}
+
+export async function createRiskRule(payload: RiskRuleCreate): Promise<HoldingRiskRule> {
+  const res = await apiClient.post<HoldingRiskRule>('/risk-rules', payload);
+  return res.data;
+}
+
+export async function updateRiskRule(
+  id: number,
+  payload: RiskRuleUpdate,
+): Promise<HoldingRiskRule> {
+  const res = await apiClient.patch<HoldingRiskRule>(`/risk-rules/${id}`, payload);
+  return res.data;
+}
+
+export async function deleteRiskRule(id: number): Promise<void> {
+  await apiClient.delete(`/risk-rules/${id}`);
 }

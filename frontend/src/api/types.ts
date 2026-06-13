@@ -1133,3 +1133,82 @@ export interface BacktestRun {
   started_at: string | null;
   completed_at: string | null;
 }
+
+// ── Notifications (S5.4) ──────────────────────────────────────────────
+
+export type NotificationChannelType =
+  | 'in_app'
+  | 'server_chan'
+  | 'email'
+  | 'dingtalk_webhook'
+  | 'telegram_bot';
+
+export type NotificationSeverityFilter = 'all' | 'warning_and_above' | 'critical_only';
+
+export interface NotificationChannel {
+  id: number;
+  name: string;
+  type: NotificationChannelType;
+  config_json: Record<string, unknown>;
+  enabled: boolean;
+  severity_filter: NotificationSeverityFilter;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface NotificationChannelCreate {
+  name: string;
+  type: NotificationChannelType;
+  config_json: Record<string, unknown>;
+  enabled?: boolean;
+  severity_filter?: NotificationSeverityFilter;
+}
+
+export interface NotificationChannelUpdate {
+  config_json?: Record<string, unknown>;
+  enabled?: boolean;
+  severity_filter?: NotificationSeverityFilter;
+}
+
+export interface NotificationTestResult {
+  success: boolean;
+  error: string | null;
+}
+
+// ── Holding risk rules (S5.4) ─────────────────────────────────────────
+
+export type StopLossType = 'pct_from_cost' | 'fixed_price' | 'trailing';
+export type TakeProfitType = 'pct_from_cost';
+
+export interface HoldingRiskRule {
+  id: number;
+  stock_code: string;
+  stop_loss_pct: number | null;
+  stop_loss_type: StopLossType;
+  take_profit_pct: number | null;
+  take_profit_type: TakeProfitType;
+  peak_price: number | null;
+  enabled: boolean;
+  triggered_at: string | null;
+  trigger_reason: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface RiskRuleCreate {
+  stock_code: string;
+  stop_loss_pct?: number | null;
+  stop_loss_type?: StopLossType;
+  take_profit_pct?: number | null;
+  take_profit_type?: TakeProfitType;
+  enabled?: boolean;
+}
+
+export interface RiskRuleUpdate {
+  stop_loss_pct?: number | null;
+  stop_loss_type?: StopLossType;
+  take_profit_pct?: number | null;
+  take_profit_type?: TakeProfitType;
+  enabled?: boolean;
+  peak_price?: number | null;
+}

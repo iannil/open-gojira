@@ -29,9 +29,11 @@ from app.routers import (
     data_management, dividend,
     drafts as drafts_router, fee_configs as fee_configs_router, financial,
     health, market,
+    notifications as notifications_router,
     observability as observability_router,
     plans as plans_router, portfolio,
-    review as review_router, scheduler as scheduler_router,
+    review as review_router, risk_rules as risk_rules_router,
+    scheduler as scheduler_router,
     stocks, strategies as strategies_router,
     system_alerts as system_alerts_router,
     theme as theme_router, trades as trades_router,
@@ -239,3 +241,5 @@ app.include_router(fee_configs_router.router)
 app.include_router(system_alerts_router.router)
 app.include_router(corp_actions_router.router)
 app.include_router(backtests_router.router)
+app.include_router(notifications_router.router)
+app.include_router(risk_rules_router.router)

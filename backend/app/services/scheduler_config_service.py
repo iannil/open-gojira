@@ -80,11 +80,15 @@ DEFAULT_JOBS: dict[str, dict] = {
         "cron_expr": "0 9 * * 1-5",
         "description": "每日公司行为应用（ex_date<=今日的 pending actions）",
     },
+    "intraday_price_poll": {
+        "cron_expr": "*/5 9-14 * * 1-5",
+        "description": "盘中价格轮询（每5分钟，工作日 9-14 点；job 内还会做 trading_day + 时段校验）",
+    },
 }
 
 
 # Jobs disabled by default (opt-in via API)
-_DISABLED_BY_DEFAULT: set[str] = {"intraday_monitor"}
+_DISABLED_BY_DEFAULT: set[str] = {"intraday_monitor", "intraday_price_poll"}
 
 
 def _utcnow() -> datetime:
