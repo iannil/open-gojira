@@ -261,57 +261,6 @@ a:hover { color: var(--primary-500); }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Page Header
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-.page-header {
-  margin-bottom: 28px;
-  animation: fadeIn 300ms ease-out both;
-}
-
-.page-header h1 {
-  font-family: var(--font-display);
-  font-size: 26px;
-  font-weight: 600;
-  color: var(--primary-700);
-  margin: 0 0 4px;
-  letter-spacing: -0.01em;
-}
-
-.page-header-subtitle {
-  font-size: 13px;
-  color: var(--text-tertiary);
-  margin: 0;
-}
-
-.page-header-subtitle .en-label {
-  font-family: var(--font-display);
-  font-weight: 500;
-  color: var(--text-disabled);
-  margin-right: 4px;
-}
-
-.page-header-desc {
-  font-size: 12px;
-  color: var(--text-tertiary);
-  margin-top: 4px;
-  font-style: italic;
-}
-
-.page-header-icon {
-  margin-right: 8px;
-  font-size: 20px;
-  vertical-align: middle;
-}
-
-.page-header-extra {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
    Card Component
    ═══════════════════════════════════════════════════════════════════════════ */
 
