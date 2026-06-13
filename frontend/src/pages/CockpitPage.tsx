@@ -677,6 +677,14 @@ function DraftList({
       render: (code: string) => <Link to={`/stock/${code}`}>{code}</Link>,
     },
     {
+      title: '评分',
+      dataIndex: 'qiu_score',
+      width: 56,
+      render: (v: number | null) => v ?? '—',
+      sorter: (a: CockpitDraft, b: CockpitDraft) => (a.qiu_score ?? 0) - (b.qiu_score ?? 0),
+      defaultSortOrder: 'descend',
+    },
+    {
       title: '比例',
       width: 100,
       render: (_: unknown, r: CockpitDraft) =>

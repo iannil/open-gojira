@@ -29,6 +29,7 @@ class CockpitDraft(BaseModel):
     add_pct: Optional[float] = None
     reduce_pct_of_position: Optional[float] = None
     suggested_quantity: Optional[int] = None
+    qiu_score: Optional[int] = None
     reason: Optional[str] = None
     source: Optional[str] = None
     triggered_at: Optional[str] = None

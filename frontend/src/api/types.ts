@@ -247,6 +247,7 @@ export interface CockpitDraft {
   add_pct: number | null;
   reduce_pct_of_position: number | null;
   suggested_quantity?: number | null;
+  qiu_score?: number | null;
   reason: string;
   source?: string;
   triggered_at: string | null;

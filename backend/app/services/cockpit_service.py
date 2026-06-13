@@ -60,7 +60,7 @@ def _serialize_cashflow(m) -> dict:
     }
 
 
-def _serialize_draft(d) -> dict:
+def _serialize_draft(d, qiu_score: int | None = None) -> dict:
     return {
         "id": d.id,
         "plan_id": d.plan_id,
@@ -72,10 +72,34 @@ def _serialize_draft(d) -> dict:
         "add_pct": d.add_pct,
         "reduce_pct_of_position": d.reduce_pct_of_position,
         "suggested_quantity": getattr(d, "suggested_quantity", None),
+        "qiu_score": qiu_score,
         "reason": d.reason,
         "source": getattr(d, "source", None),
         "triggered_at": str(d.triggered_at) if d.triggered_at else None,
     }
+
+
+def _serialize_drafts_ranked(db: Session) -> list[dict]:
+    """重审 #6 (2026-06-13): drafts 按 Qiu 评分 desc 排序展示。
+
+    30-100 draft/天流入时,高分机会排前面,用户自选 Top N 深审。
+    Qiu 评分取自 Stock.qiu_score (0-3);查不到的股票按 0 处理。
+    """
+    from app.models.stock import Stock
+    pending = draft_service.list_pending(db)
+    if not pending:
+        return []
+    codes = {d.code for d in pending}
+    score_map: dict[str, int] = {
+        s.code: s.qiu_score or 0
+        for s in db.query(Stock).filter(Stock.code.in_(codes)).all()
+    }
+    ranked = sorted(
+        pending,
+        key=lambda d: (score_map.get(d.code, 0), d.triggered_at),
+        reverse=True,
+    )
+    return [_serialize_draft(d, score_map.get(d.code, 0)) for d in ranked]
 
 
 def _serialize_plan(p) -> dict:
@@ -123,7 +147,7 @@ def build(db: Session) -> dict:
     )
     drafts = _safe(
         "drafts",
-        lambda: [_serialize_draft(d) for d in draft_service.list_pending(db)],
+        lambda: _serialize_drafts_ranked(db),
         [],
         errors,
     )
