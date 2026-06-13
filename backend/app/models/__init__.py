@@ -16,6 +16,7 @@ from app.models.historical_kline import HistoricalKline
 from app.models.historical_valuation import HistoricalValuation
 from app.models.holding import Holding
 from app.models.holding_risk_rule import HoldingRiskRule
+from app.models.notification_channel import NotificationChannel
 from app.models.plan import Plan
 from app.models.price_kline import PriceKline
 from app.models.scheduler_config import JobExecution, SchedulerJob
@@ -61,4 +62,5 @@ __all__ = [
     "DataFreshness",
     "TradingCalendar",
     "HoldingRiskRule",
+    "NotificationChannel",
 ]
