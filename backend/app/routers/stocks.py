@@ -441,11 +441,11 @@ def api_get_bank_blindbox(code: str, db: Session = Depends(get_db)):
 def api_price_band(code: str, db: Session = Depends(get_db)):
     """Return 涨跌停 band + 板块 + ST/停牌状态 for UI price validation.
 
-    Returns:
-        code, low, high, prev_close, board, is_st, is_suspended,
-        listing_status. ``low`` / ``high`` / ``prev_close`` are ``None``
-        when ``prev_close`` is missing (e.g. IPO day).
+    If ``prev_close`` is missing, lazily fetches it from Lixinger K-line
+    (single stock, no rate-limit risk) and re-tries. ``low`` / ``high``
+    remain ``None`` only if Lixinger has no K-line data (e.g. IPO day).
     """
+    from app.services.kline_service import update_prev_close_for_stock
     from app.services.price_validator_service import (
         NoPrevCloseError,
         detect_board,
@@ -460,16 +460,49 @@ def api_price_band(code: str, db: Session = Depends(get_db)):
     try:
         low, high = price_band(stock)
     except NoPrevCloseError:
-        return PriceBandResponse(
-            code=code,
-            low=None,
-            high=None,
-            prev_close=None,
-            board=detect_board(stock.exchange, stock.code),
-            is_st=is_st_stock(stock.listing_status),
-            is_suspended=is_suspended(stock.listing_status),
-            listing_status=stock.listing_status,
-        )
+        # Lazy-fetch from Lixinger + retry once.
+        try:
+            if update_prev_close_for_stock(db, code):
+                db.commit()
+                db.refresh(stock)
+                low, high = price_band(stock)
+            else:
+                return PriceBandResponse(
+                    code=code,
+                    low=None,
+                    high=None,
+                    prev_close=None,
+                    board=detect_board(stock.exchange, stock.code),
+                    is_st=is_st_stock(stock.listing_status),
+                    is_suspended=is_suspended(stock.listing_status),
+                    listing_status=stock.listing_status,
+                )
+        except NoPrevCloseError:
+            return PriceBandResponse(
+                code=code,
+                low=None,
+                high=None,
+                prev_close=None,
+                board=detect_board(stock.exchange, stock.code),
+                is_st=is_st_stock(stock.listing_status),
+                is_suspended=is_suspended(stock.listing_status),
+                listing_status=stock.listing_status,
+            )
+        except Exception as e:
+            # Lixinger failure shouldn't block trade entry — return null band.
+            logging.getLogger(__name__).warning(
+                "Lazy prev_close fetch failed for %s: %s", code, e,
+            )
+            return PriceBandResponse(
+                code=code,
+                low=None,
+                high=None,
+                prev_close=None,
+                board=detect_board(stock.exchange, stock.code),
+                is_st=is_st_stock(stock.listing_status),
+                is_suspended=is_suspended(stock.listing_status),
+                listing_status=stock.listing_status,
+            )
     return PriceBandResponse(
         code=code,
         low=low,
