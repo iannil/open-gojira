@@ -286,6 +286,10 @@ def update_prev_close_for_stock(db: Session, stock_code: str) -> bool:
 def update_prev_close_batch(db: Session, stock_codes: Iterable[str]) -> int:
     """Batch update prev_close for multiple stocks.
 
+    Throttles to ~16 req/s (well under Lixinger's 36 reqs/2s limit) by
+    sleeping 60ms between calls. Without throttling, batches > 36 stocks
+    trigger Lixinger's TooManyRequestsError.
+
     Args:
         db: SQLAlchemy session.
         stock_codes: Iterable of 6-digit stock codes.
@@ -294,6 +298,8 @@ def update_prev_close_batch(db: Session, stock_codes: Iterable[str]) -> int:
         Count of successfully updated stocks. Failures are logged but
         do not abort the batch.
     """
+    import time
+
     count = 0
     for code in stock_codes:
         try:
@@ -301,5 +307,6 @@ def update_prev_close_batch(db: Session, stock_codes: Iterable[str]) -> int:
                 count += 1
         except Exception as e:
             logger.warning("update_prev_close_batch: failed for %s: %s", code, e)
+        time.sleep(0.06)  # 60ms = ~16 req/s, safe under 36/2s cap
     db.commit()
     return count
