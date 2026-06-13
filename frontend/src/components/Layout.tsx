@@ -10,6 +10,7 @@ import {
   DatabaseOutlined,
   ClockCircleOutlined,
   TransactionOutlined,
+  BarChartOutlined,
 } from '@ant-design/icons';
 
 import { SystemAlertBanner } from './SystemAlertBanner';
@@ -33,6 +34,7 @@ const NAV_GROUPS: Array<{
       { key: '/plans', label: '预案', labelEn: 'Plans', icon: <ScheduleOutlined /> },
       { key: '/candidates', label: '候选池', labelEn: 'Candidates', icon: <UserOutlined /> },
       { key: '/trades', label: '成交流水', labelEn: 'Trades', icon: <TransactionOutlined /> },
+      { key: '/backtest', label: '回测', labelEn: 'Backtest', icon: <BarChartOutlined /> },
     ],
   },
   {

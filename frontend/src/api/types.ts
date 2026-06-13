@@ -1056,3 +1056,80 @@ export interface SyncDividendsResult {
   new_count: number;
   failed_codes: string[];
 }
+
+// ── Backtests (S4D) ───────────────────────────────────────────────────
+
+export type BacktestRuleAction = 'BUY' | 'SELL';
+
+export interface BacktestRule {
+  metric: string;
+  operator: '<' | '>' | '<=' | '>=' | '==';
+  threshold: number;
+  action: BacktestRuleAction;
+  target_pct?: number;
+}
+
+export interface BacktestConfig {
+  stock_codes: string[];
+  start_date: string;
+  end_date: string;
+  initial_capital: number;
+  slippage_bps: number;
+  strategy_rules: BacktestRule[];
+}
+
+export interface BacktestMetrics {
+  cagr: number;
+  total_return: number;
+  sharpe: number;
+  max_drawdown: number;
+  win_rate: number;
+  avg_win: number;
+  avg_loss: number;
+  trade_count: number;
+  benchmark_return: number | null;
+  alpha: number | null;
+}
+
+export interface EquityPoint {
+  date: string;
+  value: number;
+}
+
+export interface TradeRecord {
+  side: TradeSide;
+  code: string;
+  qty: number;
+  price: number;
+  total: number;
+  realized_pnl?: number;
+  date?: string | null;
+  per_share?: number;
+}
+
+export interface FinalPosition {
+  quantity: number;
+  avg_cost: number;
+}
+
+export interface BacktestResult {
+  metrics: BacktestMetrics;
+  equity_curve: EquityPoint[];
+  monthly_returns: Record<string, number>;
+  trades_log: TradeRecord[];
+  final_cash: number;
+  final_positions: Record<string, FinalPosition>;
+}
+
+export type BacktestStatus = 'pending' | 'running' | 'completed' | 'failed';
+
+export interface BacktestRun {
+  id: number;
+  status: BacktestStatus;
+  config_json: BacktestConfig;
+  result_json: BacktestResult | null;
+  error_message: string | null;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+}

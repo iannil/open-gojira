@@ -9,6 +9,8 @@ import type {
   ApiUsageResponse,
   AuditLogEntry,
   AvailableQuantity,
+  BacktestConfig,
+  BacktestRun,
   BrokerFeeConfig,
   CandidateResponse,
   CashAdjustment,
@@ -692,5 +694,22 @@ export async function syncDividends(
     '/corp-actions/sync-dividends',
     payload,
   );
+  return res.data;
+}
+
+// ── Backtests (S4D) ───────────────────────────────────────────────────
+
+export async function submitBacktest(config: BacktestConfig): Promise<BacktestRun> {
+  const res = await apiClient.post<BacktestRun>('/backtests', config);
+  return res.data;
+}
+
+export async function listBacktests(limit = 20): Promise<BacktestRun[]> {
+  const res = await apiClient.get<BacktestRun[]>('/backtests', { params: { limit } });
+  return res.data;
+}
+
+export async function getBacktest(id: number): Promise<BacktestRun> {
+  const res = await apiClient.get<BacktestRun>(`/backtests/${id}`);
   return res.data;
 }

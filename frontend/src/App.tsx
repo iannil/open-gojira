@@ -14,6 +14,7 @@ const ReviewPage = lazy(() => import('./pages/ReviewPage'));
 const StockDetailPage = lazy(() => import('./pages/StockDetailPage'));
 const DataManagementPage = lazy(() => import('./pages/DataManagementPage'));
 const SchedulerPage = lazy(() => import('./pages/SchedulerPage'));
+const BacktestPage = lazy(() => import('./pages/BacktestPage'));
 
 function LoadingFallback() {
   return (
@@ -85,6 +86,7 @@ function App() {
                 <Route path="stock/:code" element={<StockDetailPage />} />
                 <Route path="data-management" element={<DataManagementPage />} />
                 <Route path="scheduler" element={<SchedulerPage />} />
+                <Route path="backtest" element={<BacktestPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>
             </Routes>
