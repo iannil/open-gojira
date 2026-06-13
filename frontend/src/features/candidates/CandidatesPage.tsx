@@ -25,11 +25,10 @@ import QueryBoundary from '../../components/QueryBoundary';
 import { defaultPagination } from '../../lib/pagination';
 import { useCandidatesQuery } from './useCandidateQueries';
 import {
-  useRemoveCandidateMutation,
-  useTogglePinCandidateMutation,
+  useRemoveCandidatesMutation,
+  useTogglePinCandidatesMutation,
 } from './useCandidateMutations';
 import { usePlansQuery } from '../plans/usePlanQueries';
-import type { CandidateResponse } from '../../api/types';
 
 const STATUS_MAP: Record<string, { color: string; label: string }> = {
   active: { color: 'green', label: '活跃' },
@@ -60,6 +59,41 @@ const TIER_OPTIONS = [
 
 const QIU_SCORE_OPTIONS = [0, 1, 2, 3].map((v) => ({ value: v, label: String(v) }));
 
+const PLAN_TAG_COLORS = [
+  'blue',
+  'purple',
+  'cyan',
+  'geekblue',
+  'magenta',
+  'orange',
+  'green',
+  'gold',
+];
+
+/**
+ * A candidate row merged by stock_code. The same stock may be flagged by
+ * multiple plans; this projects those rows into a single stock-level entry so
+ * the pool reads one-row-per-stock. Mutations apply to every active candidate
+ * row for that stock (active_ids).
+ */
+interface GroupedCandidate {
+  stock_code: string;
+  stock_name: string;
+  stock_industry: string | null;
+  stock_security_theme: string | null;
+  stock_quadrant: string | null;
+  stock_tier: string | null;
+  stock_qiu_score: number;
+  stock_hq_region: string | null;
+  plan_names: string[];
+  plan_count: number;
+  status: 'active' | 'removed';
+  first_seen_at: string | null;
+  last_confirmed_at: string | null;
+  pinned: boolean;
+  active_ids: number[];
+}
+
 interface FilterState {
   planId: number | undefined;
   status: string | undefined;
@@ -87,8 +121,8 @@ const DEFAULT_FILTER: FilterState = {
 export default function CandidatesPage() {
   const candidatesQ = useCandidatesQuery();
   const plansQ = usePlansQuery();
-  const pinM = useTogglePinCandidateMutation();
-  const removeM = useRemoveCandidateMutation();
+  const pinM = useTogglePinCandidatesMutation();
+  const removeM = useRemoveCandidatesMutation();
 
   const [filter, setFilter] = useState<FilterState>(DEFAULT_FILTER);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -135,6 +169,54 @@ export default function CandidatesPage() {
     });
   }, [candidates, filter, keyword]);
 
+  // Merge filtered rows by stock_code: one row per stock. See GroupedCandidate.
+  const grouped = useMemo<GroupedCandidate[]>(() => {
+    const map = new Map<string, GroupedCandidate>();
+    for (const c of filtered) {
+      const key = c.stock_code;
+      let g = map.get(key);
+      if (!g) {
+        g = {
+          stock_code: c.stock_code,
+          stock_name: c.stock_name,
+          stock_industry: c.stock_industry,
+          stock_security_theme: c.stock_security_theme,
+          stock_quadrant: c.stock_quadrant,
+          stock_tier: c.stock_tier,
+          stock_qiu_score: c.stock_qiu_score,
+          stock_hq_region: c.stock_hq_region,
+          plan_names: [],
+          plan_count: 0,
+          status: c.status,
+          first_seen_at: c.first_seen_at,
+          last_confirmed_at: c.last_confirmed_at,
+          pinned: c.pinned,
+          active_ids: [],
+        };
+        map.set(key, g);
+      }
+      if (c.plan_name && !g.plan_names.includes(c.plan_name)) {
+        g.plan_names.push(c.plan_name);
+      }
+      g.plan_count += 1;
+      if (c.status === 'active') {
+        g.status = 'active';
+        g.active_ids.push(c.id);
+      }
+      if (c.first_seen_at && (!g.first_seen_at || c.first_seen_at < g.first_seen_at)) {
+        g.first_seen_at = c.first_seen_at;
+      }
+      if (
+        c.last_confirmed_at &&
+        (!g.last_confirmed_at || c.last_confirmed_at > g.last_confirmed_at)
+      ) {
+        g.last_confirmed_at = c.last_confirmed_at;
+      }
+      if (c.pinned) g.pinned = true;
+    }
+    return Array.from(map.values());
+  }, [filtered]);
+
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (filter.planId !== undefined) count++;
@@ -170,7 +252,22 @@ export default function CandidatesPage() {
       width: 100,
       render: (v: string | null) => v || '-',
     },
-    { title: '来源预案', dataIndex: 'plan_name', width: 120 },
+    {
+      title: '来源预案',
+      dataIndex: 'plan_names',
+      render: (names: string[]) =>
+        names.length === 0 ? (
+          '-'
+        ) : (
+          <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 4 }}>
+            {names.map((n, i) => (
+              <Tag key={n} color={PLAN_TAG_COLORS[i % PLAN_TAG_COLORS.length]}>
+                {n}
+              </Tag>
+            ))}
+          </span>
+        ),
+    },
     {
       title: '状态',
       dataIndex: 'status',
@@ -197,7 +294,7 @@ export default function CandidatesPage() {
       title: '固定',
       dataIndex: 'pinned',
       width: 60,
-      render: (v: boolean, r: CandidateResponse) =>
+      render: (v: boolean, r: GroupedCandidate) =>
         r.status === 'active' ? (
           <Tooltip title={v ? '取消固定' : '固定'}>
             <Button
@@ -210,7 +307,9 @@ export default function CandidatesPage() {
                   <PushpinOutlined />
                 )
               }
-              onClick={() => pinM.mutate({ id: r.id, pinned: !r.pinned })}
+              onClick={() =>
+                pinM.mutate({ ids: r.active_ids, pinned: !r.pinned })
+              }
             />
           </Tooltip>
         ) : null,
@@ -218,9 +317,12 @@ export default function CandidatesPage() {
     {
       title: '操作',
       width: 100,
-      render: (_: unknown, r: CandidateResponse) =>
-        r.status === 'active' ? (
-          <Popconfirm title="确定移出？" onConfirm={() => removeM.mutate(r.id)}>
+      render: (_: unknown, r: GroupedCandidate) =>
+        r.status === 'active' && r.active_ids.length > 0 ? (
+          <Popconfirm
+            title={`确定移出「${r.stock_name}」的全部 ${r.active_ids.length} 条候选？`}
+            onConfirm={() => removeM.mutate(r.active_ids)}
+          >
             <Button size="small" danger loading={removeM.isPending}>
               移出
             </Button>
@@ -387,7 +489,7 @@ export default function CandidatesPage() {
       >
         {() => (
           <>
-            {filtered.length === 0 ? (
+            {grouped.length === 0 ? (
               <EmptyState
                 variant={isFiltering ? 'filter' : 'cold'}
                 title={
@@ -411,9 +513,9 @@ export default function CandidatesPage() {
               />
             ) : (
               <Table
-                dataSource={filtered}
+                dataSource={grouped}
                 columns={columns}
-                rowKey="id"
+                rowKey="stock_code"
                 loading={candidatesQ.isFetching && !candidatesQ.data}
                 size="small"
                 pagination={{ ...defaultPagination, defaultPageSize: 50 }}
