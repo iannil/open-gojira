@@ -24,9 +24,12 @@ import {
   ExperimentOutlined,
   PlusOutlined,
   SafetyCertificateOutlined,
+  WarningOutlined,
 } from '@ant-design/icons';
+import { useSearchParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
+import { AlertsTab } from '../features/alerts';
 import { useAntdStatic } from '../hooks/useAntdStatic';
 import {
   createNotificationChannel,
@@ -760,18 +763,36 @@ function RiskRulesTab() {
 
 // ── Page ───────────────────────────────────────────────────────────────
 
+const VALID_TABS = ['channels', 'risk_rules', 'alerts'] as const;
+type TabKey = (typeof VALID_TABS)[number];
+
 export default function MonitoringPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get('tab');
+  const activeTab: TabKey =
+    tabFromUrl && (VALID_TABS as readonly string[]).includes(tabFromUrl)
+      ? (tabFromUrl as TabKey)
+      : 'channels';
+
+  const handleTabChange = (key: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (key === 'channels') next.delete('tab');
+    else next.set('tab', key);
+    setSearchParams(next, { replace: true });
+  };
+
   return (
     <div>
       <PageHeader
         title="监控配置"
         enLabel="Monitoring"
         icon={<BellOutlined />}
-        description="通知通道 + 持仓止损止盈规则"
+        description="通知通道 + 持仓止损止盈规则 + 告警中心"
       />
       <Card variant="borderless" style={{ background: 'transparent' }}>
         <Tabs
-          defaultActiveKey="channels"
+          activeKey={activeTab}
+          onChange={handleTabChange}
           items={[
             {
               key: 'channels',
@@ -790,6 +811,15 @@ export default function MonitoringPage() {
                 </span>
               ),
               children: <RiskRulesTab />,
+            },
+            {
+              key: 'alerts',
+              label: (
+                <span>
+                  <WarningOutlined /> 告警中心
+                </span>
+              ),
+              children: <AlertsTab />,
             },
           ]}
         />
