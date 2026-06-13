@@ -9,8 +9,8 @@ export interface PageHeaderFlowStep {
 }
 
 export interface PageHeaderProps {
-  /** Page title, e.g. "预案". */
-  title: string;
+  /** Page title, e.g. "预案". Accepts ReactNode for composite titles (code + name). */
+  title: ReactNode;
   /** English label rendered as tracked uppercase secondary, e.g. "Plans". */
   enLabel?: string;
   /** One-sentence business definition. Required — this is the C-pain killer. */
