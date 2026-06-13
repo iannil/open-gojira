@@ -1,7 +1,7 @@
 # Gojira 下一步计划 (Roadmap)
 
-> **最后更新**: 2026-06-13 (production-readiness-plan 重审后)
-> **当前状态**: 402 测试通过,production-readiness S0-S5 已 ship,但 **0 真实使用** — 重审发现 watchlist 闸门静默吞 296 候选股
+> **最后更新**: 2026-06-13 (重审 P1 全部落地或决策跳过后)
+> **当前状态**: 820 测试通过,重审 5/7 决策已 ship (#1/#2/#4/#6/#7B);#3 保留回测 / #5 跳过 S6 是 no-op
 > **关联**: `docs/progress/STATUS.md` (项目快照) | `docs/reference/specs/2026-06-13-revisit-production-readiness-plan.md` (重审决策)
 
 ---
@@ -70,17 +70,17 @@
 
 ## P1: 架构改动 (重审决策落地)
 
-| # | 项 | 决策来源 | 说明 |
-|---|---|---|---|
-| 1 | **删除 PROMOTE 流程** | 重审 #1 | candidates 不再走"手动提升 watchlist"通道。Watchlist 仅保留作手动股池 |
-| 2 | **合并 EXECUTE + TRADE_ENTRY** | 重审 #2 | 点"执行" → modal 预填 draft → 填 broker 回报 → 存 = trade 写入 + draft 关闭 |
-| 3 | **Cockpit draft 按 Qiu 排序** | 重审 #6 | 30-100 draft/天流入,按评分排序展示,用户自选 Top N 深审 |
-| 4 | **强制 DisciplineChecklistModal** | 重审 #7B | 10 项纪律 (4 AUTO + 6 MANUAL) 全勾才能启用执行按钮。AUTO 项失败即拒 |
-| 5 | **端到端手动验收** (回归) | 既有 P1-1 | round6 修复 + 重审改动后,起 `./dev.sh` → 跑通: token → backtest → draft → checklist → execute → trade → holding |
-| 6 | **远程 Git 仓库** | 既有 P1-2 | 当前无 remote,需在 GitHub/GitLab 新建仓库并 push |
-| 7 | **CI** | 既有 P1-3 | GitHub Actions 跑 `pytest` + `npm run build`,阻止 main 腐烂 |
-| 8 | **cashflow_goal UI 编辑入口** | 既有 P1-4 | 当前只能 API PUT,Cockpit 应加"设定目标"按钮 |
-| 9 | **配置 server_chan 通道** | 实测发现 | 当前仅 in_app,14 alerts silent。配 server_chan 微信推送 critical alerts |
+| # | 项 | 决策来源 | 状态 | 说明 |
+|---|---|---|---|---|
+| 1 | **删除 PROMOTE 流程** | 重审 #1 | ✅ ship `5833c25` | candidates 不再走"手动提升 watchlist"通道。Watchlist 仅保留作手动股池 |
+| 2 | **合并 EXECUTE + TRADE_ENTRY** | 重审 #2 | ✅ ship `16fb7b3` | 点"执行" → modal 预填 draft → 填 broker 回报 → 存 = trade 写入 + draft 关闭 |
+| 3 | **Cockpit draft 按 Qiu 排序** | 重审 #6 | ✅ ship `b92f5c5` | 30-100 draft/天流入,按评分排序展示,用户自选 Top N 深审 |
+| 4 | **强制 DisciplineChecklistModal** | 重审 #7B | ✅ ship `16fb7b3` (顺带) | 10 项纪律 (4 AUTO + 6 MANUAL) 全勾 + fillValid 才能启用执行按钮 |
+| 5 | **端到端手动验收** (回归) | 既有 | ⏭️ 跳过 (2026-06-13) | 用户决策,先看真实使用再说 |
+| 6 | **远程 Git 仓库** | 既有 | ⏭️ 跳过 (2026-06-13) | 用户决策 |
+| 7 | **CI** | 既有 | ⏭️ 跳过 (2026-06-13) | 用户决策 |
+| 8 | **cashflow_goal UI 编辑入口** | 既有 | ⏭️ 跳过 (2026-06-13) | 用户决策 |
+| 9 | **配置 server_chan 通道** | 实测发现 | ⏭️ 跳过 (2026-06-13) | 用户决策,需 server酱 key |
 
 ---
 
