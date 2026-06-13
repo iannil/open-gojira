@@ -14,6 +14,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { TransactionOutlined } from '@ant-design/icons';
 import PageHeader from '../components/PageHeader';
 import TradeEntryModal from '../components/TradeEntryModal';
+import { CashAdjustmentModal } from '../components/CashAdjustmentModal';
 import { useAntdStatic } from '../hooks/useAntdStatic';
 import { listTrades, reverseTrade, getCashBalance } from '../api/client';
 import type { Trade, TradeSide, CashBalance } from '../api/types';
@@ -54,6 +55,8 @@ export default function TradesPage() {
   const [loading, setLoading] = useState(false);
   const [balance, setBalance] = useState<CashBalance | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [cashModalMode, setCashModalMode] = useState<'deposit' | 'withdrawal'>('deposit');
+  const [cashModalOpen, setCashModalOpen] = useState(false);
   const [filter, setFilter] = useState<Filter>({});
 
   const fetchData = useCallback(async () => {
@@ -206,6 +209,23 @@ export default function TradesPage() {
           <Button type="primary" onClick={() => setModalOpen(true)}>
             录入成交
           </Button>
+          <Button
+            onClick={() => {
+              setCashModalMode('deposit');
+              setCashModalOpen(true);
+            }}
+          >
+            入金
+          </Button>
+          <Button
+            danger
+            onClick={() => {
+              setCashModalMode('withdrawal');
+              setCashModalOpen(true);
+            }}
+          >
+            取现
+          </Button>
         </Space>
         <Table
           columns={columns}
@@ -221,6 +241,12 @@ export default function TradesPage() {
       <TradeEntryModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
+        onCreated={() => void fetchData()}
+      />
+      <CashAdjustmentModal
+        open={cashModalOpen}
+        mode={cashModalMode}
+        onClose={() => setCashModalOpen(false)}
         onCreated={() => void fetchData()}
       />
     </div>
