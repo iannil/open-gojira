@@ -27,7 +27,7 @@ def setup(client, db_session):
         listing_status="normally_listed", prev_close=50.0,
     ))
     db_session.add(Stock(
-        code="600999", name="无前收", exchange="sh",
+        code="999999", name="无前收", exchange="sh",
         listing_status="normally_listed", prev_close=None,
     ))
     db_session.flush()
@@ -84,8 +84,10 @@ def test_get_price_band_star(client, setup):
 
 
 def test_get_price_band_no_prev_close(client, setup):
-    """No prev_close → low/high/prev_close null but board/ST still returned."""
-    resp = client.get("/api/stocks/600999/price-band")
+    """No prev_close + lazy fetch returns no data → low/high/prev_close null
+    but board/ST still returned. Uses code 999999 (non-existent on Lixinger)
+    so lazy fetch returns False."""
+    resp = client.get("/api/stocks/999999/price-band")
     assert resp.status_code == 200
     data = resp.json()
     assert data["low"] is None
