@@ -1819,3 +1819,474 @@ a:hover { color: var(--primary-500); }
     --content-padding: 16px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Design System 2.0 — Typography Scale + Spacing Scale + Primitives
+   (Phase 0a, 2026-06-13)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Typography Scale (5 档, 替代散落的 10/11/13/15/18/22/26) ─────── */
+  --fs-xs:  12px;   /* caption / 表格次要文字 / tag / enLabel */
+  --fs-sm:  14px;   /* body 基准 */
+  --fs-md:  16px;   /* lead / 强调正文 */
+  --fs-lg:  20px;   /* 子区块标题 */
+  --fs-xl:  28px;   /* 页面标题 */
+
+  /* ── Font Weights ──────────────────────────────────────────────────── */
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+  --fw-bold:     700;
+
+  /* ── Line Heights ──────────────────────────────────────────────────── */
+  --lh-tight:   1.2;
+  --lh-snug:    1.4;
+  --lh-normal:  1.6;
+
+  /* ── Spacing Scale (4px 网格, 7 档) ───────────────────────────────── */
+  --sp-1:  4px;
+  --sp-2:  8px;
+  --sp-3:  12px;
+  --sp-4:  16px;
+  --sp-6:  24px;
+  --sp-8:  32px;
+  --sp-12: 48px;
+
+  /* ── Numeric 字体（金融仪表盘对齐用） ────────────────────────────── */
+  --font-numeric: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+
+  /* ── Card Shadow (去边框改阴影分层) ───────────────────────────────── */
+  --shadow-card:       0 1px 2px rgba(28, 25, 23, 0.04), 0 1px 1px rgba(28, 25, 23, 0.02);
+  --shadow-card-hover: 0 2px 6px rgba(28, 25, 23, 0.06), 0 1px 2px rgba(28, 25, 23, 0.03);
+}
+
+/* ── Numeric Utility ────────────────────────────────────────────────── */
+.num {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  letter-spacing: -0.01em;
+}
+.num-lg { font-size: var(--fs-xl); font-weight: var(--fw-semibold); line-height: var(--lh-tight); }
+.num-md { font-size: var(--fs-md); font-weight: var(--fw-medium); line-height: var(--lh-snug); }
+.num-sm { font-size: var(--fs-sm); font-weight: var(--fw-medium); line-height: var(--lh-snug); }
+
+/* ── Card Primitive (去边框, 改 1px 阴影分层) ───────────────────────── */
+.ant-card.gojira-card {
+  border: none;
+  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-lg);
+  transition: box-shadow var(--transition-base);
+}
+.ant-card.gojira-card:hover {
+  box-shadow: var(--shadow-card-hover);
+}
+.ant-card.gojira-card > .ant-card-body {
+  padding: var(--sp-6);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   <PageHeader> — 持续在场的页面定位 (C 痛点主治)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.gojira-page-header {
+  padding: var(--sp-6) 0 var(--sp-6);
+  border-bottom: 1px solid var(--border-light);
+  margin-bottom: var(--sp-6);
+}
+
+.gojira-page-header-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+
+.gojira-page-header-title-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+
+.gojira-page-header-title {
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.02em;
+  line-height: var(--lh-tight);
+}
+
+.gojira-page-header-en {
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+}
+
+.gojira-page-header-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.gojira-page-header-purpose {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  line-height: var(--lh-normal);
+  margin: var(--sp-3) 0 0;
+  max-width: 720px;
+}
+
+/* flow indicator: 横向 step chain, current step 高亮 */
+.gojira-page-header-flow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-4);
+  font-size: var(--fs-xs);
+}
+
+.gojira-flow-step {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 2px var(--sp-2);
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  text-decoration: none;
+  transition: all var(--transition-fast);
+  cursor: default;
+}
+
+a.gojira-flow-step {
+  cursor: pointer;
+}
+
+a.gojira-flow-step:hover {
+  background: var(--surface-hover);
+  color: var(--text-secondary);
+}
+
+.gojira-flow-step.is-current {
+  background: var(--primary-100);
+  color: var(--primary-700);
+  font-weight: var(--fw-semibold);
+}
+
+.gojira-flow-sep {
+  color: var(--border-default);
+  font-size: 10px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   <PageSection> — 统一页内分块
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.gojira-page-section {
+  margin-bottom: var(--sp-6);
+}
+.gojira-page-section:last-child {
+  margin-bottom: 0;
+}
+
+.gojira-page-section-plain > .gojira-page-section-body {
+  padding: 0;
+}
+
+.gojira-page-section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+
+.gojira-page-section-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.gojira-page-section-title {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+  line-height: var(--lh-tight);
+}
+
+.gojira-page-section-subtitle {
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.gojira-page-section-extra {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.gojira-page-section-body {
+  /* children 直接渲染, 无额外 padding */
+}
+
+/* variant="card" 时 header 在卡片内, 需要 bottom margin */
+.gojira-card > .ant-card-body > .gojira-page-section-header {
+  margin-bottom: var(--sp-4);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   <EmptyState> — 3 variant (cold / filter / quiet)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.gojira-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--sp-12) var(--sp-6);
+}
+
+.gojira-empty-icon {
+  color: var(--text-disabled);
+  margin-bottom: var(--sp-4);
+}
+
+/* cold variant: 大图标 + 标题 + 描述 + CTA */
+.gojira-empty--cold .gojira-empty-icon {
+  font-size: 48px;
+  opacity: 0.6;
+}
+.gojira-empty--cold .gojira-empty-title {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+  margin: 0 0 var(--sp-2);
+}
+.gojira-empty--cold .gojira-empty-desc {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  max-width: 480px;
+  line-height: var(--lh-normal);
+  margin: 0 0 var(--sp-6);
+}
+
+/* filter variant: 中图标 + 标题 + 清除筛选链接 */
+.gojira-empty--filter {
+  padding: var(--sp-8) var(--sp-6);
+}
+.gojira-empty--filter .gojira-empty-icon {
+  font-size: 32px;
+  opacity: 0.5;
+}
+.gojira-empty--filter .gojira-empty-title {
+  font-size: var(--fs-md);
+  font-weight: var(--fw-medium);
+  color: var(--text-secondary);
+  margin: 0 0 var(--sp-2);
+}
+.gojira-empty--filter .gojira-empty-desc {
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  margin: 0 0 var(--sp-3);
+}
+
+/* quiet variant: 单行 inline 提示, 无 CTA */
+.gojira-empty--quiet {
+  flex-direction: row;
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+  text-align: left;
+}
+.gojira-empty--quiet .gojira-empty-icon {
+  font-size: 16px;
+  margin-bottom: 0;
+  opacity: 0.7;
+}
+.gojira-empty--quiet .gojira-empty-title {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-regular);
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   <StatCard> — 高频卡片模式 (label + value + delta + hint)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.gojira-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+  height: 100%;
+  background: var(--surface-card);
+  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-lg);
+  transition: box-shadow var(--transition-base);
+}
+.gojira-stat[role="button"]:hover {
+  box-shadow: var(--shadow-card-hover);
+}
+.gojira-stat[role="button"]:focus-visible {
+  outline: 2px solid var(--primary-500);
+  outline-offset: 2px;
+}
+
+.gojira-stat-label {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  line-height: var(--lh-snug);
+}
+
+.gojira-stat-value {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+  line-height: var(--lh-tight);
+  letter-spacing: -0.02em;
+}
+
+.gojira-stat-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lh-snug);
+}
+
+.gojira-stat-delta--good   { color: var(--color-success); }
+.gojira-stat-delta--bad    { color: var(--color-danger); }
+.gojira-stat-delta--flat   { color: var(--text-tertiary); }
+
+.gojira-stat-hint {
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  line-height: var(--lh-snug);
+  margin-top: auto;
+}
+
+/* loading skeleton pulse */
+.gojira-stat.is-loading .gojira-stat-value,
+.gojira-stat.is-loading .gojira-stat-delta,
+.gojira-stat.is-loading .gojira-stat-hint {
+  color: transparent !important;
+  background: linear-gradient(90deg, var(--gray-200) 0%, var(--gray-150) 50%, var(--gray-200) 100%);
+  background-size: 200% 100%;
+  border-radius: var(--radius-sm);
+  animation: gojira-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes gojira-skeleton-pulse {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   <FilterBar> — 统一筛选区布局
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.gojira-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface-raised);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-light);
+  margin-bottom: var(--sp-4);
+  flex-wrap: wrap;
+}
+
+.gojira-filter-bar-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex: 1;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.gojira-filter-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Dev-only Preview Page (/__primitives__)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.gojira-preview {
+  padding: var(--sp-8) var(--sp-8) var(--sp-12);
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.gojira-preview-section {
+  margin-bottom: var(--sp-12);
+}
+
+.gojira-preview-heading {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+  margin: 0 0 var(--sp-2);
+  letter-spacing: -0.01em;
+}
+
+.gojira-preview-desc {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  margin: 0 0 var(--sp-6);
+  line-height: var(--lh-normal);
+}
+
+.gojira-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--sp-4);
+  align-items: stretch;
+}
+
+.gojira-preview-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  padding: var(--sp-4);
+  background: var(--surface-base);
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--border-light);
+}
+
+.gojira-preview-label {
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: var(--fw-medium);
+  margin-bottom: var(--sp-3);
+}

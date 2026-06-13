@@ -20,6 +20,12 @@ const SchedulerPage = lazy(() => import('./pages/SchedulerPage'));
 const BacktestPage = lazy(() => import('./pages/BacktestPage'));
 const MonitoringPage = lazy(() => import('./pages/MonitoringPage'));
 
+// DEV-ONLY primitives preview route. Vite tree-shakes the dynamic import
+// out of production builds because the false branch is dead code.
+const PrimitivesPreview = import.meta.env.DEV
+  ? lazy(() => import('./pages/__primitives__'))
+  : (() => null);
+
 function LoadingFallback() {
   return (
     <div
@@ -93,6 +99,9 @@ function App() {
                     <Route path="scheduler" element={<SchedulerPage />} />
                     <Route path="backtest" element={<BacktestPage />} />
                     <Route path="monitoring" element={<MonitoringPage />} />
+                    {import.meta.env.DEV && (
+                      <Route path="__primitives__" element={<PrimitivesPreview />} />
+                    )}
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Route>
                 </Routes>
