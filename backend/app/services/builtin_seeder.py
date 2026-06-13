@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.models.broker_fee_config import BrokerFeeConfig
 from app.models.plan import Plan
 from app.models.strategy import Strategy
+from app.services.trading_calendar_service import seed_all_years
 
 logger = logging.getLogger(__name__)
 
@@ -304,5 +305,11 @@ def seed_all(db: Session) -> dict:
     f = seed_default_fee_config(db)
     s = seed_strategies(db)
     p = seed_plans(db)
+    t = seed_all_years(db)
     db.commit()
-    return {"fee_config_inserted": f, "strategies": s, "plans": p}
+    return {
+        "fee_config_inserted": f,
+        "strategies": s,
+        "plans": p,
+        "trading_calendar_inserted": t,
+    }

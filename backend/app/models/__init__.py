@@ -15,6 +15,7 @@ from app.models.historical_financial import HistoricalFinancial
 from app.models.historical_kline import HistoricalKline
 from app.models.historical_valuation import HistoricalValuation
 from app.models.holding import Holding
+from app.models.holding_risk_rule import HoldingRiskRule
 from app.models.plan import Plan
 from app.models.price_kline import PriceKline
 from app.models.scheduler_config import JobExecution, SchedulerJob
@@ -23,6 +24,7 @@ from app.models.strategy import Strategy
 from app.models.system_alert import SystemAlert
 from app.models.theme import Theme
 from app.models.trade import Trade
+from app.models.trading_calendar import TradingCalendar
 from app.models.valuation import ValuationSnapshot
 from app.models.watchlist import WatchlistGroup, WatchlistItem
 
@@ -57,4 +59,6 @@ __all__ = [
     "Trade",
     "SystemAlert",
     "DataFreshness",
+    "TradingCalendar",
+    "HoldingRiskRule",
 ]
