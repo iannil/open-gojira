@@ -52,23 +52,26 @@ def execute_draft(
     draft = draft_service.execute(db, draft_id)
     audit_payload = {"holding_id": payload.holding_id}
 
-    # Auto-create/sell holding if requested
-    if draft.side == "BUY" and payload.auto_create_holding and payload.buy_price and payload.quantity:
-        from app.services.holding_service import create_holding
-        holding = create_holding(db, {
-            "stock_code": draft.code,
-            "buy_price": payload.buy_price,
-            "quantity": payload.quantity,
-            "buy_date": date.today(),
-            "stop_profit_price": 0.0,
-            "trade_rationale": f"Auto from draft #{draft.id}: {draft.reason}",
-        })
-        audit_payload["auto_holding_id"] = holding.id
-    elif draft.side == "SELL" and payload.holding_id:
-        from app.services.holding_service import sell_holding
-        from app.services.holding_service import _get_cached_price
-        sell_price = payload.buy_price or _get_cached_price(draft.code) or 0.0
-        sell_holding(db, payload.holding_id, date.today(), sell_price, f"Auto from draft #{draft.id}")
+    # 重审 #2 (2026-06-13): merge execute + trade entry into one step.
+    # When broker fill (buy_price + quantity) is provided, record a Trade
+    # atomically — user no longer needs to re-enter the same fill on
+    # TradesPage. source_ref ties the trade back to this draft.
+    if payload.buy_price and payload.quantity:
+        from app.services.trade_service import record_trade
+        from datetime import datetime
+        side = "BUY" if draft.side == "BUY" else "SELL"
+        trade = record_trade(
+            db,
+            stock_code=draft.code,
+            side=side,
+            price=float(payload.buy_price),
+            quantity=int(payload.quantity),
+            filled_at=datetime.now(),
+            source="draft",
+            source_ref=str(draft.id),
+            note=f"Auto from draft #{draft.id}: {draft.reason}",
+        )
+        audit_payload["auto_trade_id"] = trade.id
 
     if payload.discipline_checklist:
         audit_payload["discipline_checklist"] = payload.discipline_checklist

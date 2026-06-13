@@ -28,6 +28,7 @@ class CockpitDraft(BaseModel):
     step_index: Optional[int] = None
     add_pct: Optional[float] = None
     reduce_pct_of_position: Optional[float] = None
+    suggested_quantity: Optional[int] = None
     reason: Optional[str] = None
     source: Optional[str] = None
     triggered_at: Optional[str] = None

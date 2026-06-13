@@ -71,6 +71,7 @@ def _serialize_draft(d) -> dict:
         "step_index": d.step_index,
         "add_pct": d.add_pct,
         "reduce_pct_of_position": d.reduce_pct_of_position,
+        "suggested_quantity": getattr(d, "suggested_quantity", None),
         "reason": d.reason,
         "source": getattr(d, "source", None),
         "triggered_at": str(d.triggered_at) if d.triggered_at else None,

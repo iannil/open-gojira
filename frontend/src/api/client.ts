@@ -200,17 +200,30 @@ export async function listDrafts(params?: {
   return res.data;
 }
 
+export interface ExecuteDraftPayload {
+  holding_id?: number;
+  discipline_checklist?: Record<string, boolean>;
+  buy_price?: number;
+  quantity?: number;
+}
+
 export async function executeDraft(
   draftId: number,
-  holdingIdOrChecklist?: number | Record<string, boolean>,
+  payloadOrChecklist?: ExecuteDraftPayload | Record<string, boolean> | number,
 ): Promise<DraftResponse> {
-  const payload: Record<string, unknown> = {};
-  if (typeof holdingIdOrChecklist === 'number') {
-    payload.holding_id = holdingIdOrChecklist;
-  } else if (typeof holdingIdOrChecklist === 'object') {
-    payload.discipline_checklist = holdingIdOrChecklist;
+  let body: Record<string, unknown> = {};
+  if (typeof payloadOrChecklist === 'number') {
+    body.holding_id = payloadOrChecklist;
+  } else if (
+    payloadOrChecklist &&
+    typeof payloadOrChecklist === 'object' &&
+    ('buy_price' in payloadOrChecklist || 'quantity' in payloadOrChecklist || 'holding_id' in payloadOrChecklist || 'discipline_checklist' in payloadOrChecklist)
+  ) {
+    body = { ...payloadOrChecklist };
+  } else if (payloadOrChecklist && typeof payloadOrChecklist === 'object') {
+    body.discipline_checklist = payloadOrChecklist;
   }
-  const res = await apiClient.post<DraftResponse>(`/drafts/${draftId}/execute`, payload);
+  const res = await apiClient.post<DraftResponse>(`/drafts/${draftId}/execute`, body);
   return res.data;
 }
 

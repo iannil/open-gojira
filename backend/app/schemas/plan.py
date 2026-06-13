@@ -170,4 +170,6 @@ class DraftExecute(BaseModel):
     discipline_checklist: Optional[dict] = None
     auto_create_holding: bool = False
     buy_price: Optional[float] = None
+    """Broker-reported fill price. When provided with quantity, a Trade is recorded."""
     quantity: Optional[int] = None
+    """Broker-reported fill quantity. When provided with buy_price, a Trade is recorded."""

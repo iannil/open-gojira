@@ -989,6 +989,7 @@ export default function CockpitPage() {
     dyr: number | null;
     theme: string | null;
     hasPlan: boolean;
+    suggestedQuantity: number | null;
   } | null>(null);
 
   const handleExecute = useCallback(
@@ -1005,17 +1006,22 @@ export default function CockpitPage() {
         dyr: null,
         theme: null,
         hasPlan: !!plan,
+        suggestedQuantity: draft.suggested_quantity ?? null,
       });
     },
     [data],
   );
 
   const handleDisciplineConfirm = useCallback(
-    async (checklist: Record<string, boolean>) => {
+    async (checklist: Record<string, boolean>, fill: { price: number; quantity: number }) => {
       if (!disciplineTarget) return;
       try {
-        await executeDraft(disciplineTarget.id, checklist);
-        message.success('已登记成交');
+        await executeDraft(disciplineTarget.id, {
+          discipline_checklist: checklist,
+          buy_price: fill.price,
+          quantity: fill.quantity,
+        });
+        message.success('已登记成交 + 记录 trade');
         setDisciplineTarget(null);
         await refresh();
       } catch (e) {
@@ -1218,6 +1224,7 @@ export default function CockpitPage() {
         stockCode={disciplineTarget?.code ?? ''}
         theme={disciplineTarget?.theme ?? null}
         tier={disciplineTarget?.tier ?? null}
+        suggestedQuantity={disciplineTarget?.suggestedQuantity ?? null}
         autoChecks={{
           in_plan: disciplineTarget?.hasPlan ?? false,
           position_ok: true,

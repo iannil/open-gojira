@@ -1,11 +1,16 @@
 import { useState } from 'react';
-import { Modal, Checkbox, Tag, Typography } from 'antd';
+import { Modal, Checkbox, Tag, Typography, InputNumber, Form, Space } from 'antd';
 
 interface AutoCheckResult {
   in_plan: boolean;
   position_ok: boolean;
   is_production_asset: boolean;
   high_dyr_baseline: boolean;
+}
+
+export interface BrokerFill {
+  price: number;
+  quantity: number;
 }
 
 interface Props {
@@ -15,7 +20,8 @@ interface Props {
   theme: string | null;
   tier: string | null;
   autoChecks?: Partial<AutoCheckResult>;
-  onConfirm: (checklist: Record<string, boolean>) => void;
+  suggestedQuantity?: number | null;
+  onConfirm: (checklist: Record<string, boolean>, fill: BrokerFill) => void;
   onCancel: () => void;
 }
 
@@ -42,21 +48,26 @@ export default function DisciplineChecklistModal({
   theme,
   tier,
   autoChecks,
+  suggestedQuantity,
   onConfirm,
   onCancel,
 }: Props) {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const [price, setPrice] = useState<number | null>(null);
+  const [quantity, setQuantity] = useState<number | null>(suggestedQuantity ?? null);
 
   const allChecked = [...AUTO_ITEMS, ...MANUAL_ITEMS].every(
     (item) => checked[item.key]
   );
+  const fillValid = price !== null && price > 0 && quantity !== null && quantity > 0;
 
   const handleToggle = (key: string) => {
     setChecked((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   const handleConfirm = () => {
-    onConfirm(checked);
+    if (!fillValid) return;
+    onConfirm(checked, { price: price!, quantity: quantity! });
   };
 
   const tierLabel = tier === 'core' ? '核心' : tier === 'watch' ? '关注' : null;
@@ -68,13 +79,45 @@ export default function DisciplineChecklistModal({
       onOk={handleConfirm}
       onCancel={onCancel}
       okText="确认执行"
-      okButtonProps={{ disabled: !allChecked }}
+      okButtonProps={{ disabled: !allChecked || !fillValid }}
       width={520}
     >
       <Typography.Paragraph type="secondary" style={{ marginBottom: 16 }}>
-        执行前请逐项确认（invest3 核心十诫）
+        重审 #2 + #7B: 成交回报 + invest3 核心十诫,一屏完成。
       </Typography.Paragraph>
 
+      {/* Section 1: broker fill (重审 #2 — merged trade entry) */}
+      <div style={{ marginBottom: 16, padding: 12, background: 'var(--bg-secondary, #fafafa)', borderRadius: 8 }}>
+        <Typography.Text strong>成交回报 (broker fill)</Typography.Text>
+        <Form layout="vertical" style={{ marginTop: 8 }}>
+          <Space.Compact style={{ width: '100%' }}>
+            <Form.Item label="实际成交价" style={{ flex: 1, marginRight: 8, marginBottom: 0 }}>
+              <InputNumber
+                value={price ?? undefined}
+                onChange={v => setPrice(v ?? null)}
+                min={0}
+                step={0.01}
+                placeholder="如 100.50"
+                style={{ width: '100%' }}
+                addonAfter="元"
+              />
+            </Form.Item>
+            <Form.Item label="成交数量" style={{ flex: 1, marginBottom: 0 }}>
+              <InputNumber
+                value={quantity ?? undefined}
+                onChange={v => setQuantity(v ?? null)}
+                min={100}
+                step={100}
+                placeholder={suggestedQuantity ? String(suggestedQuantity) : '如 1000'}
+                style={{ width: '100%' }}
+                addonAfter="股"
+              />
+            </Form.Item>
+          </Space.Compact>
+        </Form>
+      </div>
+
+      {/* Section 2: auto checklist */}
       <div style={{ marginBottom: 12 }}>
         <Typography.Text strong>自动验证</Typography.Text>
         <div style={{ marginTop: 8 }}>
@@ -105,6 +148,7 @@ export default function DisciplineChecklistModal({
         </div>
       </div>
 
+      {/* Section 3: manual checklist */}
       <div>
         <Typography.Text strong>心理确认</Typography.Text>
         <div style={{ marginTop: 8 }}>
@@ -121,9 +165,10 @@ export default function DisciplineChecklistModal({
         </div>
       </div>
 
-      {!allChecked && (
+      {(!allChecked || !fillValid) && (
         <div style={{ marginTop: 12, color: '#D97706', fontSize: 12 }}>
-          请确认所有检查项后执行
+          {!fillValid && '请填写成交回报 (价格 + 数量); '}
+          {!allChecked && '请确认所有检查项'}
         </div>
       )}
     </Modal>
