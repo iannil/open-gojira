@@ -578,6 +578,16 @@ function DraftList({
   executePending: boolean;
   cancelPending: boolean;
 }) {
+  // Cockpit is a HUD — show top 5 by conviction (qiu_score desc, then most
+  // recent). Full triage lives at /drafts. Avoids dumping 200+ pending
+  // drafts onto the dashboard.
+  const DISPLAY_LIMIT = 5;
+  const sorted = [...drafts].sort(
+    (a, b) => (b.qiu_score ?? 0) - (a.qiu_score ?? 0),
+  );
+  const visible = sorted.slice(0, DISPLAY_LIMIT);
+  const hiddenCount = Math.max(0, drafts.length - DISPLAY_LIMIT);
+
   const columns: ColumnsType<CockpitDraft> = [
     {
       title: '方向',
@@ -651,16 +661,35 @@ function DraftList({
       style={{ marginBottom: 16 }}
       extra={
         drafts.length > 0 && (
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            人工去券商下单，回填后自动登记到持仓
-          </Text>
+          <Space>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              人工去券商下单，回填后自动登记到持仓
+            </Text>
+            {hiddenCount > 0 && (
+              <Link to="/drafts">
+                <Button size="small" type="link">
+                  查看全部 <span className="num">{drafts.length}</span> 条 →
+                </Button>
+              </Link>
+            )}
+          </Space>
         )
       }
     >
       {drafts.length === 0 ? (
         <Empty description="今日无草稿" image={Empty.PRESENTED_IMAGE_SIMPLE} />
       ) : (
-        <Table dataSource={drafts} columns={columns} rowKey="id" size="small" pagination={false} />
+        <>
+          <Table dataSource={visible} columns={columns} rowKey="id" size="small" pagination={false} />
+          {hiddenCount > 0 && (
+            <div style={{ textAlign: 'center', marginTop: 8 }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                已按 Qiu 评分排序，仅显示前 <span className="num">{DISPLAY_LIMIT}</span> 条 ·{' '}
+                <Link to="/drafts">还有 <span className="num">{hiddenCount}</span> 条待处理 →</Link>
+              </Text>
+            </div>
+          )}
+        </>
       )}
     </Card>
   );
