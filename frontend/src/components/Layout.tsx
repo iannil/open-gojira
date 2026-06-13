@@ -21,27 +21,42 @@ const NAV_GROUPS: Array<{
   items: Array<{ key: string; label: string; labelEn: string; icon: ReactNode }>;
 }> = [
   {
-    label: '驾驶舱',
+    label: '入口',
     items: [
       { key: '/', label: '主看板', labelEn: 'Cockpit', icon: <DashboardOutlined /> },
-      { key: '/universe', label: '股票池', labelEn: 'Stock Pool', icon: <AppstoreOutlined /> },
-      { key: '/review', label: '复盘', labelEn: 'Review', icon: <LineChartOutlined /> },
     ],
   },
   {
-    label: '策略中心',
+    label: '数据',
+    items: [
+      { key: '/universe', label: '股票池', labelEn: 'Stock Pool', icon: <AppstoreOutlined /> },
+      { key: '/data-management', label: '数据管理', labelEn: 'Data', icon: <DatabaseOutlined /> },
+    ],
+  },
+  {
+    label: '策略',
     items: [
       { key: '/strategies', label: '策略库', labelEn: 'Strategies', icon: <ThunderboltOutlined /> },
       { key: '/plans', label: '预案', labelEn: 'Plans', icon: <ScheduleOutlined /> },
+    ],
+  },
+  {
+    label: '执行',
+    items: [
       { key: '/candidates', label: '候选池', labelEn: 'Candidates', icon: <UserOutlined /> },
       { key: '/trades', label: '成交流水', labelEn: 'Trades', icon: <TransactionOutlined /> },
+    ],
+  },
+  {
+    label: '反思',
+    items: [
+      { key: '/review', label: '复盘', labelEn: 'Review', icon: <LineChartOutlined /> },
       { key: '/backtest', label: '回测', labelEn: 'Backtest', icon: <BarChartOutlined /> },
     ],
   },
   {
-    label: '系统',
+    label: '自动化',
     items: [
-      { key: '/data-management', label: '数据管理', labelEn: 'Data Management', icon: <DatabaseOutlined /> },
       { key: '/scheduler', label: '定时任务', labelEn: 'Scheduler', icon: <ClockCircleOutlined /> },
       { key: '/monitoring', label: '监控配置', labelEn: 'Monitoring', icon: <BellOutlined /> },
     ],
