@@ -11,6 +11,7 @@ import dayjs from 'dayjs';
 
 import { PageHeader } from '../../components/primitives';
 import QueryBoundary from '../../components/QueryBoundary';
+import { defaultPagination } from '../../lib/pagination';
 import { useJobExecutionsQuery, useSchedulerJobsQuery } from './useSchedulerQueries';
 import {
   useTriggerSchedulerJobMutation,
@@ -369,7 +370,7 @@ export default function SchedulerPage() {
                     columns={execColumns}
                     dataSource={executions}
                     loading={execsQ.isFetching && !execsQ.data}
-                    pagination={{ pageSize: 20, showSizeChanger: false }}
+                    pagination={{ ...defaultPagination, defaultPageSize: 50 }}
                     size="middle"
                   />
                 )}

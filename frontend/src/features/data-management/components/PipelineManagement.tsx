@@ -12,6 +12,7 @@ import {
 } from 'antd';
 import { PlayCircleOutlined, RedoOutlined, StopOutlined } from '@ant-design/icons';
 
+import { defaultPagination } from '../../../lib/pagination';
 import type { PipelineRunDetail as RunDetail } from '../../../api/types';
 import {
   DATA_TYPE_LABELS,
@@ -101,7 +102,7 @@ export default function PipelineManagement() {
           rowKey="run_id"
           loading={runsQ.isLoading}
           size="small"
-          pagination={{ pageSize: 10 }}
+          pagination={{ ...defaultPagination, defaultPageSize: 20 }}
           scroll={{ x: 900 }}
           columns={[
             {

@@ -22,6 +22,7 @@ import {
 
 import { PageHeader, FilterBar, EmptyState } from '../../components/primitives';
 import QueryBoundary from '../../components/QueryBoundary';
+import { defaultPagination } from '../../lib/pagination';
 import { useCandidatesQuery } from './useCandidateQueries';
 import {
   useRemoveCandidateMutation,
@@ -415,7 +416,7 @@ export default function CandidatesPage() {
                 rowKey="id"
                 loading={candidatesQ.isFetching && !candidatesQ.data}
                 size="small"
-                pagination={{ pageSize: 20, showSizeChanger: false }}
+                pagination={{ ...defaultPagination, defaultPageSize: 50 }}
               />
             )}
           </>

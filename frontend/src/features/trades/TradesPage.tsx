@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { PageHeader, FilterBar, EmptyState, StatCard } from '../../components/primitives';
 import QueryBoundary from '../../components/QueryBoundary';
+import { defaultPagination } from '../../lib/pagination';
 import TradeEntryModal from '../../components/TradeEntryModal';
 import { CashAdjustmentModal } from '../../components/CashAdjustmentModal';
 import { useTradesQuery, useCashBalanceQuery } from './useTradeQueries';
@@ -254,7 +255,7 @@ export default function TradesPage() {
             rowKey="id"
             loading={tradesQ.isFetching && !tradesQ.data}
             size="small"
-            pagination={{ total, pageSize: 100, showSizeChanger: false }}
+            pagination={{ ...defaultPagination, total, defaultPageSize: 100 }}
             scroll={{ x: 1200 }}
           />
         )}

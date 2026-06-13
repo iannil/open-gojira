@@ -16,6 +16,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 
 import { PageHeader, PageSection, StatCard, EmptyState } from '../../components/primitives';
+import { defaultPagination } from '../../lib/pagination';
 import KlineChart from '../../components/stock/KlineChart';
 import QiuScorerWizard from '../../components/QiuScorerWizard';
 import { listWatchlistGroups } from '../../api/client';
@@ -345,7 +346,7 @@ export default function StockDetailPage() {
                   rowKey={(r, i) => `${r.date}-${r.holder_name}-${i}`}
                   dataSource={shareholders}
                   columns={shareholderColumns}
-                  pagination={{ pageSize: 20 }}
+                  pagination={{ ...defaultPagination, defaultPageSize: 50 }}
                 />
               ) : (
                 <Empty description="无股东数据" />
@@ -360,7 +361,7 @@ export default function StockDetailPage() {
                   rowKey="date"
                   dataSource={northFlow}
                   columns={northColumns}
-                  pagination={{ pageSize: 20 }}
+                  pagination={{ ...defaultPagination, defaultPageSize: 50 }}
                 />
               ) : (
                 <Empty description="无北向资金数据（可能非互联互通标的）" />
@@ -375,7 +376,7 @@ export default function StockDetailPage() {
                   rowKey="date"
                   dataSource={margin}
                   columns={marginColumns}
-                  pagination={{ pageSize: 20 }}
+                  pagination={{ ...defaultPagination, defaultPageSize: 50 }}
                 />
               ) : (
                 <Empty description="无融资融券数据" />

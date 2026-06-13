@@ -21,6 +21,7 @@ import { FilterOutlined, SearchOutlined } from '@ant-design/icons';
 
 import { PageHeader, FilterBar, EmptyState, StatCard } from '../../components/primitives';
 import QueryBoundary from '../../components/QueryBoundary';
+import { defaultPagination } from '../../lib/pagination';
 import {
   useFullUniverseQuery,
   useMyUniverseQuery,
@@ -129,6 +130,7 @@ export default function UniversePage() {
   const [myFilter, setMyFilter] = useState<MyUniverseFilter>(DEFAULT_MY_FILTER);
   const [fullFilter, setFullFilter] = useState<FullMarketFilter>(DEFAULT_FULL_FILTER);
   const [fullPage, setFullPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
   const [filterOpen, setFilterOpen] = useState(false);
 
   const isFullMarket = viewMode === '全市场';
@@ -138,7 +140,7 @@ export default function UniversePage() {
   const fullQueryArgs: FullUniverseFilter = useMemo(
     () => ({
       page: fullPage,
-      page_size: 50,
+      page_size: pageSize,
       pe_pct_max: fullFilter.pePctMax,
       pb_pct_max: fullFilter.pbPctMax,
       dyr_min: fullFilter.dyrMin ? fullFilter.dyrMin / 100 : undefined,
@@ -149,7 +151,7 @@ export default function UniversePage() {
       industry: fullFilter.industry,
       keyword: fullFilter.keyword.trim() || undefined,
     }),
-    [fullPage, fullFilter],
+    [fullPage, pageSize, fullFilter],
   );
   const fullQ = useFullUniverseQuery(fullQueryArgs);
 
@@ -740,11 +742,14 @@ export default function UniversePage() {
                 size="small"
                 loading={fullQ.isFetching}
                 pagination={{
+                  ...defaultPagination,
                   current: fullPage,
                   total: fullTotal,
-                  pageSize: 50,
-                  showSizeChanger: false,
-                  onChange: (p) => setFullPage(p),
+                  defaultPageSize: 50,
+                  onChange: (p, ps) => {
+                    setFullPage(p);
+                    setPageSize(ps);
+                  },
                 }}
               />
             )}

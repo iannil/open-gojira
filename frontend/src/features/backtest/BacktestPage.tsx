@@ -20,6 +20,7 @@ import ReactECharts from 'echarts-for-react';
 import echarts from '../../lib/echarts';
 import { PageHeader, PageSection, StatCard } from '../../components/primitives';
 import QueryBoundary from '../../components/QueryBoundary';
+import { defaultPagination } from '../../lib/pagination';
 import { useAntdStatic } from '../../hooks/useAntdStatic';
 import { useBacktestHistoryQuery } from './useBacktestQueries';
 import { useSubmitBacktestMutation } from './useBacktestMutations';
@@ -528,7 +529,7 @@ export default function BacktestPage() {
               dataSource={result.result_json.trades_log}
               rowKey={(_, idx) => String(idx)}
               columns={tradeColumns}
-              pagination={{ pageSize: 20, showSizeChanger: true }}
+              pagination={{ ...defaultPagination, defaultPageSize: 50 }}
               scroll={{ x: 760 }}
             />
           </PageSection>
@@ -552,7 +553,7 @@ export default function BacktestPage() {
                 dataSource={history}
                 rowKey="id"
                 columns={historyColumns}
-                pagination={{ pageSize: 10, showSizeChanger: false }}
+                pagination={{ ...defaultPagination, defaultPageSize: 20 }}
                 onRow={(r) => ({
                   onClick: () => setResult(r),
                   style: { cursor: 'pointer' },

@@ -1,5 +1,6 @@
 import { Descriptions, Drawer, Table, Tag, Typography } from 'antd';
 
+import { defaultPagination } from '../../../lib/pagination';
 import type { PipelineRunDetail as RunDetail } from '../../../api/types';
 import { DATA_TYPE_LABELS, PIPELINE_STATUS_COLORS, PIPELINE_STATUS_LABELS } from '../constants';
 
@@ -71,7 +72,7 @@ export default function PipelineRunDetailDrawer({ run, open, onClose }: Props) {
           <Table
             dataSource={failedEntries}
             size="small"
-            pagination={{ pageSize: 10 }}
+            pagination={{ ...defaultPagination, defaultPageSize: 20 }}
             columns={[
               {
                 title: '股票代码',

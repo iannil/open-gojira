@@ -15,6 +15,7 @@ import dayjs from 'dayjs';
 
 import QueryBoundary from '../../../components/QueryBoundary';
 import { FilterBar, EmptyState } from '../../../components/primitives';
+import { defaultPagination } from '../../../lib/pagination';
 import { useAlertsQuery } from '../useAlertQueries';
 import {
   useResolveAlertMutation,
@@ -243,7 +244,7 @@ export default function AlertsTab() {
               selectedRowKeys: selectedIds,
               onChange: (keys) => setSelectedIds(keys.map(Number)),
             }}
-            pagination={{ pageSize: 20, showSizeChanger: false }}
+            pagination={{ ...defaultPagination, defaultPageSize: 50 }}
           />
         )}
       </QueryBoundary>

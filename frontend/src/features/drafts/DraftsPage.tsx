@@ -8,6 +8,7 @@ import dayjs from 'dayjs';
 import { PageHeader, FilterBar, EmptyState, StatCard } from '../../components/primitives';
 import QueryBoundary from '../../components/QueryBoundary';
 import DisciplineChecklistModal from '../../components/DisciplineChecklistModal';
+import { defaultPagination } from '../../lib/pagination';
 import { fetchCockpit } from '../../api/client';
 import { useDraftsQuery } from './useDraftQueries';
 import {
@@ -491,7 +492,7 @@ export default function DraftsPage() {
             rowKey={(r) => r.code}
             loading={draftsQ.isFetching && !draftsQ.data}
             size="small"
-            pagination={{ pageSize: 50, showSizeChanger: false }}
+            pagination={{ ...defaultPagination, defaultPageSize: 50 }}
             scroll={{ x: 900 }}
             expandable={{
               rowExpandable: (r) => r.count > 1,
