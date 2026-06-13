@@ -158,6 +158,7 @@ class DraftResponse(BaseModel):
     step_index: int
     add_pct: Optional[float] = None
     reduce_pct_of_position: Optional[float] = None
+    suggested_quantity: Optional[int] = None
     reason: str
     source: str = "evaluator"
     triggered_at: Any

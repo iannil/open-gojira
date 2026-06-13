@@ -9,7 +9,12 @@ import {
   UserOutlined,
   DatabaseOutlined,
   ClockCircleOutlined,
+  TransactionOutlined,
+  BarChartOutlined,
+  BellOutlined,
 } from '@ant-design/icons';
+
+import { SystemAlertBanner } from './SystemAlertBanner';
 
 const NAV_GROUPS: Array<{
   label: string;
@@ -29,6 +34,8 @@ const NAV_GROUPS: Array<{
       { key: '/strategies', label: '策略库', labelEn: 'Strategies', icon: <ThunderboltOutlined /> },
       { key: '/plans', label: '预案', labelEn: 'Plans', icon: <ScheduleOutlined /> },
       { key: '/candidates', label: '候选池', labelEn: 'Candidates', icon: <UserOutlined /> },
+      { key: '/trades', label: '成交流水', labelEn: 'Trades', icon: <TransactionOutlined /> },
+      { key: '/backtest', label: '回测', labelEn: 'Backtest', icon: <BarChartOutlined /> },
     ],
   },
   {
@@ -36,6 +43,7 @@ const NAV_GROUPS: Array<{
     items: [
       { key: '/data-management', label: '数据管理', labelEn: 'Data Management', icon: <DatabaseOutlined /> },
       { key: '/scheduler', label: '定时任务', labelEn: 'Scheduler', icon: <ClockCircleOutlined /> },
+      { key: '/monitoring', label: '监控配置', labelEn: 'Monitoring', icon: <BellOutlined /> },
     ],
   },
 ];
@@ -95,6 +103,7 @@ export default function Layout() {
       </header>
 
       <main className="main-content">
+        <SystemAlertBanner />
         <Outlet />
       </main>
     </div>

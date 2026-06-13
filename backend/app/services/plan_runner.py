@@ -17,12 +17,18 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.models.broker_fee_config import BrokerFeeConfig
 from app.models.candidate import Candidate
+from app.models.cash_balance import CashBalance
 from app.models.plan import Plan
 from app.models.stock import Stock
 from app.models.strategy import Strategy
+from app.models.trade import Trade
 from app.models.watchlist import WatchlistItem
 from app.services import draft_service
+from app.services.holding_view_service import available_quantity_at
+from app.services.position_sizing_service import compute_buy_quantity
+from app.services.price_validator_service import is_suspended
 from app.services.stock_context_builder import build_context, build_screening_contexts
 from app.services.strategy_engine import StockContext
 from app.services.strategy_engine import evaluate as strategy_evaluate
@@ -173,6 +179,119 @@ def _get_watchlisted_codes(db: Session) -> set[str]:
     }
 
 
+def _filter_suspended(db: Session, codes: list[str]) -> list[str]:
+    """Drop codes whose Stock.listing_status marks them as suspended.
+
+    Suspended statuses (ipo_suspension / delisting_transitional_period /
+    issued_but_not_listed / issue_failure / unauthorized) cannot be traded,
+    so they are excluded from the scan entirely — saves context building +
+    evaluation cost for stocks that could never produce a useful Draft.
+    """
+    if not codes:
+        return []
+    rows = db.execute(
+        select(Stock.code, Stock.listing_status).where(Stock.code.in_(codes))
+    ).all()
+    return [r.code for r in rows if not is_suspended(r.listing_status)]
+
+
+def _get_active_fee_config(
+    db: Session, moment: datetime
+) -> BrokerFeeConfig | None:
+    """Pick the most recent active broker_fee_config effective as of `moment`.
+
+    Returns None when no config exists — callers should treat None as
+    'skip BUY sizing' (suggested_quantity stays None).
+    """
+    return db.execute(
+        select(BrokerFeeConfig)
+        .where(
+            BrokerFeeConfig.is_active == True,  # noqa: E712
+            BrokerFeeConfig.effective_from <= moment.date(),
+        )
+        .order_by(BrokerFeeConfig.effective_from.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+
+
+def _holdings_market_value(db: Session) -> float:
+    """Approximate current market value of open positions.
+
+    For each open stock_code, sum Trade.quantity (signed: BUY +N, SELL −N)
+    and multiply by Stock.prev_close as the latest price proxy. Used as
+    the NAV addend when computing BUY quantity.
+    """
+    from sqlalchemy import func as sa_func
+    agg = db.execute(
+        select(Trade.stock_code, sa_func.sum(Trade.quantity))
+        .where(Trade.reversed_by_trade_id.is_(None))
+        .group_by(Trade.stock_code)
+    ).all()
+    if not agg:
+        return 0.0
+    codes = [r[0] for r in agg]
+    prices = {
+        r.code: (r.prev_close or 0.0)
+        for r in db.execute(
+            select(Stock.code, Stock.prev_close).where(Stock.code.in_(codes))
+        ).all()
+    }
+    total = 0.0
+    for stock_code, qty in agg:
+        q = int(qty or 0)
+        if q <= 0:
+            continue
+        total += q * prices.get(stock_code, 0.0)
+    return total
+
+
+def _compute_suggested_buy_quantity(
+    db: Session,
+    *,
+    code: str,
+    prev_close: float | None,
+    add_pct: float | None,
+    moment: datetime,
+) -> int | None:
+    """Compute suggested BUY quantity for a draft via position_sizing_service.
+
+    Returns None when inputs are insufficient (no prev_close / no add_pct /
+    no fee config / cash balance missing) so the caller can skip populating
+    the field without raising.
+    """
+    if not add_pct or add_pct <= 0:
+        return None
+    if not prev_close or prev_close <= 0:
+        return None
+
+    cfg = _get_active_fee_config(db, moment)
+    if cfg is None:
+        return None
+
+    cb = db.execute(select(CashBalance).limit(1)).scalar_one_or_none()
+    if cb is None:
+        return None
+
+    nav = float(cb.balance) + _holdings_market_value(db)
+    if nav <= 0:
+        return None
+
+    try:
+        result = compute_buy_quantity(
+            capital_base=nav,
+            target_pct=add_pct,
+            current_price=float(prev_close),
+            available_cash=float(cb.balance),
+            broker_config=cfg,
+        )
+        return result.quantity or None
+    except Exception:
+        logger.exception(
+            "position sizing failed for code=%s add_pct=%s", code, add_pct,
+        )
+        return None
+
+
 def _evaluate_trading_rules(
     db: Session,
     plan: Plan,
@@ -246,6 +365,15 @@ def _evaluate_trading_rules(
 
 def run_plan(db: Session, plan: Plan) -> PlanRunResult:
     """Run a single plan: scan scope → evaluate strategies → update candidates."""
+    # S3.5 — freshness gate. Refuse to run on stale data so we don't generate
+    # phantom drafts from yesterday's prices / dividends. 48h tolerance covers
+    # weekends and a single missed sync. Raises DataStaleError (HTTP 503) and
+    # emits a system_alert so the UI can surface the failure.
+    from app.services.data_freshness_service import assert_fresh_enough
+
+    for _category in ("stocks", "valuation"):
+        assert_fresh_enough(db, _category, max_age_hours=48)
+
     result = PlanRunResult(plan_id=plan.id, plan_name=plan.name)
 
     # 1. Resolve scope
@@ -258,6 +386,10 @@ def run_plan(db: Session, plan: Plan) -> PlanRunResult:
 
     if not codes:
         return result
+
+    # 1b. Filter out suspended stocks (S2.5) — they cannot be traded so they
+    # should never enter the candidate pool or produce a Draft.
+    codes = _filter_suspended(db, codes)
 
     # 2. Load strategies
     from app.schemas.plan import StrategyComposition
@@ -357,6 +489,7 @@ def run_plan(db: Session, plan: Plan) -> PlanRunResult:
 
     # 5. Trading rules for watchlisted candidates
     if plan.trading_rules_json:
+        eval_moment = datetime.now(timezone.utc).replace(tzinfo=None)
         for code in passed_codes:
             if code not in watchlisted:
                 continue
@@ -364,6 +497,31 @@ def run_plan(db: Session, plan: Plan) -> PlanRunResult:
                 ctx = build_context(db, code)
                 intents = _evaluate_trading_rules(db, plan, code, ctx)
                 for side, step_kind, step_index, add_pct, reduce_pct, reason in intents:
+                    # S2.5: SELL T+1 — if no settled shares are available,
+                    # emitting a SELL draft would only produce noise.
+                    if side == "SELL":
+                        try:
+                            available = available_quantity_at(
+                                db, code, eval_moment,
+                            )
+                        except Exception:
+                            available = 0
+                        if available <= 0:
+                            continue
+                        suggested_qty = None
+                    else:
+                        # S2.5: BUY suggested_quantity — compute actual lot size.
+                        stock = db.get(Stock, code)
+                        prev_close = (
+                            float(stock.prev_close) if stock and stock.prev_close else None
+                        )
+                        suggested_qty = _compute_suggested_buy_quantity(
+                            db,
+                            code=code,
+                            prev_close=prev_close,
+                            add_pct=add_pct,
+                            moment=eval_moment,
+                        )
                     draft = draft_service.emit(
                         db,
                         plan=plan,
@@ -374,6 +532,7 @@ def run_plan(db: Session, plan: Plan) -> PlanRunResult:
                         reason=reason,
                         add_pct=add_pct,
                         reduce_pct_of_position=reduce_pct,
+                        suggested_quantity=suggested_qty,
                     )
                     if draft:
                         result.drafts_emitted += 1

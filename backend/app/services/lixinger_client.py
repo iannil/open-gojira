@@ -3,6 +3,11 @@
 Provides typed methods for all Lixinger open API endpoints used by the system.
 All requests are POST with JSON body containing a `token` field.
 Results are cached in-memory with configurable TTL.
+
+Defense layers (S3.4):
+- tenacity retry (3 attempts, exponential backoff) on transient errors
+- circuit breaker (threshold=5, reset=300s) with half-open probe
+- system_alert emission on circuit-open / token-quota business error
 """
 
 import json
@@ -13,6 +18,12 @@ from datetime import datetime
 from typing import Any, Optional
 
 import httpx
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+)
 
 from app.config import settings
 
@@ -22,9 +33,119 @@ _BASE_URL = "https://open.lixinger.com/api"
 _TIMEOUT = 30.0
 _MAX_CACHE_SIZE = 500
 
+# Circuit breaker configuration — tuned for Lixinger's API characteristics.
+_CIRCUIT_THRESHOLD = 5       # consecutive failures to open
+_CIRCUIT_RESET_SECONDS = 300  # 5-minute cooldown window
+
 
 class LixingerError(Exception):
     """Raised when the Lixinger API returns a non-success response."""
+
+
+class CircuitOpenError(LixingerError):
+    """Raised when circuit breaker is open (too many recent failures).
+
+    Subclass of LixingerError so existing call sites continue to treat it
+    as a regular Lixinger failure, while diagnostic code can branch on it.
+    """
+
+
+class _TransientServerError(httpx.RequestError):
+    """Internal: 5xx response wrapped so tenacity retries it.
+
+    httpx.HTTPStatusError is not a subclass of httpx.RequestError, so we
+    cannot use type-based retry to distinguish 5xx (retry) from 4xx (no
+    retry). This class subclasses RequestError so tenacity's
+    `retry_if_exception_type(httpx.RequestError)` matches it, AND so it
+    flows through the existing `except httpx.RequestError` handler in
+    `_post`. The original Response is stashed for logging.
+    """
+
+    def __init__(self, response: httpx.Response):
+        super().__init__(
+            f"server {response.status_code}",
+            request=response.request,
+        )
+        self.response = response
+
+
+class _CircuitBreaker:
+    """Simple circuit breaker.
+
+    Opens after `threshold` consecutive failures, stays open for
+    `reset_seconds`, then allows a single half-open probe call. A successful
+    probe (or any successful call while half-open) resets the failure count;
+    a failed probe re-opens the circuit immediately.
+    """
+
+    def __init__(
+        self,
+        threshold: int = _CIRCUIT_THRESHOLD,
+        reset_seconds: int = _CIRCUIT_RESET_SECONDS,
+    ):
+        self.threshold = threshold
+        self.reset_seconds = reset_seconds
+        self._failure_count = 0
+        self._last_failure_at: float | None = None
+        self._opened_alert_emitted = False
+        self._lock = threading.Lock()
+
+    def record_success(self) -> None:
+        """Reset failure count. Idempotent. Clears any pending alert flag."""
+        with self._lock:
+            self._failure_count = 0
+            self._opened_alert_emitted = False
+
+    def record_failure(self) -> None:
+        """Increment failure count. Marks last-failure timestamp."""
+        with self._lock:
+            self._failure_count += 1
+            self._last_failure_at = time.monotonic()
+
+    def is_open(self) -> bool:
+        """True if circuit is currently open (calls should fast-fail).
+
+        Side effect: if the reset window has elapsed, the circuit transitions
+        to half-open by decrementing the count just enough to allow one probe.
+        """
+        with self._lock:
+            if self._failure_count < self.threshold:
+                return False
+            if self._last_failure_at is None:
+                return False
+            elapsed = time.monotonic() - self._last_failure_at
+            if elapsed > self.reset_seconds:
+                # Half-open: allow a single probe call through.
+                self._failure_count = self.threshold - 1
+                return False
+            return True
+
+    @property
+    def failure_count(self) -> int:
+        return self._failure_count
+
+    @property
+    def opened_alert_emitted(self) -> bool:
+        return self._opened_alert_emitted
+
+    def mark_alert_emitted(self) -> None:
+        with self._lock:
+            self._opened_alert_emitted = True
+
+
+_TOKEN_QUOTA_KEYWORDS = ("token", "quota", "limit", "expire", "授权", "令牌", "配额", "限制")
+
+
+def _looks_like_token_or_quota(message: str) -> bool:
+    """Heuristic: does this Lixinger error message indicate a token/quota issue?
+
+    Lixinger surfaces token expiry and quota exhaustion as business-code errors
+    (code != 1) rather than HTTP 4xx, so we scan the message text.
+    """
+    if not message:
+        return False
+    lowered = message.lower()
+    return any(kw.lower() in lowered for kw in _TOKEN_QUOTA_KEYWORDS)
 
 
 class _TTLCache:
@@ -60,12 +181,47 @@ class _TTLCache:
 
 
 class LixingerClient:
-    """Low-level Lixinger API client with caching."""
+    """Low-level Lixinger API client with caching, retry, and circuit breaker."""
 
     def __init__(self, token: str = ""):
         self._token = token or settings.LIXINGER_TOKEN
         self._cache = _TTLCache()
         self._client = httpx.Client(timeout=_TIMEOUT)
+        self._circuit = _CircuitBreaker()
+        # Wait strategy is an instance attribute so tests can patch it to
+        # wait_none() — production callers keep the exponential backoff.
+        self._retry_wait = wait_exponential(multiplier=1, min=2, max=10)
+
+    def _post_with_retry(self, url: str, body: dict) -> httpx.Response:
+        """Single POST with tenacity retry on transient errors.
+
+        Retries on:
+        - httpx.RequestError (connection errors, timeouts)
+        - 5xx responses (converted into _TransientServerError, which is a
+          RequestError subclass so tenacity matches it)
+
+        Does NOT retry on:
+        - 4xx HTTPStatusError (client-side, won't recover by retrying)
+
+        The 5xx-to-_TransientServerError conversion is necessary because
+        httpx.HTTPStatusError is NOT a subclass of httpx.RequestError,
+        so we cannot selectively retry "only 5xx HTTPStatusError" by type
+        alone — 4xx would also match. Instead we wrap 5xx in a distinct
+        RequestError subclass that tenacity recognizes as retryable.
+        """
+        @retry(
+            stop=stop_after_attempt(3),
+            wait=self._retry_wait,
+            retry=retry_if_exception_type(httpx.RequestError),
+            reraise=True,
+        )
+        def _do_post() -> httpx.Response:
+            resp = self._client.post(url, json=body)
+            if resp.status_code >= 500:
+                raise _TransientServerError(resp)
+            return resp
+
+        return _do_post()
 
     def _post(self, path: str, payload: dict, cache_ttl: float = 0) -> Any:
         """Send a POST request to the Lixinger API.
@@ -79,7 +235,8 @@ class LixingerClient:
             The `data` field from the API response.
 
         Raises:
-            LixingerError: If the API returns a non-success code.
+            CircuitOpenError: If the circuit breaker is currently open.
+            LixingerError: For any other API failure.
         """
         # Stable cache key: JSON with sorted keys, excludes token for security
         safe_payload = {k: v for k, v in payload.items() if k != "token"}
@@ -89,24 +246,51 @@ class LixingerClient:
             if cached is not None:
                 return cached
 
+        # Circuit check: fast-fail without touching the network while open.
+        if self._circuit.is_open():
+            raise CircuitOpenError(
+                f"Circuit open for Lixinger (path={path}); "
+                f"{self._circuit.reset_seconds}s reset window active"
+            )
+
         body = {**payload, "token": self._token}
         url = f"{_BASE_URL}{path}"
 
         try:
-            resp = self._client.post(url, json=body)
+            resp = self._post_with_retry(url, body)
+            # 4xx responses reach here; raise_for_status surfaces them as errors.
             resp.raise_for_status()
         except httpx.HTTPStatusError as e:
-            logger.error("Lixinger API error %s: %s", path, e.response.text)
-            raise LixingerError(f"API returned {e.response.status_code}: {path}") from e
+            # Includes 4xx (no retry) and 5xx (retries exhausted).
+            self._circuit.record_failure()
+            self._maybe_emit_circuit_alert(path)
+            logger.error(
+                "Lixinger API error %s: status=%s text=%s",
+                path,
+                e.response.status_code,
+                e.response.text[:500],
+            )
+            raise LixingerError(
+                f"API returned {e.response.status_code}: {path}"
+            ) from e
         except httpx.RequestError as e:
+            self._circuit.record_failure()
+            self._maybe_emit_circuit_alert(path)
             logger.error("Lixinger request failed %s: %s", path, e)
             raise LixingerError(f"Request failed: {path}") from e
 
         result = resp.json()
         if result.get("code") != 1:
+            # Business error: semantic failure, no retry, no circuit impact.
             msg = result.get("message", "unknown error")
             logger.error("Lixinger API returned error for %s: %s", path, msg)
+            # Token / quota / limit issues are critical and need operator action.
+            if _looks_like_token_or_quota(msg):
+                self._emit_token_alert(path, msg)
             raise LixingerError(f"API error: {msg}")
+
+        # Success: reset the failure counter.
+        self._circuit.record_success()
 
         data = result.get("data")
 
@@ -114,6 +298,65 @@ class LixingerClient:
             self._cache.set(cache_key, data)
 
         return data
+
+    def _maybe_emit_circuit_alert(self, path: str) -> None:
+        """When the circuit threshold is reached, emit a critical alert.
+
+        Emits at most once per open cycle (cleared on success via
+        record_success). Failures during alert emission are logged but
+        never propagate — alerting must never mask the original error.
+        """
+        if self._circuit.failure_count < self._circuit.threshold:
+            return
+        if self._circuit.opened_alert_emitted:
+            return
+        try:
+            from app.db.session import SessionLocal
+            from app.services.system_alert_service import create_alert
+
+            db = SessionLocal()
+            try:
+                create_alert(
+                    db,
+                    severity="critical",
+                    category="api",
+                    message=(
+                        f"Lixinger circuit opened (path={path}); "
+                        f"{self._circuit.failure_count} consecutive failures"
+                    ),
+                    detail={
+                        "path": path,
+                        "failure_count": self._circuit.failure_count,
+                        "reset_seconds": self._circuit.reset_seconds,
+                    },
+                )
+                db.commit()
+            finally:
+                db.close()
+            self._circuit.mark_alert_emitted()
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Failed to emit circuit alert: %s", e)
+
+    def _emit_token_alert(self, path: str, msg: str) -> None:
+        """Token/quota business errors get a critical alert immediately."""
+        try:
+            from app.db.session import SessionLocal
+            from app.services.system_alert_service import create_alert
+
+            db = SessionLocal()
+            try:
+                create_alert(
+                    db,
+                    severity="critical",
+                    category="token",
+                    message=f"Lixinger token/quota error: {msg}",
+                    detail={"path": path, "message": msg},
+                )
+                db.commit()
+            finally:
+                db.close()
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Failed to emit token alert: %s", e)
 
     # ── Company ──────────────────────────────────────────────────────────
 
@@ -125,6 +368,36 @@ class LixingerClient:
             cache_ttl=86400,  # 24h — stock list rarely changes
         )
         return data or []
+
+    def get_company_list_all(self, page_size: int = 500) -> list[dict]:
+        """Fetch all A-share stocks, auto-paginating past Lixinger's silent 500 cap.
+
+        Lixinger's /cn/company endpoint silently truncates pageSize to 500 regardless
+        of the requested value. This method loops pages until a page returns fewer
+        than `page_size` records (or empty), accumulating all stocks.
+
+        Args:
+            page_size: Page size to request per call (max 500 enforced by Lixinger).
+
+        Returns:
+            All stocks across all pages.
+        """
+        page_size = min(page_size, 500)  # Lixinger cap
+        all_records: list[dict] = []
+        page = 0
+        while True:
+            batch = self._post(
+                "/cn/company",
+                {"pageIndex": page, "pageSize": page_size},
+                cache_ttl=86400,
+            ) or []
+            if not batch:
+                break
+            all_records.extend(batch)
+            if len(batch) < page_size:
+                break  # last page
+            page += 1
+        return all_records
 
     def get_company_profile(self, stock_code: str) -> Optional[dict]:
         """Get company profile for a single stock."""
@@ -479,6 +752,51 @@ class LixingerClient:
         if end_date:
             payload["endDate"] = end_date
         return self._post("/cn/company/dividend", payload, cache_ttl=3600) or []
+
+    def get_dividend_full(
+        self,
+        stock_code: str,
+        start_date: str,
+        end_date: str,
+    ) -> list[dict]:
+        """Fetch dividend history, auto-segmenting past Lixinger's 10-year window cap.
+
+        Lixinger's /cn/company/dividend endpoint rejects ranges > 10 years with
+        HTTP 403 "时间跨度不能超过10年". This method splits the range into
+        consecutive ≤10-year segments and concatenates results.
+
+        Args:
+            stock_code: Single stock code.
+            start_date: Required start (YYYY-MM-DD).
+            end_date: Required end (YYYY-MM-DD).
+
+        Returns:
+            Concatenated dividend records across all segments.
+        """
+        from datetime import timedelta
+
+        start = datetime.strptime(start_date, "%Y-%m-%d")
+        end = datetime.strptime(end_date, "%Y-%m-%d")
+        if end <= start:
+            return []
+
+        MAX_SEGMENT_DAYS = 3650  # ~10 years, safely under Lixinger's cap
+        results: list[dict] = []
+        cursor = start
+        while cursor < end:
+            seg_end = min(cursor + timedelta(days=MAX_SEGMENT_DAYS), end)
+            seg = self._post(
+                "/cn/company/dividend",
+                {
+                    "stockCode": stock_code,
+                    "startDate": cursor.strftime("%Y-%m-%d"),
+                    "endDate": seg_end.strftime("%Y-%m-%d"),
+                },
+                cache_ttl=3600,
+            ) or []
+            results.extend(seg)
+            cursor = seg_end + timedelta(days=1)
+        return results
 
     # ── Shareholders / Customers / Suppliers ─────────────────────────────
 

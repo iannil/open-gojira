@@ -87,8 +87,11 @@ def fetch_stock_info(code: str) -> Optional[dict]:
                 "industry": profile.get("industry", ""),
             }
 
-        # Fallback: search in full company list (cached 24h)
-        companies = client.get_company_list(page=0, page_size=5000)
+        # Fallback: search in full company list (auto-paginated, cached 24h)
+        # get_company_list_all loops past Lixinger's silent 500-record cap,
+        # so the fallback actually sees the full 5625-share universe rather
+        # than the 500-row subset the legacy get_company_list returned.
+        companies = client.get_company_list_all()
         for c in companies:
             if c.get("stockCode") == code:
                 return {

@@ -9,10 +9,13 @@ const UniversePage = lazy(() => import('./pages/UniversePage'));
 const StrategiesPage = lazy(() => import('./pages/StrategiesPage'));
 const PlansPage = lazy(() => import('./pages/PlansPage'));
 const CandidatesPage = lazy(() => import('./pages/CandidatesPage'));
+const TradesPage = lazy(() => import('./pages/TradesPage'));
 const ReviewPage = lazy(() => import('./pages/ReviewPage'));
 const StockDetailPage = lazy(() => import('./pages/StockDetailPage'));
 const DataManagementPage = lazy(() => import('./pages/DataManagementPage'));
 const SchedulerPage = lazy(() => import('./pages/SchedulerPage'));
+const BacktestPage = lazy(() => import('./pages/BacktestPage'));
+const MonitoringPage = lazy(() => import('./pages/MonitoringPage'));
 
 function LoadingFallback() {
   return (
@@ -79,10 +82,13 @@ function App() {
                 <Route path="strategies" element={<StrategiesPage />} />
                 <Route path="plans" element={<PlansPage />} />
                 <Route path="candidates" element={<CandidatesPage />} />
+                <Route path="trades" element={<TradesPage />} />
                 <Route path="review" element={<ReviewPage />} />
                 <Route path="stock/:code" element={<StockDetailPage />} />
                 <Route path="data-management" element={<DataManagementPage />} />
                 <Route path="scheduler" element={<SchedulerPage />} />
+                <Route path="backtest" element={<BacktestPage />} />
+                <Route path="monitoring" element={<MonitoringPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>
             </Routes>

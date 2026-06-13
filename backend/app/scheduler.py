@@ -69,7 +69,14 @@ def _utcnow() -> datetime:
 
 
 def _with_tracking(job_id: str, func):
-    """Wrap a job function to record start/finish in JobExecution table."""
+    """Wrap a job function to record start/finish in JobExecution table.
+
+    S3.5 — on failure, also emits a critical system_alert (category=scheduler)
+    via ``scheduler_alerting.emit_job_failure_alert``. Deduplicated within a
+    10-minute window so a chronically failing job doesn't drown the feed.
+    """
+    from app.services.scheduler_alerting import emit_job_failure_alert
+
     @wraps(func)
     def wrapper():
         # Assign a dedicated trace_id for the entire job execution
@@ -116,6 +123,16 @@ def _with_tracking(job_id: str, func):
                 db.commit()
             except Exception:
                 logger.exception("failed to record job execution error")
+
+            # S3.5 — surface the failure as a system_alert so the UI can
+            # show a red banner. Dedup is handled inside the helper.
+            try:
+                emit_job_failure_alert(db, job_id=job_id, error=e)
+                db.commit()
+            except Exception:
+                logger.exception(
+                    "failed to emit scheduler alert for job_id=%s", job_id,
+                )
 
             error_event = {
                 "job_id": job_id,
@@ -264,6 +281,44 @@ def daily_kline_sync_job() -> dict:
                 logger.exception("daily_kline_sync_job: failed for %s", code)
         logger.info("daily_kline_sync_job: synced %d / %d", ok, len(codes))
         return {"synced": ok, "codes": len(codes)}
+
+
+def _watched_held_and_candidate_codes(db: Session) -> list[str]:
+    """Codes the user actively cares about + current plan candidates.
+
+    Extends _watched_and_held_codes with active Candidate stocks —
+    needed so prev_close is fresh for price validation on candidate
+    promotions to drafts.
+    """
+    base = set(_watched_and_held_codes(db))
+    from app.models.candidate import Candidate
+    candidates = {
+        c.stock_code
+        for c in db.query(Candidate).filter(Candidate.status == "active").all()
+    }
+    return sorted(base | candidates)
+
+
+def daily_prev_close_sync_job() -> dict:
+    """Refresh prev_close for held + watched + candidate stocks.
+
+    Must run AFTER daily_kline_sync (17:15) so the latest K-line is
+    already cached. prev_close is the reference price for 涨跌停
+    (price band) validation in trade_service.
+
+    Scope is intentionally narrow (held/watched/candidate, NOT full
+    market) — full-market sync would burn ~5625 Lixinger calls/day
+    for a field only needed at order-draft time.
+    """
+    from app.services.kline_service import update_prev_close_batch
+    with SessionLocal() as db:
+        codes = _watched_held_and_candidate_codes(db)
+        if not codes:
+            logger.info("daily_prev_close_sync_job: no codes to sync, skipping")
+            return {"synced": 0, "codes": 0}
+        count = update_prev_close_batch(db, codes)
+        logger.info("daily_prev_close_sync_job: synced %d / %d", count, len(codes))
+        return {"synced": count, "codes": len(codes)}
 
 
 def intraday_monitor_job() -> dict:
@@ -481,6 +536,145 @@ def _monthly_thesis_variable_sync_job() -> dict:
     return result
 
 
+# ── Phase S4A: corporate action pipeline ──────────────────────────────────
+
+
+def weekly_dividend_sync_job() -> dict:
+    """Weekly pull of Lixinger dividend history for held/watched/candidate stocks.
+
+    The dividend endpoint returns cash + stock dividends + capitalization
+    in one record per ex-date; sync_service splits these into one
+    CorpAction row per action_type. Existing rows are skipped (unique
+    constraint on (stock_code, ex_date, action_type, source)).
+
+    Weekly cadence balances freshness against Lixinger call volume:
+    the daily_apply job consumes these rows on the morning of the
+    ex-date, so a one-week window is plenty of headroom.
+    """
+    from app.services.corp_action_sync_service import sync_dividends_batch
+
+    with SessionLocal() as db:
+        codes = _watched_held_and_candidate_codes(db)
+        if not codes:
+            logger.info("weekly_dividend_sync_job: no codes, skipping")
+            return {"synced": 0, "codes": 0}
+        new = sync_dividends_batch(db, codes)
+        logger.info(
+            "weekly_dividend_sync_job: %d new corp_actions across %d codes",
+            new, len(codes),
+        )
+        return {"new_count": new, "codes": len(codes)}
+
+
+def daily_corp_action_apply_job() -> dict:
+    """Apply pending corp_actions whose ex_date <= today (trading days).
+
+    Runs at 09:00 every weekday. On non-trading days there are usually
+    no ex-dates either, but to be safe we apply any pending backlog
+    regardless of trading-day status (idempotent — applied rows are
+    skipped on the next run).
+
+    `as_of=today` ensures we never apply an action whose ex_date is in
+    the future (those stay in pending until the morning they take effect).
+    """
+    from app.services.corp_action_processor_service import (
+        process_pending_corp_actions,
+    )
+
+    with SessionLocal() as db:
+        count = process_pending_corp_actions(db, as_of=date.today())
+        if count > 0:
+            logger.info("daily_corp_action_apply_job: applied %d", count)
+        db.commit()
+        return {"applied_count": count}
+
+
+# ── Phase S5: intraday price polling ──────────────────────────────────────
+
+
+def intraday_price_poll_job() -> dict:
+    """Poll realtime prices every 5 min during A-share trading hours.
+
+    Guards:
+      1. ``is_trading_day()`` — skips weekends + holidays (S5.1)
+      2. Local-time hour check — only runs 9:00-11:30 + 13:00-15:00
+         (skips the 12:00-13:00 lunch break + outside sessions)
+
+    Pipeline (delegates to S5.3 services):
+      - ``intraday_watch_list`` — union of held + watched + drafts + candidates
+      - ``get_realtime_prices`` — one batched Sina call
+      - ``check_holding`` — per-position stop-loss / take-profit
+      - ``dispatch_alert`` — pushes any new alerts to notification channels
+
+    Returns a summary dict consumed by the tracking wrapper.
+    """
+    from datetime import datetime as _dt
+
+    from sqlalchemy import select
+
+    from app.models.system_alert import SystemAlert
+    from app.services.intraday_monitor_service import poll_once
+    from app.services.notification_service import dispatch_alert
+    from app.services.trading_calendar_service import is_trading_day
+
+    with SessionLocal() as db:
+        # Guard 1: trading day
+        if not is_trading_day(db, date.today()):
+            logger.info("intraday_price_poll: non-trading day, skipping")
+            return {"skipped": "non_trading_day"}
+
+        # Guard 2: trading hours (local time, Asia/Shanghai)
+        # 9:30-11:30 morning, 13:00-15:00 afternoon. Skip lunch (12:xx).
+        now = _dt.now()
+        hour_min = now.hour * 100 + now.minute
+        in_morning = 930 <= hour_min <= 1130
+        in_afternoon = 1300 <= hour_min <= 1500
+        if not (in_morning or in_afternoon):
+            logger.info(
+                "intraday_price_poll: outside trading hours (now=%s), skipping",
+                now.strftime("%H:%M"),
+            )
+            return {"skipped": "outside_trading_hours"}
+
+        # Poll: fetch + check rules + emit alerts (poll_once commits)
+        result = poll_once(db)
+
+        # Dispatch alerts created in the last 5 minutes. poll_once creates
+        # them via stop_loss_service._trigger → system_alert_service.
+        from datetime import timedelta
+
+        cutoff = _utcnow() - timedelta(minutes=5)
+        recent_alerts = list(
+            db.execute(
+                select(SystemAlert).where(
+                    SystemAlert.created_at >= cutoff,
+                    SystemAlert.resolved_at.is_(None),
+                )
+            ).scalars().all()
+        )
+        dispatched = 0
+        for alert in recent_alerts:
+            try:
+                dispatch_alert(db, alert)
+                dispatched += 1
+            except Exception as e:
+                logger.warning(
+                    "Dispatch failed for alert %s: %s", alert.id, e
+                )
+        db.commit()
+
+        summary = {
+            "codes_checked": result.codes_checked,
+            "prices_fetched": result.prices_fetched,
+            "stop_loss_events": len(result.stop_loss_events),
+            "take_profit_events": len(result.take_profit_events),
+            "errors": len(result.errors),
+            "dispatched_alerts": dispatched,
+        }
+        logger.info("intraday_price_poll: %s", summary)
+        return summary
+
+
 # ── Job Registry ──────────────────────────────────────────────────────────
 
 # Maps job_id → unwrapped function (tracking is applied during scheduling)
@@ -492,6 +686,7 @@ JOB_REGISTRY = {
     "daily_cycle_assessment": daily_cycle_assessment_job,
     "alert_evaluation": alert_evaluation_job,
     "daily_kline_sync": daily_kline_sync_job,
+    "daily_prev_close_sync": daily_prev_close_sync_job,
     "monthly_dividend_sync": monthly_dividend_sync_job,
     "quarterly_financials_refresh": quarterly_financials_refresh_job,
     "quarterly_shareholders_refresh": quarterly_shareholders_refresh_job,
@@ -499,6 +694,9 @@ JOB_REGISTRY = {
     "weekly_rebalancing_review": weekly_rebalancing_review_job,
     "monthly_thesis_variable_sync": _monthly_thesis_variable_sync_job,
     "intraday_monitor": intraday_monitor_job,
+    "weekly_dividend_sync": weekly_dividend_sync_job,
+    "daily_corp_action_apply": daily_corp_action_apply_job,
+    "intraday_price_poll": intraday_price_poll_job,
 }
 
 

@@ -25,6 +25,19 @@ _cancelled_runs: set[str] = set()
 _cancelled_runs_lock = threading.Lock()
 
 
+# S3.5 — maps pipeline_type → data_freshness category. Pipelines not listed
+# here (e.g. universe_bootstrap) do not update data_freshness. Categories
+# must match the strings asserted by plan_runner's freshness gate.
+_PIPELINE_FRESHNESS_CATEGORY: dict[str, str] = {
+    "valuations": "valuation",
+    "valuation": "valuation",  # alias for safety
+    "klines": "kline",
+    "kline": "kline",  # alias for safety
+    "financials": "financial",
+    "dividends": "dividend",
+}
+
+
 def _get_cancelled() -> frozenset[str]:
     """Thread-safe snapshot of cancelled run IDs."""
     with _cancelled_runs_lock:
@@ -186,6 +199,37 @@ class PipelineManager:
         except Exception:
             db.rollback()
             db.commit()
+
+        # S3.5 — update data_freshness table so plan_runner can gate on it.
+        # Map pipeline_type → data_freshness category. Some pipelines (e.g.
+        # universe_bootstrap) don't have a direct category and are skipped.
+        try:
+            from app.services.scheduler_alerting import record_pipeline_completion
+
+            freshness_category = _PIPELINE_FRESHNESS_CATEGORY.get(pipeline_type)
+            if freshness_category is not None:
+                succeeded = run.status in (
+                    PipelineStatus.COMPLETED.value,
+                    PipelineStatus.COMPLETED_WITH_ERRORS.value,
+                )
+                record_pipeline_completion(
+                    db,
+                    freshness_category,
+                    success=succeeded,
+                    record_count=(
+                        result.completed_items if result else 0
+                    ) if succeeded else None,
+                    error=(
+                        None if succeeded
+                        else f"pipeline status={run.status}"
+                    ),
+                )
+                db.commit()
+        except Exception:
+            logger.exception(
+                "Failed to record pipeline freshness for %s run %s",
+                pipeline_type, run_id,
+            )
 
         # Emit event for downstream handlers
         try:

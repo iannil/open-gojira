@@ -14,6 +14,7 @@ def test_job_registry_has_expected_jobs():
         "daily_cycle_assessment",
         "alert_evaluation",
         "daily_kline_sync",
+        "daily_prev_close_sync",
         "monthly_dividend_sync",
         "quarterly_financials_refresh",
         "quarterly_shareholders_refresh",
@@ -21,6 +22,9 @@ def test_job_registry_has_expected_jobs():
         "weekly_rebalancing_review",
         "monthly_thesis_variable_sync",
         "intraday_monitor",
+        "weekly_dividend_sync",
+        "daily_corp_action_apply",
+        "intraday_price_poll",
     }
 
 

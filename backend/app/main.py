@@ -22,14 +22,22 @@ from app.db.base import Base
 from app.db.engine import engine
 from app.models import *  # noqa: F401,F403 — ensure all models register with Base.metadata
 from app.routers import (
-    alerts, audit_log, cashflow_goal, candidates as candidates_router,
-    cockpit as cockpit_router, data_management, dividend,
-    drafts as drafts_router, financial, health, market,
+    alerts, audit_log, backtests as backtests_router,
+    cashflow_goal, candidates as candidates_router,
+    cash as cash_router,
+    cockpit as cockpit_router, corp_actions as corp_actions_router,
+    data_management, dividend,
+    drafts as drafts_router, fee_configs as fee_configs_router, financial,
+    health, market,
+    notifications as notifications_router,
     observability as observability_router,
     plans as plans_router, portfolio,
-    review as review_router, scheduler as scheduler_router,
-    stocks, strategies as strategies_router, theme as theme_router, valuation,
-    watchlist,
+    review as review_router, risk_rules as risk_rules_router,
+    scheduler as scheduler_router,
+    stocks, strategies as strategies_router,
+    system_alerts as system_alerts_router,
+    theme as theme_router, trades as trades_router,
+    valuation, watchlist,
 )
 from app.scheduler import shutdown_scheduler, start_scheduler
 
@@ -227,3 +235,11 @@ app.include_router(review_router.router)
 app.include_router(theme_router.router)
 app.include_router(data_management.router)
 app.include_router(observability_router.router)
+app.include_router(trades_router.router)
+app.include_router(cash_router.router)
+app.include_router(fee_configs_router.router)
+app.include_router(system_alerts_router.router)
+app.include_router(corp_actions_router.router)
+app.include_router(backtests_router.router)
+app.include_router(notifications_router.router)
+app.include_router(risk_rules_router.router)

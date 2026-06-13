@@ -89,19 +89,10 @@ class UniverseBootstrapPipeline(BasePipeline):
         from app.services.lixinger_client import get_lixinger_client
 
         client = get_lixinger_client()
-        all_companies: list[dict] = []
-        page = 0
-        page_size = 500
-
-        while True:
-            batch = client.get_company_list(page=page, page_size=page_size)
-            if not batch:
-                break
-            all_companies.extend(batch)
-            if len(batch) < page_size:
-                break
-            page += 1
-
+        # get_company_list_all auto-paginates past Lixinger's silent 500-record
+        # cap, returning the full ~5625-share universe. Replaces the manual
+        # page loop previously inlined here (identical behaviour, less duplication).
+        all_companies = client.get_company_list_all()
         self._logger.info("Fetched %d companies from Lixinger", len(all_companies))
         return all_companies
 
@@ -116,7 +107,16 @@ class UniverseBootstrapPipeline(BasePipeline):
                 c.get("ipoDate") or c.get("listingDate") or c.get("listDate")
             )
             fs_type = c.get("fsTableType", "")
-            result[code] = {"name": name, "listed_date": listed, "fs_type": fs_type}
+            result[code] = {
+                "name": name,
+                "listed_date": listed,
+                "fs_type": fs_type,
+                # S1.1 raw trading-status fields (stored verbatim for S2 derivation)
+                "exchange": c.get("exchange"),
+                "listing_status": c.get("listingStatus"),
+                "fs_table_type": fs_type or None,
+                "ipo_date": listed,  # ipoDate is the canonical source for both
+            }
         return result
 
     def _upsert_companies(self, companies: dict[str, dict]) -> dict:
@@ -140,12 +140,20 @@ class UniverseBootstrapPipeline(BasePipeline):
 
             existing = existing_stocks.get(code)
             fs_type = info.get("fs_type", "")
+            exchange = info.get("exchange")
+            listing_status = info.get("listing_status")
+            fs_table_type = info.get("fs_table_type")
+            ipo_date = info.get("ipo_date")
             if existing is None:
                 self.db.add(Stock(
                     code=code,
                     name=name,
                     listed_date=listed,
                     industry=fs_type or None,
+                    exchange=exchange,
+                    listing_status=listing_status,
+                    fs_table_type=fs_table_type,
+                    ipo_date=ipo_date,
                     sync_source="bootstrap",
                 ))
                 inserted += 1
@@ -159,6 +167,18 @@ class UniverseBootstrapPipeline(BasePipeline):
                     changed = True
                 if fs_type and existing.industry != fs_type:
                     existing.industry = fs_type
+                    changed = True
+                if exchange and existing.exchange != exchange:
+                    existing.exchange = exchange
+                    changed = True
+                if listing_status and existing.listing_status != listing_status:
+                    existing.listing_status = listing_status
+                    changed = True
+                if fs_table_type and existing.fs_table_type != fs_table_type:
+                    existing.fs_table_type = fs_table_type
+                    changed = True
+                if ipo_date and existing.ipo_date != ipo_date:
+                    existing.ipo_date = ipo_date
                     changed = True
                 if changed:
                     updated += 1

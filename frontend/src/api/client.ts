@@ -8,37 +8,60 @@ import type {
   AnnualReview,
   ApiUsageResponse,
   AuditLogEntry,
+  AvailableQuantity,
+  BacktestConfig,
+  BacktestRun,
+  BrokerFeeConfig,
   CandidateResponse,
+  CashAdjustment,
+  CashAdjustmentInput,
+  CashBalance,
   CashflowGoalResponse,
   CashflowGoalUpdate,
   CleanupPreview,
   CleanupResult,
   CockpitResponse,
+  CorpAction,
+  ListCorpActionsParams,
+  ProcessPendingResult,
+  SyncDividendsRequest,
+  SyncDividendsResult,
   DataQualityResponse,
   DataStatusOverview,
   DeadLetterStatsResponse,
   DividendSummaryResponse,
   DraftResponse,
   HoldingResponse,
+  HoldingRiskRule,
   JobExecutionResponse,
   KlineResponse,
   KlineSyncSummary,
   MarginTradingRecord,
   NorthFlowRecord,
+  NotificationChannel,
+  NotificationChannelCreate,
+  NotificationChannelUpdate,
+  NotificationTestResult,
   PipelineHealthResponse,
   PipelineRunDetail,
   PlanCreate,
   PlanResponse,
   PlanUpdate,
+  PriceBand,
   QuarterlyReview,
   QiuScoreInput,
   ReviewResponse,
+  RiskRuleCreate,
+  RiskRuleUpdate,
   SchedulerJobResponse,
   SchedulerJobUpdate,
   ShareholderRecord,
   StockPoolItem,
   StockResponse,
   StockSearchResult,
+  SystemAlert,
+  SystemAlertCategory,
+  SystemAlertSeverity,
   StrategyCreate,
   StrategyResponse,
   StrategyTestResponse,
@@ -48,6 +71,10 @@ import type {
   ThemeExposure,
   ThemeItem,
   ThesisVariable,
+  Trade,
+  TradeCreateInput,
+  TradeListResponse,
+  UnresolvedCount,
   RevenueComposition,
   UniverseItem,
   FullUniverseResponse,
@@ -532,4 +559,233 @@ export async function fetchDeadLetterStats(pipelineType?: string): Promise<DeadL
 export async function fetchDataQuality(): Promise<DataQualityResponse> {
   const res = await apiClient.get<DataQualityResponse>('/data-management/quality');
   return res.data;
+}
+
+// ── Trades ────────────────────────────────────────────────────────────
+
+export async function listTrades(params?: {
+  code?: string;
+  side?: string;
+  source?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<TradeListResponse> {
+  const res = await apiClient.get<TradeListResponse>('/trades', { params });
+  return res.data;
+}
+
+export async function getTrade(id: number): Promise<Trade> {
+  const res = await apiClient.get<Trade>(`/trades/${id}`);
+  return res.data;
+}
+
+export async function createTrade(payload: TradeCreateInput): Promise<Trade> {
+  const res = await apiClient.post<Trade>('/trades', payload);
+  return res.data;
+}
+
+export async function reverseTrade(id: number): Promise<Trade> {
+  const res = await apiClient.post<Trade>(`/trades/${id}/reverse`);
+  return res.data;
+}
+
+// ── Cash ──────────────────────────────────────────────────────────────
+
+export async function getCashBalance(): Promise<CashBalance> {
+  const res = await apiClient.get<CashBalance>('/cash/balance');
+  return res.data;
+}
+
+export async function listCashAdjustments(limit = 100): Promise<CashAdjustment[]> {
+  const res = await apiClient.get<CashAdjustment[]>('/cash/adjustments', {
+    params: { limit },
+  });
+  return res.data;
+}
+
+export async function createCashAdjustment(
+  payload: CashAdjustmentInput,
+): Promise<CashAdjustment> {
+  const res = await apiClient.post<CashAdjustment>('/cash/adjustments', payload);
+  return res.data;
+}
+
+// ── Broker fee configs ────────────────────────────────────────────────
+
+export async function listFeeConfigs(brokerName?: string): Promise<BrokerFeeConfig[]> {
+  const res = await apiClient.get<BrokerFeeConfig[]>('/fee-configs', {
+    params: brokerName ? { broker_name: brokerName } : undefined,
+  });
+  return res.data;
+}
+
+// ── Price band / available quantity (S2 UI validation) ────────────────
+
+export async function getPriceBand(code: string): Promise<PriceBand> {
+  const res = await apiClient.get<PriceBand>(`/stocks/${code}/price-band`);
+  return res.data;
+}
+
+export async function getAvailableQuantity(code: string): Promise<AvailableQuantity> {
+  const res = await apiClient.get<AvailableQuantity>(`/portfolio/${code}/available`);
+  return res.data;
+}
+
+// ── System alerts (S3 infra-level alerts) ──────────────────────────────
+
+export async function listSystemAlerts(params?: {
+  severity?: SystemAlertSeverity;
+  category?: SystemAlertCategory;
+  unresolved_only?: boolean;
+  limit?: number;
+}): Promise<SystemAlert[]> {
+  const res = await apiClient.get<SystemAlert[]>('/system-alerts', { params });
+  return res.data;
+}
+
+export async function getUnresolvedCriticalCount(): Promise<number> {
+  const res = await apiClient.get<UnresolvedCount>('/system-alerts/unresolved-count');
+  return res.data.count;
+}
+
+export async function resolveSystemAlert(
+  id: number,
+  resolvedBy = 'manual',
+): Promise<SystemAlert> {
+  const res = await apiClient.post<SystemAlert>(
+    `/system-alerts/${id}/resolve`,
+    { resolved_by: resolvedBy },
+  );
+  return res.data;
+}
+
+// ── Corporate actions (S4A.4) ─────────────────────────────────────────
+
+export async function listCorpActions(
+  params?: ListCorpActionsParams,
+): Promise<CorpAction[]> {
+  const res = await apiClient.get<CorpAction[]>('/corp-actions', { params });
+  return res.data;
+}
+
+export async function listPendingCorpActions(
+  limit = 100,
+): Promise<CorpAction[]> {
+  const res = await apiClient.get<CorpAction[]>('/corp-actions/pending', {
+    params: { limit },
+  });
+  return res.data;
+}
+
+export async function getCorpAction(id: number): Promise<CorpAction> {
+  const res = await apiClient.get<CorpAction>(`/corp-actions/${id}`);
+  return res.data;
+}
+
+export async function processCorpAction(id: number): Promise<CorpAction> {
+  const res = await apiClient.post<CorpAction>(`/corp-actions/${id}/process`);
+  return res.data;
+}
+
+export async function processPendingCorpActions(): Promise<ProcessPendingResult> {
+  const res = await apiClient.post<ProcessPendingResult>(
+    '/corp-actions/process-pending',
+  );
+  return res.data;
+}
+
+export async function syncDividends(
+  payload: SyncDividendsRequest,
+): Promise<SyncDividendsResult> {
+  const res = await apiClient.post<SyncDividendsResult>(
+    '/corp-actions/sync-dividends',
+    payload,
+  );
+  return res.data;
+}
+
+// ── Backtests (S4D) ───────────────────────────────────────────────────
+
+export async function submitBacktest(config: BacktestConfig): Promise<BacktestRun> {
+  const res = await apiClient.post<BacktestRun>('/backtests', config);
+  return res.data;
+}
+
+export async function listBacktests(limit = 20): Promise<BacktestRun[]> {
+  const res = await apiClient.get<BacktestRun[]>('/backtests', { params: { limit } });
+  return res.data;
+}
+
+export async function getBacktest(id: number): Promise<BacktestRun> {
+  const res = await apiClient.get<BacktestRun>(`/backtests/${id}`);
+  return res.data;
+}
+
+// ── Notifications (S5.4) ──────────────────────────────────────────────
+
+export async function listNotificationChannels(
+  enabledOnly = false,
+): Promise<NotificationChannel[]> {
+  const res = await apiClient.get<NotificationChannel[]>('/notifications/channels', {
+    params: enabledOnly ? { enabled_only: true } : undefined,
+  });
+  return res.data;
+}
+
+export async function createNotificationChannel(
+  payload: NotificationChannelCreate,
+): Promise<NotificationChannel> {
+  const res = await apiClient.post<NotificationChannel>('/notifications/channels', payload);
+  return res.data;
+}
+
+export async function updateNotificationChannel(
+  id: number,
+  payload: NotificationChannelUpdate,
+): Promise<NotificationChannel> {
+  const res = await apiClient.patch<NotificationChannel>(
+    `/notifications/channels/${id}`,
+    payload,
+  );
+  return res.data;
+}
+
+export async function deleteNotificationChannel(id: number): Promise<void> {
+  await apiClient.delete(`/notifications/channels/${id}`);
+}
+
+export async function testNotificationChannel(id: number): Promise<NotificationTestResult> {
+  const res = await apiClient.post<NotificationTestResult>(`/notifications/test/${id}`);
+  return res.data;
+}
+
+// ── Holding risk rules (S5.4) ─────────────────────────────────────────
+
+export async function listRiskRules(): Promise<HoldingRiskRule[]> {
+  const res = await apiClient.get<HoldingRiskRule[]>('/risk-rules');
+  return res.data;
+}
+
+export async function getRiskRule(
+  stockCode: string,
+): Promise<HoldingRiskRule | null> {
+  const res = await apiClient.get<HoldingRiskRule | null>(`/risk-rules/${stockCode}`);
+  return res.data;
+}
+
+export async function createRiskRule(payload: RiskRuleCreate): Promise<HoldingRiskRule> {
+  const res = await apiClient.post<HoldingRiskRule>('/risk-rules', payload);
+  return res.data;
+}
+
+export async function updateRiskRule(
+  id: number,
+  payload: RiskRuleUpdate,
+): Promise<HoldingRiskRule> {
+  const res = await apiClient.patch<HoldingRiskRule>(`/risk-rules/${id}`, payload);
+  return res.data;
+}
+
+export async function deleteRiskRule(id: number): Promise<void> {
+  await apiClient.delete(`/risk-rules/${id}`);
 }

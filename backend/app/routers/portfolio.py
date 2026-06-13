@@ -1,11 +1,15 @@
 """Portfolio (holdings) CRUD endpoints."""
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.models.stock import Stock
 from app.schemas.common import OkResponse
 from app.schemas.holding import (
+    AvailableQuantityResponse,
     HoldingCreate,
     HoldingResponse,
     HoldingUpdate,
@@ -21,6 +25,11 @@ from app.services.holding_service import (
     list_holdings,
     sell_holding,
     update_holding,
+)
+from app.services.holding_view_service import (
+    available_quantity_at,
+    frozen_quantity_at,
+    get_holding_view,
 )
 
 router = APIRouter(prefix="/api/portfolio", tags=["portfolio"])
@@ -79,3 +88,26 @@ def sell(holding_id: int, payload: SellRequest, db: Session = Depends(get_db)):
     if not holding:
         raise HTTPException(status_code=404, detail=f"Holding {holding_id} not found")
     return _holding_to_dict(holding, db)
+
+
+@router.get("/{code}/available", response_model=AvailableQuantityResponse)
+def get_available_quantity(code: str, db: Session = Depends(get_db)):
+    """T+1: return available / frozen / total share counts for a stock.
+
+    - available: shares bought before today, minus sells already executed
+    - frozen:   shares bought today (not yet settled)
+    - total:    current open position size (sum of all non-reversed trades)
+    """
+    if not db.query(Stock).filter(Stock.code == code).first():
+        raise HTTPException(status_code=404, detail=f"Stock {code} not found")
+    now = datetime.now()
+    available = available_quantity_at(db, code, now)
+    frozen = frozen_quantity_at(db, code, now)
+    holdings = [h for h in get_holding_view(db) if h["stock_code"] == code]
+    total = int(holdings[0]["total_quantity"]) if holdings else 0
+    return AvailableQuantityResponse(
+        code=code,
+        available=available,
+        frozen=frozen,
+        total=total,
+    )

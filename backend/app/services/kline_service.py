@@ -2,11 +2,12 @@
 
 import logging
 from datetime import date, timedelta
-from typing import Optional
+from typing import Iterable, Optional
 
 from sqlalchemy.orm import Session
 
 from app.models.price_kline import PriceKline
+from app.models.stock import Stock
 from app.services.lixinger_client import get_lixinger_client, LixingerError
 
 logger = logging.getLogger(__name__)
@@ -229,3 +230,76 @@ def get_valuation_bands(
         "band_levels": band_levels,
         "implied_close": implied,
     }
+
+
+# ── prev_close sync ──────────────────────────────────────────────────────
+
+
+def update_prev_close_for_stock(db: Session, stock_code: str) -> bool:
+    """Fetch latest K-line close and store as Stock.prev_close.
+
+    Pulls the most recent 7 calendar days from Lixinger's candlestick
+    endpoint and stores the latest close as prev_close. This is the
+    reference price for 涨跌停 (price band) validation in trade_service.
+
+    Args:
+        db: SQLAlchemy session.
+        stock_code: 6-digit A-share stock code.
+
+    Returns:
+        True if updated, False if no K-line data available (e.g. newly
+        listed, suspended for an extended period, or Lixinger returned
+        nothing). prev_close is left unchanged on False.
+    """
+    client = get_lixinger_client()
+    end = date.today().isoformat()
+    start = (date.today() - timedelta(days=7)).isoformat()
+    try:
+        klines = client.get_kline(stock_code, start, end)
+    except LixingerError:
+        logger.warning("update_prev_close_for_stock: kline fetch failed for %s", stock_code)
+        return False
+
+    if not klines:
+        return False
+
+    # K-line is returned newest-first (validated in S0 spike).
+    latest = klines[0]
+    close = latest.get("close")
+    if close is None:
+        close = latest.get("Close")
+    try:
+        close_val = float(close) if close is not None else 0.0
+    except (TypeError, ValueError):
+        close_val = 0.0
+    if close_val <= 0:
+        return False
+
+    stock = db.get(Stock, stock_code)
+    if not stock:
+        return False
+    stock.prev_close = close_val
+    db.flush()
+    return True
+
+
+def update_prev_close_batch(db: Session, stock_codes: Iterable[str]) -> int:
+    """Batch update prev_close for multiple stocks.
+
+    Args:
+        db: SQLAlchemy session.
+        stock_codes: Iterable of 6-digit stock codes.
+
+    Returns:
+        Count of successfully updated stocks. Failures are logged but
+        do not abort the batch.
+    """
+    count = 0
+    for code in stock_codes:
+        try:
+            if update_prev_close_for_stock(db, code):
+                count += 1
+        except Exception as e:
+            logger.warning("update_prev_close_batch: failed for %s: %s", code, e)
+    db.commit()
+    return count

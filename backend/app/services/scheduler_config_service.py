@@ -32,6 +32,10 @@ DEFAULT_JOBS: dict[str, dict] = {
         "cron_expr": "15 17 * * 1-5",
         "description": "日K线同步（关注+持仓股）",
     },
+    "daily_prev_close_sync": {
+        "cron_expr": "20 17 * * 1-5",
+        "description": "prev_close同步（持仓+关注+候选股，涨跌停校验用）",
+    },
     "alert_evaluation": {
         "cron_expr": "30 17 * * 1-5",
         "description": "警报规则评估",
@@ -68,11 +72,23 @@ DEFAULT_JOBS: dict[str, dict] = {
         "cron_expr": "*/5 9-14 * * 1-5",
         "description": "盘中价格监控（每5分钟检查止盈告警，默认关闭）",
     },
+    "weekly_dividend_sync": {
+        "cron_expr": "0 9 * * 1",
+        "description": "周度分红历史同步（持仓+关注+候选股）",
+    },
+    "daily_corp_action_apply": {
+        "cron_expr": "0 9 * * 1-5",
+        "description": "每日公司行为应用（ex_date<=今日的 pending actions）",
+    },
+    "intraday_price_poll": {
+        "cron_expr": "*/5 9-14 * * 1-5",
+        "description": "盘中价格轮询（每5分钟，工作日 9-14 点；job 内还会做 trading_day + 时段校验）",
+    },
 }
 
 
 # Jobs disabled by default (opt-in via API)
-_DISABLED_BY_DEFAULT: set[str] = {"intraday_monitor"}
+_DISABLED_BY_DEFAULT: set[str] = {"intraday_monitor", "intraday_price_poll"}
 
 
 def _utcnow() -> datetime:

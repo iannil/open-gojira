@@ -140,3 +140,12 @@ class PositionPlanEvaluation(BaseModel):
     total_value: float
     cash_reserve: float
     grand_total: float
+
+
+class AvailableQuantityResponse(BaseModel):
+    """T+1 available / frozen / total share counts for a single stock."""
+
+    code: str
+    available: int
+    frozen: int
+    total: int

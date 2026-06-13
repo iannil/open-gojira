@@ -16,8 +16,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.draft import Draft
-from app.models.holding import Holding
 from app.models.stock import Stock
+from app.services.holding_view_service import get_holding_view
 
 logger = logging.getLogger(__name__)
 
@@ -48,12 +48,13 @@ class PositionAdvice:
         }
 
 
-def _open_holdings(db: Session) -> list[Holding]:
-    return list(
-        db.execute(
-            select(Holding).where(Holding.sell_date.is_(None))
-        ).scalars().all()
-    )
+def _open_holdings(db: Session) -> list[dict]:
+    """Current open positions, derived from trades via holding_view_service.
+
+    Returns list of dicts (not ORM Holding rows):
+        { stock_code, total_quantity, avg_cost_basis, first_buy_at, last_trade_at }
+    """
+    return get_holding_view(db)
 
 
 def _pending_buy_drafts(db: Session) -> list[Draft]:
@@ -78,13 +79,13 @@ def _pending_sell_drafts(db: Session) -> list[Draft]:
     )
 
 
-def _industry_weights(holdings: list[Holding], db: Session) -> dict[str, float]:
-    """Calculate industry concentration from open holdings."""
+def _industry_weights(holdings: list[dict], db: Session) -> dict[str, float]:
+    """Calculate industry concentration from open holdings (dicts)."""
     if not holdings:
         return {}
 
     # Batch-load all stocks to avoid N+1
-    codes = [h.stock_code for h in holdings]
+    codes = [h["stock_code"] for h in holdings]
     stocks_map = {
         s.code: s
         for s in db.execute(select(Stock).where(Stock.code.in_(codes))).scalars().all()
@@ -94,11 +95,11 @@ def _industry_weights(holdings: list[Holding], db: Session) -> dict[str, float]:
     by_industry: dict[str, float] = {}
 
     for h in holdings:
-        stock = stocks_map.get(h.stock_code)
+        stock = stocks_map.get(h["stock_code"])
         if not stock:
             continue
-        price = _latest_price(h, db)
-        value = price * h.quantity
+        price = _latest_price_for_code(h["stock_code"], h, db)
+        value = price * h["total_quantity"]
         total_value += value
         ind = stock.industry or "unknown"
         by_industry[ind] = by_industry.get(ind, 0.0) + value
@@ -109,16 +110,25 @@ def _industry_weights(holdings: list[Holding], db: Session) -> dict[str, float]:
     return {ind: v / total_value for ind, v in by_industry.items()}
 
 
-def _latest_price(holding: Holding, db: Session) -> float:
-    """Best-effort current price for a holding."""
+def _latest_price_for_code(
+    stock_code: str, holding: dict | None, db: Session
+) -> float:
+    """Best-effort current price for a stock code.
+
+    Order of preference:
+        1. cached live price from data_service
+        2. avg_cost_basis from the holding dict (fallback for tests/offline)
+    """
     from app.services.holding_service import _get_cached_price
     try:
-        price = _get_cached_price(holding.stock_code)
+        price = _get_cached_price(stock_code)
         if price:
             return price
     except Exception:
         pass
-    return float(holding.buy_price)
+    if holding is not None:
+        return float(holding.get("avg_cost_basis", 0.0) or 0.0)
+    return 0.0
 
 
 def check_before_draft(
@@ -170,7 +180,7 @@ def check_before_draft(
 
     # 2. Industry concentration check
     # Skip if adding to an existing position (invest system allows adding to winners)
-    already_held = any(h.stock_code == stock_code for h in holdings)
+    already_held = any(h["stock_code"] == stock_code for h in holdings)
     stock = db.get(Stock, stock_code)
     if not already_held and stock and stock.industry:
         current_ind_weight = ind_weights.get(stock.industry, 0.0)

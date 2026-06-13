@@ -42,7 +42,9 @@ import ReactECharts from 'echarts-for-react';
 import echarts from '../lib/echarts';
 import { useAntdStatic } from '../hooks/useAntdStatic';
 import DisciplineChecklistModal from '../components/DisciplineChecklistModal';
+import DraftAvailableCell from '../components/DraftAvailableCell';
 import PageHeader from '../components/PageHeader';
+import { PendingCorpActionsCard } from '../components/PendingCorpActionsCard';
 import {
   cancelDraft,
   executeDraft,
@@ -688,6 +690,12 @@ function DraftList({
       ellipsis: true,
     },
     {
+      title: '可卖份额',
+      width: 200,
+      render: (_: unknown, r: CockpitDraft) =>
+        r.side === 'SELL' ? <DraftAvailableCell code={r.code} /> : '—',
+    },
+    {
       title: '档位',
       width: 160,
       render: (_: unknown, r: CockpitDraft) => (
@@ -1197,6 +1205,10 @@ export default function CockpitPage() {
         </div>
         <div className="cockpit-span-10">
           <PlansList plans={data.plans} />
+        </div>
+
+        <div className="cockpit-span-full">
+          <PendingCorpActionsCard />
         </div>
       </div>
 

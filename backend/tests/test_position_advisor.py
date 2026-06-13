@@ -43,14 +43,16 @@ class TestCheckBeforeDraft:
         return db
 
     def _make_holding(self, code="600000", industry="银行"):
-        h = MagicMock()
-        h.stock_code = code
-        h.quantity = 1000
-        h.buy_price = 10.0
-        h.sell_date = None
-        # Associate with a stock that has the industry
-        h._industry = industry
-        return h
+        """Mock holding in the dict shape produced by holding_view_service."""
+        return {
+            "stock_code": code,
+            "total_quantity": 1000,
+            "avg_cost_basis": 10.0,
+            "first_buy_at": None,
+            "last_trade_at": None,
+            # "_industry" kept for any test that introspects it
+            "_industry": industry,
+        }
 
     def test_sell_always_allowed(self):
         """SELL drafts should never be blocked."""

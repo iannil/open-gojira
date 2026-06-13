@@ -881,3 +881,334 @@ export interface DataQualityResponse {
   };
   recommendations: string[];
 }
+
+// ── Trades ────────────────────────────────────────────────────────────
+
+export type TradeSide = 'BUY' | 'SELL' | 'DIVIDEND' | 'CORP_ACTION';
+export type TradeSource =
+  | 'manual'
+  | 'csv_import'
+  | 'broker_api'
+  | 'corp_action'
+  | 'migration'
+  | 'reversal';
+
+export interface Trade {
+  id: number;
+  stock_code: string;
+  side: TradeSide;
+  price: number;
+  quantity: number;
+  filled_at: string;
+  commission: number;
+  stamp_duty: number;
+  transfer_fee: number;
+  total_value: number;
+  source: TradeSource;
+  source_ref: string | null;
+  fee_source: 'auto' | 'manual_override';
+  note: string | null;
+  created_at: string;
+  reversed_by_trade_id: number | null;
+}
+
+export interface TradeListResponse {
+  items: Trade[];
+  total: number;
+}
+
+export interface TradeCreateInput {
+  stock_code: string;
+  side: TradeSide;
+  price: number;
+  quantity: number;
+  filled_at: string;
+  source?: TradeSource;
+  source_ref?: string;
+  commission_override?: number;
+  note?: string;
+}
+
+// ── Cash ──────────────────────────────────────────────────────────────
+
+export interface CashBalance {
+  balance: number;
+  as_of_at: string;
+  last_trade_id: number | null;
+  last_adjustment_id: number | null;
+}
+
+export interface CashAdjustment {
+  id: number;
+  amount: number;
+  happened_at: string;
+  reason: 'deposit' | 'withdrawal' | 'dividend' | 'other';
+  note: string | null;
+  created_at: string;
+}
+
+export interface CashAdjustmentInput {
+  amount: number;
+  happened_at: string;
+  reason: 'deposit' | 'withdrawal' | 'dividend' | 'other';
+  note?: string;
+}
+
+// ── Broker fee configs ────────────────────────────────────────────────
+
+// ── Price band / available quantity (S2 UI validation) ────────────────
+
+export interface PriceBand {
+  code: string;
+  low: number | null;
+  high: number | null;
+  prev_close: number | null;
+  board: string;
+  is_st: boolean;
+  is_suspended: boolean;
+  listing_status: string | null;
+}
+
+export interface AvailableQuantity {
+  code: string;
+  available: number;
+  frozen: number;
+  total: number;
+}
+
+export interface BrokerFeeConfig {
+  id: number;
+  broker_name: string;
+  commission_rate: number;
+  commission_min: number;
+  stamp_duty_rate: number;
+  transfer_fee_rate: number;
+  effective_from: string;
+  is_active: boolean;
+}
+
+// ── System alerts (S3 infra-level alerts) ─────────────────────────────
+
+export type SystemAlertSeverity = 'info' | 'warning' | 'critical';
+export type SystemAlertCategory = 'data' | 'scheduler' | 'api' | 'db' | 'token';
+
+export interface SystemAlert {
+  id: number;
+  severity: SystemAlertSeverity;
+  category: SystemAlertCategory;
+  message: string;
+  detail_json: Record<string, unknown> | null;
+  created_at: string;
+  resolved_at: string | null;
+  resolved_by: string | null;
+}
+
+export interface UnresolvedCount {
+  count: number;
+}
+
+// ── Corporate actions (S4A) ───────────────────────────────────────────
+
+export type CorpActionType =
+  | 'cash_dividend'
+  | 'stock_dividend'
+  | 'capitalization'
+  | 'rights_issue'
+  | 'delist'
+  | 'merger'
+  | 'code_change';
+
+export type CorpActionStatus = 'pending' | 'processed';
+
+export interface CorpAction {
+  id: number;
+  stock_code: string;
+  ex_date: string;
+  action_type: CorpActionType;
+  params_json: Record<string, unknown>;
+  source: string;
+  created_at: string;
+  processed_at: string | null;
+  applied_trade_id: number | null;
+  note: string | null;
+}
+
+export interface ListCorpActionsParams {
+  stock_code?: string;
+  action_type?: CorpActionType;
+  source?: string;
+  status?: CorpActionStatus;
+  limit?: number;
+}
+
+export interface ProcessPendingResult {
+  processed_count: number;
+  skipped_count: number;
+}
+
+export interface SyncDividendsRequest {
+  stock_codes: string[];
+  start_date?: string;
+  end_date?: string;
+}
+
+export interface SyncDividendsResult {
+  new_count: number;
+  failed_codes: string[];
+}
+
+// ── Backtests (S4D) ───────────────────────────────────────────────────
+
+export type BacktestRuleAction = 'BUY' | 'SELL';
+
+export interface BacktestRule {
+  metric: string;
+  operator: '<' | '>' | '<=' | '>=' | '==';
+  threshold: number;
+  action: BacktestRuleAction;
+  target_pct?: number;
+}
+
+export interface BacktestConfig {
+  stock_codes: string[];
+  start_date: string;
+  end_date: string;
+  initial_capital: number;
+  slippage_bps: number;
+  strategy_rules: BacktestRule[];
+}
+
+export interface BacktestMetrics {
+  cagr: number;
+  total_return: number;
+  sharpe: number;
+  max_drawdown: number;
+  win_rate: number;
+  avg_win: number;
+  avg_loss: number;
+  trade_count: number;
+  benchmark_return: number | null;
+  alpha: number | null;
+}
+
+export interface EquityPoint {
+  date: string;
+  value: number;
+}
+
+export interface TradeRecord {
+  side: TradeSide;
+  code: string;
+  qty: number;
+  price: number;
+  total: number;
+  realized_pnl?: number;
+  date?: string | null;
+  per_share?: number;
+}
+
+export interface FinalPosition {
+  quantity: number;
+  avg_cost: number;
+}
+
+export interface BacktestResult {
+  metrics: BacktestMetrics;
+  equity_curve: EquityPoint[];
+  monthly_returns: Record<string, number>;
+  trades_log: TradeRecord[];
+  final_cash: number;
+  final_positions: Record<string, FinalPosition>;
+}
+
+export type BacktestStatus = 'pending' | 'running' | 'completed' | 'failed';
+
+export interface BacktestRun {
+  id: number;
+  status: BacktestStatus;
+  config_json: BacktestConfig;
+  result_json: BacktestResult | null;
+  error_message: string | null;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+// ── Notifications (S5.4) ──────────────────────────────────────────────
+
+export type NotificationChannelType =
+  | 'in_app'
+  | 'server_chan'
+  | 'email'
+  | 'dingtalk_webhook'
+  | 'telegram_bot';
+
+export type NotificationSeverityFilter = 'all' | 'warning_and_above' | 'critical_only';
+
+export interface NotificationChannel {
+  id: number;
+  name: string;
+  type: NotificationChannelType;
+  config_json: Record<string, unknown>;
+  enabled: boolean;
+  severity_filter: NotificationSeverityFilter;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface NotificationChannelCreate {
+  name: string;
+  type: NotificationChannelType;
+  config_json: Record<string, unknown>;
+  enabled?: boolean;
+  severity_filter?: NotificationSeverityFilter;
+}
+
+export interface NotificationChannelUpdate {
+  config_json?: Record<string, unknown>;
+  enabled?: boolean;
+  severity_filter?: NotificationSeverityFilter;
+}
+
+export interface NotificationTestResult {
+  success: boolean;
+  error: string | null;
+}
+
+// ── Holding risk rules (S5.4) ─────────────────────────────────────────
+
+export type StopLossType = 'pct_from_cost' | 'fixed_price' | 'trailing';
+export type TakeProfitType = 'pct_from_cost';
+
+export interface HoldingRiskRule {
+  id: number;
+  stock_code: string;
+  stop_loss_pct: number | null;
+  stop_loss_type: StopLossType;
+  take_profit_pct: number | null;
+  take_profit_type: TakeProfitType;
+  peak_price: number | null;
+  enabled: boolean;
+  triggered_at: string | null;
+  trigger_reason: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface RiskRuleCreate {
+  stock_code: string;
+  stop_loss_pct?: number | null;
+  stop_loss_type?: StopLossType;
+  take_profit_pct?: number | null;
+  take_profit_type?: TakeProfitType;
+  enabled?: boolean;
+}
+
+export interface RiskRuleUpdate {
+  stop_loss_pct?: number | null;
+  stop_loss_type?: StopLossType;
+  take_profit_pct?: number | null;
+  take_profit_type?: TakeProfitType;
+  enabled?: boolean;
+  peak_price?: number | null;
+}

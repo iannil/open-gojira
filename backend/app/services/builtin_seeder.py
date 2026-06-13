@@ -7,12 +7,15 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import date
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.models.broker_fee_config import BrokerFeeConfig
 from app.models.plan import Plan
 from app.models.strategy import Strategy
+from app.services.trading_calendar_service import seed_all_years
 
 logger = logging.getLogger(__name__)
 
@@ -173,6 +176,35 @@ BUILTIN_PLANS = [
 ]
 
 
+def seed_default_fee_config(db: Session) -> bool:
+    """Insert default A-share fee config if not present.
+
+    Rates current as of 2023-10-23 (stamp duty cut to 0.05% sell-only).
+    User can edit via UI (S1.9) or add historical configs for backfill.
+    Returns True if a new row was inserted.
+    """
+    existing = db.execute(
+        select(BrokerFeeConfig).where(BrokerFeeConfig.broker_name == "default")
+    ).scalar_one_or_none()
+    if existing:
+        return False  # idempotent
+
+    db.add(
+        BrokerFeeConfig(
+            broker_name="default",
+            commission_rate=0.00025,
+            commission_min=5.0,
+            stamp_duty_rate=0.0005,
+            transfer_fee_rate=0.00001,
+            effective_from=date(2023, 10, 23),
+            is_active=True,
+        )
+    )
+    db.flush()
+    logger.info("Seeded default broker_fee_config (effective 2023-10-23)")
+    return True
+
+
 def seed_strategies(db: Session) -> int:
     """Seed or update built-in strategies. Returns count of newly inserted."""
     inserted = 0
@@ -270,7 +302,14 @@ def seed_plans(db: Session) -> int:
 
 def seed_all(db: Session) -> dict:
     """Seed all built-in data. Called from main.py lifespan."""
+    f = seed_default_fee_config(db)
     s = seed_strategies(db)
     p = seed_plans(db)
+    t = seed_all_years(db)
     db.commit()
-    return {"strategies": s, "plans": p}
+    return {
+        "fee_config_inserted": f,
+        "strategies": s,
+        "plans": p,
+        "trading_calendar_inserted": t,
+    }
