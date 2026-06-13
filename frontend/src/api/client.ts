@@ -284,7 +284,10 @@ export async function listWatchlistGroups(): Promise<WatchlistGroupResponse[]> {
 }
 
 export async function bulkAddWatchlistItems(groupId: number, codes: string[]): Promise<void> {
-  await apiClient.post(`/watchlist/groups/${groupId}/items/bulk`, { stock_codes: codes });
+  await apiClient.post(`/watchlist/groups/${groupId}/items/bulk`, {
+    group_id: groupId,
+    stock_codes: codes,
+  });
 }
 
 export async function fetchRevenueComposition(

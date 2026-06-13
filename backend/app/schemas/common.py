@@ -20,8 +20,9 @@ class AckedResponse(BaseModel):
 
 
 class AddedResponse(BaseModel):
-    """Response for bulk add operations."""
-    added: list[str] = []
+    """Response for bulk add operations. `added` is the count of rows
+    actually inserted (skips duplicates + unknown codes)."""
+    added: int
 
 
 class CodesResponse(BaseModel):
