@@ -60,11 +60,12 @@ def _serialize_cashflow(m) -> dict:
     }
 
 
-def _serialize_draft(d, qiu_score: int | None = None) -> dict:
+def _serialize_draft(d, qiu_score: int | None = None, stock_name: str | None = None) -> dict:
     return {
         "id": d.id,
         "plan_id": d.plan_id,
         "code": d.code,
+        "stock_name": stock_name,
         "side": d.side,
         "status": d.status,
         "step_kind": d.step_kind,
@@ -84,22 +85,25 @@ def _serialize_drafts_ranked(db: Session) -> list[dict]:
 
     30-100 draft/天流入时,高分机会排前面,用户自选 Top N 深审。
     Qiu 评分取自 Stock.qiu_score (0-3);查不到的股票按 0 处理。
+    2026-06-13 验收补充: 同时返回 stock_name 供前端表格显示。
     """
     from app.models.stock import Stock
     pending = draft_service.list_pending(db)
     if not pending:
         return []
     codes = {d.code for d in pending}
-    score_map: dict[str, int] = {
-        s.code: s.qiu_score or 0
-        for s in db.query(Stock).filter(Stock.code.in_(codes)).all()
-    }
+    stocks = db.query(Stock).filter(Stock.code.in_(codes)).all()
+    score_map: dict[str, int] = {s.code: s.qiu_score or 0 for s in stocks}
+    name_map: dict[str, str] = {s.code: s.name for s in stocks if s.name}
     ranked = sorted(
         pending,
         key=lambda d: (score_map.get(d.code, 0), d.triggered_at),
         reverse=True,
     )
-    return [_serialize_draft(d, score_map.get(d.code, 0)) for d in ranked]
+    return [
+        _serialize_draft(d, score_map.get(d.code, 0), name_map.get(d.code))
+        for d in ranked
+    ]
 
 
 def _serialize_plan(p) -> dict:

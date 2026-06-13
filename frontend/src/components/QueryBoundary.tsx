@@ -19,7 +19,7 @@ export interface QueryBoundaryProps<T> {
   children: (data: T, isFetching: boolean) => ReactNode;
 }
 
-export function QueryBoundary<T>(props: QueryBoundaryProps<T>) {
+export default function QueryBoundary<T>(props: QueryBoundaryProps<T>) {
   const { query } = props;
 
   if (query.isLoading) {

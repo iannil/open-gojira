@@ -240,6 +240,7 @@ export interface CockpitDraft {
   id: number;
   plan_id: number;
   code: string;
+  stock_name?: string | null;
   side: 'BUY' | 'SELL';
   status: string;
   step_kind: string;

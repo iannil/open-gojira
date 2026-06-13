@@ -673,8 +673,12 @@ function DraftList({
     {
       title: '标的',
       dataIndex: 'code',
-      width: 110,
-      render: (code: string) => <Link to={`/stock/${code}`}>{code}</Link>,
+      width: 160,
+      render: (code: string, r: CockpitDraft) => (
+        <Link to={`/stock/${code}`}>
+          {r.stock_name ? `${r.stock_name} ${code}` : code}
+        </Link>
+      ),
     },
     {
       title: '评分',

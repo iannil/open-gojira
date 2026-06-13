@@ -29,6 +29,7 @@ _cancelled_runs_lock = threading.Lock()
 # here (e.g. universe_bootstrap) do not update data_freshness. Categories
 # must match the strings asserted by plan_runner's freshness gate.
 _PIPELINE_FRESHNESS_CATEGORY: dict[str, str] = {
+    "universe_bootstrap": "stocks",
     "valuations": "valuation",
     "valuation": "valuation",  # alias for safety
     "klines": "kline",

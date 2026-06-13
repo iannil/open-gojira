@@ -22,6 +22,7 @@ class CockpitDraft(BaseModel):
     id: int
     plan_id: int
     code: str
+    stock_name: Optional[str] = None
     side: str
     status: str
     step_kind: Optional[str] = None

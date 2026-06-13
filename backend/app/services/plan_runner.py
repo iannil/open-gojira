@@ -290,6 +290,38 @@ def _compute_suggested_buy_quantity(
         return None
 
 
+def _format_buy_reason(trig_kind: str, actual: float | None, threshold: float) -> str:
+    """Translate a buy-side trigger into a human-readable Chinese string.
+
+    2026-06-13 验收补充: 原 "dyr_ge triggered: 0.061 vs 0.06" 改为
+    "股息率 6.10% ≥ 阈值 6.00%",让用户看一眼就懂。
+    """
+    pct = lambda v: f"{v * 100:.2f}%" if v is not None else "—"
+    pct1 = lambda v: f"{v * 100:.1f}%" if v is not None else "—"
+    if trig_kind == "dyr_ge":
+        return f"股息率 {pct(actual)} ≥ 阈值 {pct(threshold)}"
+    if trig_kind == "pe_pct_le":
+        return f"PE 10年分位 {pct1(actual)} ≤ 阈值 {pct1(threshold)}"
+    if trig_kind == "price_le":
+        return f"现价 ¥{actual:.2f} ≤ 阈值 ¥{threshold:.2f}" if actual is not None else f"现价 — ≤ ¥{threshold:.2f}"
+    if trig_kind == "drawdown_from_last_buy":
+        return f"距上次买入回撤 {pct1(actual)} ≤ 阈值 -{pct1(threshold)}"
+    return f"{trig_kind} triggered"
+
+
+def _format_sell_reason(trig_kind: str, actual: float | None, threshold: float) -> str:
+    """Translate a sell-side trigger into a human-readable Chinese string."""
+    pct = lambda v: f"{v * 100:.2f}%" if v is not None else "—"
+    pct1 = lambda v: f"{v * 100:.1f}%" if v is not None else "—"
+    if trig_kind == "profit_pct_ge":
+        return f"收益率 +{pct1(actual)} ≥ 止盈线 +{pct1(threshold)}"
+    if trig_kind == "dyr_le":
+        return f"股息率 {pct(actual)} ≤ 警戒线 {pct(threshold)}"
+    if trig_kind == "pe_pct_ge":
+        return f"PE 10年分位 {pct1(actual)} ≥ 阈值 {pct1(threshold)}"
+    return f"{trig_kind} triggered"
+
+
 def _evaluate_trading_rules(
     db: Session,
     plan: Plan,
@@ -311,12 +343,16 @@ def _evaluate_trading_rules(
     for i, step in enumerate(rules.buy_ladder):
         trig = step.trigger
         triggered = False
+        actual = None
         if trig.kind == "dyr_ge" and ctx.dyr is not None:
             triggered = ctx.dyr >= trig.value
+            actual = ctx.dyr
         elif trig.kind == "pe_pct_le" and ctx.pe_pct_10y is not None:
             triggered = ctx.pe_pct_10y <= trig.value
+            actual = ctx.pe_pct_10y
         elif trig.kind == "price_le" and ctx.price is not None:
             triggered = ctx.price <= trig.value
+            actual = ctx.price
         elif trig.kind == "drawdown_from_last_buy":
             if ctx.price is not None:
                 from app.models.holding import Holding
@@ -328,15 +364,17 @@ def _evaluate_trading_rules(
                 ).scalars().first()
                 if last_buy and last_buy.buy_price and last_buy.buy_price > 0:
                     drawdown = (ctx.price - float(last_buy.buy_price)) / float(last_buy.buy_price)
+                    actual = drawdown
                     triggered = drawdown <= -trig.value
 
         if triggered:
-            drafts.append(("BUY", "buy_ladder", i, step.add_pct, None,
-                          f"{trig.kind} triggered: {ctx.dyr if trig.kind == 'dyr_ge' else ctx.pe_pct_10y if trig.kind == 'pe_pct_le' else ctx.price} vs {trig.value}"))
+            reason = _format_buy_reason(trig.kind, actual, trig.value)
+            drafts.append(("BUY", "buy_ladder", i, step.add_pct, None, reason))
 
     for i, step in enumerate(rules.sell_ladder):
         trig = step.trigger
         triggered = False
+        actual = None
         if trig.kind == "profit_pct_ge":
             if ctx.price is not None:
                 from app.models.holding import Holding
@@ -348,15 +386,18 @@ def _evaluate_trading_rules(
                 ).scalar_one_or_none()
                 if h and h.buy_price and h.buy_price > 0:
                     profit_pct = (ctx.price - float(h.buy_price)) / float(h.buy_price)
+                    actual = profit_pct
                     triggered = profit_pct >= trig.value
         elif trig.kind == "dyr_le" and ctx.dyr is not None:
             triggered = ctx.dyr <= trig.value
+            actual = ctx.dyr
         elif trig.kind == "pe_pct_ge" and ctx.pe_pct_10y is not None:
             triggered = ctx.pe_pct_10y >= trig.value
+            actual = ctx.pe_pct_10y
 
         if triggered:
-            drafts.append(("SELL", "sell_ladder", i, None, step.reduce_pct_of_position,
-                          f"{trig.kind} triggered"))
+            reason = _format_sell_reason(trig.kind, actual, trig.value)
+            drafts.append(("SELL", "sell_ladder", i, None, step.reduce_pct_of_position, reason))
 
     return drafts
 
