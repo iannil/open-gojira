@@ -8,8 +8,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models.candidate import Candidate
 from app.services import candidate_service
-from app.schemas.common import StatusResponse
-from app.schemas.candidate import CandidatePromote, CandidateResponse, CandidateUpdate
+from app.schemas.candidate import CandidateResponse, CandidateUpdate
 
 router = APIRouter(prefix="/api/candidates", tags=["candidates"])
 
@@ -68,17 +67,6 @@ def update_candidate(candidate_id: int, payload: CandidateUpdate, db: Session = 
         raise HTTPException(404, "candidate not found")
     c = candidate_service.update(db, c, pinned=payload.pinned, notes=payload.notes)
     return _to_response(c)
-
-
-@router.post("/{candidate_id}/promote", status_code=201, response_model=StatusResponse)
-def promote_candidate(candidate_id: int, payload: CandidatePromote, db: Session = Depends(get_db)):
-    c = candidate_service.get_by_id(db, candidate_id)
-    if c is None:
-        raise HTTPException(404, "candidate not found")
-    if c.status != "active":
-        raise HTTPException(409, f"candidate is {c.status}, not active")
-    candidate_service.promote_to_watchlist(db, c, payload.watchlist_group_id)
-    return {"status": "promoted"}
 
 
 @router.delete("/{candidate_id}", status_code=204)

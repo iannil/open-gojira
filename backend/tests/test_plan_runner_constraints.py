@@ -205,6 +205,45 @@ def test_suspended_stock_no_draft(db_session, setup):
 
 
 # ---------------------------------------------------------------------------
+# Watchlist gate removal (重审 2026-06-13 #1+#4)
+# ---------------------------------------------------------------------------
+
+
+def test_draft_generated_without_watchlist_promotion(db_session, setup):
+    """重审 #1+#4: 候选股不需手动提升到 watchlist 即可生成 draft。
+
+    原行为: plan_runner.py:494 `if code not in watchlisted: continue` 静默吞掉
+    所有未提升的候选股 → 实测 296 candidates / 0 drafts。
+
+    新行为: 删除 PROMOTE 闸门,所有过策略的候选股自动评估交易规则。
+    """
+    s = _make_strategy(db_session)
+    rules = {
+        "buy_ladder": [
+            {"trigger": {"kind": "dyr_ge", "value": 0.04}, "add_pct": 0.10},
+        ],
+        "sell_ladder": [],
+        "invalidation": [],
+        "cooldown_days": 0,
+    }
+    plan = _make_plan(
+        db_session, strategy_id=s.id,
+        scope_codes=["600519"],
+        trading_rules=rules,
+    )
+    # NO watchlist setup — direct candidate → draft flow.
+
+    run_plan(db_session, plan)
+    db_session.flush()
+
+    from app.models.draft import Draft
+    buys = db_session.query(Draft).filter_by(
+        plan_id=plan.id, side="BUY",
+    ).all()
+    assert len(buys) == 1, "未提升到 watchlist 也应生成 BUY draft (闸门已删)"
+
+
+# ---------------------------------------------------------------------------
 # SELL T+1 check
 # ---------------------------------------------------------------------------
 

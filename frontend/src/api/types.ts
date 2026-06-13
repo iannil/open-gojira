@@ -713,7 +713,7 @@ export interface CandidateResponse {
   stock_tier: string | null;
   stock_qiu_score: number;
   stock_hq_region: string | null;
-  status: 'active' | 'removed' | 'promoted';
+  status: 'active' | 'removed';
   first_seen_at: string | null;
   last_confirmed_at: string | null;
   last_eval: Record<string, { passed: boolean; details: string[] }> | null;

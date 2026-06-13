@@ -19,7 +19,7 @@ class CandidateResponse(BaseModel):
     stock_tier: Optional[str] = None
     stock_qiu_score: int = 0
     stock_hq_region: Optional[str] = None
-    status: Literal["active", "removed", "promoted"]
+    status: Literal["active", "removed"]
     first_seen_at: Any = None
     last_confirmed_at: Any = None
     last_eval: Optional[dict] = None
@@ -30,7 +30,3 @@ class CandidateResponse(BaseModel):
 class CandidateUpdate(BaseModel):
     pinned: Optional[bool] = None
     notes: Optional[str] = None
-
-
-class CandidatePromote(BaseModel):
-    watchlist_group_id: int

@@ -5,7 +5,12 @@ For each active plan:
 2. Build StockContext for each stock
 3. Evaluate each strategy in the plan's composition
 4. Update candidate pool (upsert active / mark removed)
-5. For candidates in watchlist with trading rules: evaluate and emit drafts
+5. For all candidates with trading rules: evaluate and emit drafts
+
+Note (重审 2026-06-13 #1+#4): the watchlist promotion gate was removed.
+Previously only candidates manually promoted to a watchlist would have their
+trading rules evaluated; this silently filtered 296 real candidates → 0 drafts.
+Trading rules now evaluate for every stock that passes the screening strategies.
 """
 
 from __future__ import annotations
@@ -170,13 +175,6 @@ def _upsert_candidate(
         )
         db.add(candidate)
         result.new += 1
-
-
-def _get_watchlisted_codes(db: Session) -> set[str]:
-    """Get set of all stock codes currently in any watchlist group."""
-    return {
-        r[0] for r in db.execute(select(WatchlistItem.stock_code).distinct()).all()
-    }
 
 
 def _filter_suspended(db: Session, codes: list[str]) -> list[str]:
@@ -407,7 +405,6 @@ def run_plan(db: Session, plan: Plan) -> PlanRunResult:
         return result
 
     # 3. Build contexts and evaluate
-    watchlisted = _get_watchlisted_codes(db)
     passed_codes = []
 
     # Use lightweight batch context for large scopes (>500 stocks)
@@ -487,12 +484,10 @@ def run_plan(db: Session, plan: Plan) -> PlanRunResult:
             c.removed_at = now
             result.removed += 1
 
-    # 5. Trading rules for watchlisted candidates
+    # 5. Trading rules for all passing candidates (重审 #1+#4: 闸门已删)
     if plan.trading_rules_json:
         eval_moment = datetime.now(timezone.utc).replace(tzinfo=None)
         for code in passed_codes:
-            if code not in watchlisted:
-                continue
             try:
                 ctx = build_context(db, code)
                 intents = _evaluate_trading_rules(db, plan, code, ctx)

@@ -158,10 +158,6 @@ export async function listCandidates(params?: {
   return res.data;
 }
 
-export async function promoteCandidate(id: number, groupId: number): Promise<void> {
-  await apiClient.post(`/candidates/${id}/promote`, { watchlist_group_id: groupId });
-}
-
 export async function updateCandidate(id: number, payload: {
   pinned?: boolean;
   notes?: string;

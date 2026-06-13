@@ -2,17 +2,18 @@
 
 > **此文档是项目当前状态的真实来源。AI 代理应首先阅读此文件。**
 >
-> | 字段 | 值 (实测于 2026-06-11) |
+> | 字段 | 值 (实测于 2026-06-13) |
 > |---|---|
-> | 最后更新 | 2026-06-11 |
+> | 最后更新 | 2026-06-13 |
 > | 分支 | `master` |
-> | 测试 | **402 passed**, 0 failed (`pytest`) |
-> | 测试函数数 | 402 (静态可验证: `grep -rn "def test_" backend/tests/ \| wc -l`) |
+> | 测试 | **816 passed**, 0 failed (`pytest`) |
+> | 测试函数数 | 816 (含 S0-S5 production-readiness + watchlist 闸门移除测试) |
 > | Alembic head | `3c5b80889c29` (strategy_driven_screening_system) |
 > | Alembic 版本文件数 | 19 (静态可验证: `ls backend/alembic/versions/*.py \| wc -l`) |
 > | 后端代码 | 17,518 行 (app/) + 6,980 行 (tests/) |
 > | 前端代码 | 8,115 行 (src/) |
 > | 远程仓库 | 暂无 (`git remote -v` 为空) |
+> | 真实使用 | **0 trades / 0 holdings / 0 drafts / 0 backtests** (production-readiness ship 但未实盘) |
 
 ---
 
@@ -216,6 +217,10 @@ Alembic 迁移链: 19 个版本文件,head = `3c5b80889c29` (strategy_driven_scr
 
 ### 5.2 最近里程碑 (按时间倒序)
 
+**2026-06-13**: production-readiness-plan 重审。grill-me 会话产出 7 项决策 (删 PROMOTE / 合并 EXECUTE / 保留 backtest / watchlist 去闸门 / 跳过 S6 / draft 全表现 / 双层闸门)。**实测发现 296 候选股被 watchlist 闸门静默吞掉 → 0 draft**。详见 `docs/reference/specs/2026-06-13-revisit-production-readiness-plan.md`。
+
+**2026-06-12**: production-readiness S0-S5 全部 ship (trades / cash / T+1 / Lixinger 防御 / 公司行为 / 回测 / 盘中监控 / 通知)。S6 Docker/DR 重审后跳过。完整执行记录见 `docs/active/production-readiness-plan.md`。
+
 **2026-06-11**: 第 6 轮全面深度审计,6 维度 32 项发现全部修复 (P0×5 + P1×15 + P2×12)。最严重的 P0 是 Plan DSL `_strategy_definitely_fails` 忽略 AND/OR 逻辑,导致 OR 预案完全失效。同步完成架构级重构 (自定义异常 / EventBus 异步 / 批量查询 / 33 端点补 response_model / domain dataclass 转 Pydantic)。详见 `docs/reports/completed/full-audit-round6-2026-06-11.md`。
 
 **2026-06-09**: 数据管理模块精细化升级。新增 5 个 Tab (健康概览 / Pipeline 控制 / 股票池 / 质量评估 / 数据清理),14 个前端组件,3 个后端服务。sync 操作统一到 Pipeline 入口。详见 `docs/reports/completed/data-management-audit-2026-06-09.md`。
@@ -228,12 +233,27 @@ Alembic 迁移链: 19 个版本文件,head = `3c5b80889c29` (strategy_driven_scr
 
 完整路线图见 `docs/active/roadmap.md`。优先级排序简摘:
 
-- **P1-1 [最高]**: 远程 Git 仓库 + push (当前 master 无 remote,无法备份/协作)
-- **P1-2 [高]**: CI (GitHub Actions: pytest + npm run build,阻止 main 腐烂)
-- **P1-3 [中]**: 端到端手动验收 (round6 修复后回归,起 ./dev.sh 全流程跑通)
-- **P1-4 [中]**: cashflow_goal UI 编辑入口 (Cockpit 加"设定目标"按钮)
-- **P2**: 月度复盘视图增强、预案 diff 视图、StockDetail 新建预案回填、候选池筛选持久化
-- **P3**: holding_service 拆纯计算+持久查询两层、datetime.utcnow() → datetime.now(UTC)、前端 bundle 分块
+**P0 (2026-06-13 重审后新增 — 阻塞真实使用)**:
+
+- **P0-1 [最高]**: **解 Lixinger token** (2026-06-13 实测 expired, 14 critical alerts silent, 一切停摆)
+- **P0-2 [最高]**: **去 watchlist 闸门** (`plan_runner.py:494 if code not in watchlisted: return` 静默吞 296 候选 → 0 draft)。重审决策 #1+#4
+- **P0-3 [高]**: **跑首个 backtest** (回测引擎 ship 但 0 runs。重审 #7B 要求先验证策略再信任 draft)
+
+**P1 (架构改动 — 重审决策落地)**:
+
+- **P1-1 [最高]**: 删除 PROMOTE 流程 (重审 #1)
+- **P1-2 [高]**: 合并 EXECUTE + TRADE_ENTRY modal (重审 #2)
+- **P1-3 [高]**: Cockpit draft 按 Qiu 评分排序 (重审 #6)
+- **P1-4 [高]**: 强制 DisciplineChecklistModal 通过才能执行 (重审 #7B)
+- **P1-5 [中]**: 配置 server_chan 通道 (当前仅 in_app, alerts silent)
+- **P1-6 [中]**: 端到端手动验收 (重审改动后回归)
+- **P1-7 [中]**: 远程 Git 仓库 + push
+- **P1-8 [中]**: CI (GitHub Actions)
+- **P1-9 [低]**: cashflow_goal UI 编辑入口
+
+**P2 (体验补全)**: 月度复盘视图增强、预案 diff 视图、StockDetail 新建预案回填、候选池筛选持久化
+
+**P3 (技术债)**: holding_service 拆纯计算+持久查询两层、datetime.utcnow() → datetime.now(UTC)、前端 bundle 分块
 
 ---
 
@@ -247,6 +267,7 @@ Alembic 迁移链: 19 个版本文件,head = `3c5b80889c29` (strategy_driven_scr
 6. **可观测性装饰器驱动**: `@tracked` 装饰器 + 模块级批量注入,158 函数自动埋点;trace_id 全链路唯一,span_id 步骤级,JSON 结构化日志。
 7. **行业模板硬编码**: 内置 6 策略 + 4 预案硬编码在 `builtin_seeder.py`,不读外部 JSON (与早期设计文档不同)。
 8. **个人使用,无认证**: 项目定位为个人投资工具,S-01 (认证) 已排除。CORS / Rate Limit / 文件上传校验等基础防护已就位。
+9. **重审 7 项决策 (2026-06-13)**: production-readiness-plan ship 后实测 0 真实使用,根因是 watchlist 闸门吞 296 候选。重审产出 7 项架构决策: 删 PROMOTE / 合并 EXECUTE+TRADE_ENTRY / 保留 backtest (作 #7B 前置) / watchlist 去闸门留股池 / 跳过 S6 / draft 全表现+Qiu 排序 / 双层闸门 (backtest 验证 + DisciplineChecklistModal)。详见 `docs/reference/specs/2026-06-13-revisit-production-readiness-plan.md`。
 
 ---
 
@@ -267,6 +288,7 @@ Alembic 迁移链: 19 个版本文件,head = `3c5b80889c29` (strategy_driven_scr
 | `docs/reference/specs/2026-06-09-observability-design.md` | 可观测性装饰器设计 | 修改 tracker/observability 时 |
 | `docs/reference/specs/2026-06-10-candidates-filter-design.md` | 候选池 7 筛选条件设计 | 修改 Candidates 页面时 |
 | `docs/reference/specs/2026-06-10-event-driven-automation-design.md` | EventBus + 自动化设计 | 修改事件相关代码时 |
+| `docs/reference/specs/2026-06-13-revisit-production-readiness-plan.md` | production-readiness-plan 重审 7 项决策 | 修改 plan_runner / drafts UI / watchlist / DisciplineChecklist 时 |
 | `docs/archive/*.md` | 归档的早期设计稿 | 想了解项目演进历史 |
 
 ### 路径变更记录 (2026-06-11 整理)

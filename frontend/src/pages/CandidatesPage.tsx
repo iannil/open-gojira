@@ -1,18 +1,17 @@
 import { useEffect, useState, useMemo } from 'react';
 import {
-  Table, Tag, Button, Space, Select, Modal, Typography, Tooltip, Popconfirm,
+  Table, Tag, Button, Space, Select, Tooltip, Popconfirm,
   Collapse, Row, Col, Switch, Badge, Input,
 } from 'antd';
-import { PushpinOutlined, PushpinFilled, ArrowUpOutlined, FilterOutlined, SearchOutlined } from '@ant-design/icons';
+import { PushpinOutlined, PushpinFilled, FilterOutlined, SearchOutlined } from '@ant-design/icons';
 import { useAntdStatic } from '../hooks/useAntdStatic';
 import PageHeader from '../components/PageHeader';
-import { listCandidates, promoteCandidate, updateCandidate, removeCandidate, listPlans, listWatchlistGroups } from '../api/client';
-import type { CandidateResponse, PlanResponse, WatchlistGroupResponse } from '../api/types';
+import { listCandidates, updateCandidate, removeCandidate, listPlans } from '../api/client';
+import type { CandidateResponse, PlanResponse } from '../api/types';
 
 const STATUS_MAP: Record<string, { color: string; label: string }> = {
   active: { color: 'green', label: '活跃' },
   removed: { color: 'red', label: '已移出' },
-  promoted: { color: 'blue', label: '已提升' },
 };
 
 const QUADRANT_OPTIONS = [
@@ -72,25 +71,20 @@ export default function CandidatesPage() {
   const { message } = useAntdStatic();
   const [candidates, setCandidates] = useState<CandidateResponse[]>([]);
   const [plans, setPlans] = useState<PlanResponse[]>([]);
-  const [groups, setGroups] = useState<WatchlistGroupResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState<FilterState>(DEFAULT_FILTER);
   const [filterOpen, setFilterOpen] = useState(false);
   const [keyword, setKeyword] = useState('');
-  const [promoteModal, setPromoteModal] = useState<CandidateResponse | null>(null);
-  const [selectedGroup, setSelectedGroup] = useState<number | null>(null);
 
   const load = async () => {
     setLoading(true);
     try {
-      const [cs, ps, gs] = await Promise.all([
+      const [cs, ps] = await Promise.all([
         listCandidates({}),
         listPlans(),
-        listWatchlistGroups(),
       ]);
       setCandidates(cs);
       setPlans(ps);
-      setGroups(gs);
     } catch { message.error('加载失败'); }
     setLoading(false);
   };
@@ -149,16 +143,6 @@ export default function CandidatesPage() {
 
   const resetFilter = () => setFilter(DEFAULT_FILTER);
 
-  const handlePromote = async () => {
-    if (!promoteModal || !selectedGroup) return;
-    try {
-      await promoteCandidate(promoteModal.id, selectedGroup);
-      message.success(`${promoteModal.stock_code} 已提升到自选股`);
-      setPromoteModal(null);
-      load();
-    } catch { message.error('提升失败'); }
-  };
-
   const handlePin = async (c: CandidateResponse) => {
     await updateCandidate(c.id, { pinned: !c.pinned });
     message.success(c.pinned ? '已取消固定' : '已固定');
@@ -200,16 +184,12 @@ export default function CandidatesPage() {
         ) : null,
     },
     {
-      title: '操作', width: 140,
+      title: '操作', width: 100,
       render: (_: unknown, r: CandidateResponse) =>
         r.status === 'active' ? (
-          <Space size="small">
-            <Button size="small" type="primary" icon={<ArrowUpOutlined />}
-              onClick={() => setPromoteModal(r)}>提升</Button>
-            <Popconfirm title="确定移出？" onConfirm={() => handleRemove(r.id)}>
-              <Button size="small" danger>移出</Button>
-            </Popconfirm>
-          </Space>
+          <Popconfirm title="确定移出？" onConfirm={() => handleRemove(r.id)}>
+            <Button size="small" danger>移出</Button>
+          </Popconfirm>
         ) : null,
     },
   ];
@@ -242,7 +222,6 @@ export default function CandidatesPage() {
           options={[
             { value: 'active', label: '活跃' },
             { value: 'removed', label: '已移出' },
-            { value: 'promoted', label: '已提升' },
             { value: '', label: '全部' },
           ]}
         />
@@ -356,18 +335,6 @@ export default function CandidatesPage() {
         size="small"
         pagination={{ pageSize: 20, showSizeChanger: false }}
       />
-
-      <Modal title={`提升 ${promoteModal?.stock_code} 到自选股`}
-        open={!!promoteModal}
-        onOk={handlePromote}
-        onCancel={() => setPromoteModal(null)}>
-        <div style={{ marginBottom: 16 }}>
-          <Typography.Text>选择自选股分组：</Typography.Text>
-        </div>
-        <Select style={{ width: '100%' }} placeholder="选择分组"
-          value={selectedGroup} onChange={setSelectedGroup}
-          options={groups.map(g => ({ value: g.id, label: g.name }))} />
-      </Modal>
     </div>
   );
 }

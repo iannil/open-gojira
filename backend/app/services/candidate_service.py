@@ -1,15 +1,19 @@
-"""Candidate service — CRUD + promote to watchlist."""
+"""Candidate service — CRUD only.
+
+Note (重审 2026-06-13 #1+#4): promote_to_watchlist was removed. Candidates
+no longer need a manual "promote" step to trigger trading rule evaluation;
+plan_runner now evaluates trading rules for all passing candidates directly.
+The watchlist table remains as a manual stock pool (organizational, not gating).
+"""
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.candidate import Candidate
-from app.models.watchlist import WatchlistGroup, WatchlistItem
 
 
 def list_all(
@@ -46,36 +50,6 @@ def update(db: Session, candidate: Candidate, *, pinned: bool | None = None, not
         candidate.notes = notes
     db.flush()
     return candidate
-
-
-def promote_to_watchlist(db: Session, candidate: Candidate, group_id: int) -> WatchlistItem:
-    """Promote a candidate to a watchlist group."""
-    group = db.get(WatchlistGroup, group_id)
-    if group is None:
-        raise HTTPException(404, f"watchlist group {group_id} not found")
-
-    # Check for duplicate
-    existing = db.execute(
-        select(WatchlistItem).where(
-            WatchlistItem.group_id == group_id,
-            WatchlistItem.stock_code == candidate.stock_code,
-        )
-    ).scalar_one_or_none()
-
-    if existing:
-        raise HTTPException(409, f"{candidate.stock_code} already in group {group_id}")
-
-    item = WatchlistItem(
-        group_id=group_id,
-        stock_code=candidate.stock_code,
-        source_candidate_id=candidate.id,
-    )
-    db.add(item)
-
-    candidate.status = "promoted"
-    candidate.removed_at = datetime.now(timezone.utc).replace(tzinfo=None)
-    db.flush()
-    return item
 
 
 def remove(db: Session, candidate: Candidate) -> None:

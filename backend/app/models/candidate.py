@@ -2,7 +2,11 @@
 
 A Candidate is a stock that currently passes a Plan's strategy criteria.
 The plan_runner creates/removes candidates during each scan. Users can pin
-candidates (prevent auto-removal) or promote them to the watchlist.
+candidates (prevent auto-removal).
+
+Note (重审 2026-06-13 #1+#4): the 'promoted' status and the
+promote_to_watchlist flow were removed. Candidates now flow directly to
+trading-rule evaluation without a manual promotion gate.
 """
 
 from datetime import datetime
@@ -31,7 +35,7 @@ class Candidate(Base):
     status: Mapped[str] = mapped_column(
         String, nullable=False, default="active", index=True
     )
-    """'active' | 'removed' | 'promoted'"""
+    """'active' | 'removed'"""
     first_seen_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     last_confirmed_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now()
