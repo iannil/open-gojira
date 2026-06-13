@@ -1,8 +1,11 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { App as AntApp, ConfigProvider, theme as antTheme } from 'antd';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import Layout from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
+import { queryClient } from './lib/queryClient';
 
 const CockpitPage = lazy(() => import('./pages/CockpitPage'));
 const UniversePage = lazy(() => import('./pages/UniversePage'));
@@ -73,27 +76,30 @@ function App() {
     >
       <ErrorBoundary>
         <AntApp>
-          <BrowserRouter>
-            <Suspense fallback={<LoadingFallback />}>
-            <Routes>
-              <Route path="/" element={<Layout />}>
-                <Route index element={<CockpitPage />} />
-                <Route path="universe" element={<UniversePage />} />
-                <Route path="strategies" element={<StrategiesPage />} />
-                <Route path="plans" element={<PlansPage />} />
-                <Route path="candidates" element={<CandidatesPage />} />
-                <Route path="trades" element={<TradesPage />} />
-                <Route path="review" element={<ReviewPage />} />
-                <Route path="stock/:code" element={<StockDetailPage />} />
-                <Route path="data-management" element={<DataManagementPage />} />
-                <Route path="scheduler" element={<SchedulerPage />} />
-                <Route path="backtest" element={<BacktestPage />} />
-                <Route path="monitoring" element={<MonitoringPage />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Route>
-            </Routes>
-          </Suspense>
-        </BrowserRouter>
+          <QueryClientProvider client={queryClient}>
+            <BrowserRouter>
+              <Suspense fallback={<LoadingFallback />}>
+                <Routes>
+                  <Route path="/" element={<Layout />}>
+                    <Route index element={<CockpitPage />} />
+                    <Route path="universe" element={<UniversePage />} />
+                    <Route path="strategies" element={<StrategiesPage />} />
+                    <Route path="plans" element={<PlansPage />} />
+                    <Route path="candidates" element={<CandidatesPage />} />
+                    <Route path="trades" element={<TradesPage />} />
+                    <Route path="review" element={<ReviewPage />} />
+                    <Route path="stock/:code" element={<StockDetailPage />} />
+                    <Route path="data-management" element={<DataManagementPage />} />
+                    <Route path="scheduler" element={<SchedulerPage />} />
+                    <Route path="backtest" element={<BacktestPage />} />
+                    <Route path="monitoring" element={<MonitoringPage />} />
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                  </Route>
+                </Routes>
+              </Suspense>
+            </BrowserRouter>
+            {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
+          </QueryClientProvider>
         </AntApp>
       </ErrorBoundary>
     </ConfigProvider>

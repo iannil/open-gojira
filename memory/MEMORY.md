@@ -26,6 +26,7 @@
 6. **可观测性装饰器驱动**: 158 函数自动埋点;`OBSERVABILITY_LEVEL=full|compact|off`
 7. **行业模板硬编码**: 内置 6 策略 + 4 预案硬编码在 `builtin_seeder.py`,不读外部 JSON
 8. **个人使用无认证**: CORS/Rate Limit/文件上传校验等基础防护已就位
+9. **前端页面接口 = TanStack Query** (2026-06-13, 方向已定未实施): 12 个页面统一用 TanStack Query + feature-folder + `<QueryBoundary>` + `useToastMutation`。服务端状态只活缓存里,页面退化为哑渲染器。否决自制 hook(无竞态护栏)与配置框架(dashboard 打架)。规格见 `docs/progress/2026-06-13-page-interface-tanstack-query.md`,迁移分 Phase 0-5。
 
 ## 经验教训
 
