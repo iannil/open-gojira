@@ -21,12 +21,19 @@ from app.services.system_alert_service import create_alert
 
 # Field → predicate(value) → True if valid, False if violation.
 # None values are skipped (not all records have all fields).
+#
+# Economic note: PE / PB can be NEGATIVE for real companies (loss-making
+# earnings → negative PE; negative equity / insolvent → negative PB).
+# Treating those as violations caused ~30% false-positive alert rate on
+# A-shares. Rules now allow negative values within a wide bound; only
+# reject zero (mathematically impossible — means missing/corrupt) and
+# extreme outliers (data errors).
 SANITY_RULES: dict[str, Callable[[Any], bool]] = {
-    # Valuation
-    "pe_ttm": lambda v: isinstance(v, (int, float)) and not math.isnan(v) and 0 < v < 1000,
-    "pb": lambda v: isinstance(v, (int, float)) and not math.isnan(v) and 0 < v < 100,
-    "pb_wo_gw": lambda v: isinstance(v, (int, float)) and not math.isnan(v) and 0 < v < 100,
-    "ps_ttm": lambda v: isinstance(v, (int, float)) and not math.isnan(v) and 0 < v < 500,
+    # Valuation — allow negative (loss-making / negative equity), reject 0 + extremes
+    "pe_ttm": lambda v: isinstance(v, (int, float)) and not math.isnan(v) and v != 0 and -10000 < v < 10000,
+    "pb": lambda v: isinstance(v, (int, float)) and not math.isnan(v) and v != 0 and -100 < v < 100,
+    "pb_wo_gw": lambda v: isinstance(v, (int, float)) and not math.isnan(v) and v != 0 and -100 < v < 100,
+    "ps_ttm": lambda v: isinstance(v, (int, float)) and not math.isnan(v) and v != 0 and -1000 < v < 1000,
     "pcf_ttm": lambda v: isinstance(v, (int, float)) and not math.isnan(v) and -1000 < v < 1000,
 
     # Dividend yield (0 is fine — non-dividend payers)

@@ -21,17 +21,29 @@ def test_valid_record_passes():
 
 
 def test_pe_too_high_violation():
-    record = {"pe_ttm": 1500.0}
+    record = {"pe_ttm": 15000.0}  # > 10000 cap
     violations = validate_record(record)
     assert len(violations) == 1
     assert "pe_ttm" in violations[0]
 
 
-def test_pe_negative_violation():
-    """PE can be negative (loss-making companies) but sanity rule may flag."""
+def test_pe_negative_allowed():
+    """Negative PE is real (loss-making companies) — should NOT be a violation."""
     record = {"pe_ttm": -50.0}
+    assert validate_record(record) == []
+
+
+def test_pe_zero_violation():
+    """PE=0 is mathematically impossible — means missing/corrupt data."""
+    record = {"pe_ttm": 0.0}
     violations = validate_record(record)
     assert any("pe_ttm" in v for v in violations)
+
+
+def test_pb_negative_allowed():
+    """Negative PB = negative equity (insolvent companies) — real economic case."""
+    record = {"pb": -2.0}
+    assert validate_record(record) == []
 
 
 def test_pb_zero_violation():
@@ -88,7 +100,7 @@ def test_validate_batch_partitions():
     records = [
         {"sp": 100.0, "pe_ttm": 20.0},
         {"sp": -5.0},  # bad
-        {"sp": 50.0, "pe_ttm": 10000.0},  # pe bad
+        {"sp": 50.0, "pe_ttm": 20000.0},  # pe bad (> 10000 cap)
         {"sp": 200.0},  # ok
     ]
     valid, invalid = validate_batch(records)
@@ -114,7 +126,7 @@ def test_validate_batch_with_metadata():
 def test_get_violations_summary():
     """Aggregate stats for logging / alerts."""
     records = [
-        {"sp": -1.0, "pe_ttm": 5000.0},  # 2 violations
+        {"sp": -1.0, "pe_ttm": 20000.0},  # 2 violations (sp + pe_ttm cap)
         {"sp": -2.0},  # 1 violation
         {"sp": 100.0},  # ok
     ]
