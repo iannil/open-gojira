@@ -2,11 +2,13 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, Modal, Popconfirm, Select, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
+import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 
 import { PageHeader, FilterBar, EmptyState, StatCard } from '../../components/primitives';
 import QueryBoundary from '../../components/QueryBoundary';
 import DisciplineChecklistModal from '../../components/DisciplineChecklistModal';
+import { fetchUniverse } from '../../api/client';
 import { useDraftsQuery } from './useDraftQueries';
 import {
   useCancelDraftMutation,
@@ -66,10 +68,22 @@ export default function DraftsPage() {
   );
 
   const draftsQ = useDraftsQuery(filter);
+  // Universe fetch builds a code → name map for display. Long stale window
+  // since universe rarely changes within a session.
+  const universeQ = useQuery({
+    queryKey: ['universe', 'name-map'],
+    queryFn: fetchUniverse,
+    staleTime: 5 * 60_000,
+  });
   const executeM = useExecuteDraftMutation();
   const cancelM = useCancelDraftMutation();
 
   const drafts = draftsQ.data ?? [];
+  const nameMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const u of universeQ.data ?? []) m.set(u.code, u.name);
+    return m;
+  }, [universeQ.data]);
 
   const pendingCount = drafts.filter((d) => d.status === 'pending').length;
   const buyCount = drafts.filter((d) => d.status === 'pending' && d.side === 'BUY').length;
@@ -128,10 +142,15 @@ export default function DraftsPage() {
     {
       title: '代码',
       dataIndex: 'code',
-      width: 100,
+      width: 160,
       render: (v: string) => (
         <Link to={`/stock/${v}`}>
           <Text code>{v}</Text>
+          {nameMap.get(v) && (
+            <Text type="secondary" style={{ marginLeft: 'var(--sp-2)' }}>
+              {nameMap.get(v)}
+            </Text>
+          )}
         </Link>
       ),
     },
