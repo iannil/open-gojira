@@ -1,7 +1,7 @@
 import { Descriptions, Drawer, Table, Tag, Typography } from 'antd';
 
-import type { PipelineRunDetail as RunDetail } from '../../api/types';
-import { DATA_TYPE_LABELS, PIPELINE_STATUS_COLORS, PIPELINE_STATUS_LABELS } from './constants';
+import type { PipelineRunDetail as RunDetail } from '../../../api/types';
+import { DATA_TYPE_LABELS, PIPELINE_STATUS_COLORS, PIPELINE_STATUS_LABELS } from '../constants';
 
 const { Text } = Typography;
 
@@ -11,14 +11,15 @@ interface Props {
   onClose: () => void;
 }
 
-export default function PipelineRunDetail({ run, open, onClose }: Props) {
+export default function PipelineRunDetailDrawer({ run, open, onClose }: Props) {
   if (!run) return null;
 
-  const failedEntries = run.summary?.failed_codes?.map((code: string, i: number) => ({
-    code,
-    error: run.summary?.failed_errors?.[code] ?? 'Unknown error',
-    key: i,
-  })) ?? [];
+  const failedEntries =
+    run.summary?.failed_codes?.map((code: string, i: number) => ({
+      code,
+      error: run.summary?.failed_errors?.[code] ?? 'Unknown error',
+      key: i,
+    })) ?? [];
 
   return (
     <Drawer title="Pipeline 运行详情" open={open} onClose={onClose} width={600}>
@@ -35,21 +36,31 @@ export default function PipelineRunDetail({ run, open, onClose }: Props) {
           </Tag>
         </Descriptions.Item>
         <Descriptions.Item label="进度">
-          {run.completed_items}/{run.total_items} ({run.failed_items} 失败)
+          <span className="num">{run.completed_items}</span>/
+          <span className="num">{run.total_items}</span> (
+          <span className="num">{run.failed_items}</span> 失败)
         </Descriptions.Item>
         <Descriptions.Item label="开始时间">{run.started_at ?? '-'}</Descriptions.Item>
         <Descriptions.Item label="结束时间">{run.finished_at ?? '-'}</Descriptions.Item>
         {run.config && (
           <>
             <Descriptions.Item label="股票范围">
-              {run.config.stock_codes ? `${run.config.stock_codes.length} 只` : '全部'}
+              {run.config.stock_codes ? (
+                <>
+                  <span className="num">{run.config.stock_codes.length}</span> 只
+                </>
+              ) : (
+                '全部'
+              )}
             </Descriptions.Item>
-            <Descriptions.Item label="年数">{run.config.years ?? '-'}</Descriptions.Item>
+            <Descriptions.Item label="年数">
+              <span className="num">{run.config.years ?? '-'}</span>
+            </Descriptions.Item>
           </>
         )}
         {run.summary?.duration_seconds != null && (
           <Descriptions.Item label="耗时" span={2}>
-            {run.summary.duration_seconds.toFixed(1)} 秒
+            <span className="num">{run.summary.duration_seconds.toFixed(1)}</span> 秒
           </Descriptions.Item>
         )}
       </Descriptions>
@@ -62,7 +73,12 @@ export default function PipelineRunDetail({ run, open, onClose }: Props) {
             size="small"
             pagination={{ pageSize: 10 }}
             columns={[
-              { title: '股票代码', dataIndex: 'code', key: 'code', render: (v: string) => <Text code>{v}</Text> },
+              {
+                title: '股票代码',
+                dataIndex: 'code',
+                key: 'code',
+                render: (v: string) => <Text code>{v}</Text>,
+              },
               { title: '错误信息', dataIndex: 'error', key: 'error', ellipsis: true },
             ]}
           />
