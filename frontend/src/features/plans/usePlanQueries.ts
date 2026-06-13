@@ -1,6 +1,7 @@
+import { useStrategiesQuery } from '../strategies/useStrategyQueries';
 import { useQuery } from '@tanstack/react-query';
-import { listPlans, listStrategies } from '../../api/client';
-import { planKeys, strategiesKey } from './queries';
+import { listPlans } from '../../api/client';
+import { planKeys } from './queries';
 
 export function usePlansQuery() {
   return useQuery({
@@ -10,10 +11,6 @@ export function usePlansQuery() {
   });
 }
 
-export function useStrategiesQuery() {
-  return useQuery({
-    queryKey: strategiesKey(),
-    queryFn: listStrategies,
-    staleTime: 5 * 60_000,
-  });
-}
+/** Strategies query is owned by the strategies feature. Re-exported here
+ * for plans callers (PlanForm needs strategy list for the dropdown). */
+export { useStrategiesQuery };

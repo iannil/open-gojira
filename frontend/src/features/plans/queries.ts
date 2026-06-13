@@ -1,7 +1,9 @@
+import { strategyKeys } from '../strategies/queries';
+
 export const planKeys = {
   all: () => ['plans'] as const,
 } as const;
 
-// Shared read-only dictionary (strategy name lookups). Referenced as a flat
-// ['strategies'] key; lift to its own feature module when a 2nd consumer appears.
-export const strategiesKey = () => ['strategies'] as const;
+/** Strategies key is owned by the strategies feature. Re-exported here so
+ * existing plan mutations that need to invalidate strategies stay terse. */
+export { strategyKeys };
