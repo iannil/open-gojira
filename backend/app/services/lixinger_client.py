@@ -186,7 +186,15 @@ class LixingerClient:
     def __init__(self, token: str = ""):
         self._token = token or settings.LIXINGER_TOKEN
         self._cache = _TTLCache()
-        self._client = httpx.Client(timeout=_TIMEOUT)
+        # Lixinger rejects requests without Accept-Encoding: gzip (returns 429
+        # with "gzip必须设置在 accept-encoding 里"). httpx default is identity.
+        self._client = httpx.Client(
+            timeout=_TIMEOUT,
+            headers={
+                "Accept-Encoding": "gzip, deflate",
+                "User-Agent": "gojira/1.0",
+            },
+        )
         self._circuit = _CircuitBreaker()
         # Wait strategy is an instance attribute so tests can patch it to
         # wait_none() — production callers keep the exponential backoff.
