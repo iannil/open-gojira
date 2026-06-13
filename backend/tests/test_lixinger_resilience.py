@@ -8,6 +8,34 @@ from tenacity import wait_none
 from app.services.lixinger_client import LixingerClient, LixingerError, CircuitOpenError
 
 
+@pytest.fixture(autouse=True)
+def _mock_create_alert():
+    """Prevent tests from polluting prod system_alerts table.
+
+    Several tests trigger _emit_token_alert / _maybe_emit_circuit_alert
+    via mocked Lixinger failures. Without this fixture, those emitters
+    write real alerts to the prod DB (because SessionLocal bypasses
+    conftest's test-engine override). Mock create_alert file-wide so
+    individual tests don't need to repeat the patch.
+    """
+    with patch("app.services.system_alert_service.create_alert") as m:
+        yield m
+
+
+@pytest.fixture(autouse=True)
+def _reset_lixinger_singleton():
+    """Reset the module-level LixingerClient singleton between tests.
+
+    Circuit breaker state from one test could leak into another via the
+    shared get_lixinger_client() singleton. Clear it before each test.
+    """
+    import app.services.lixinger_client as mod
+    old = mod._client
+    mod._client = None
+    yield
+    mod._client = old
+
+
 def _make_client() -> LixingerClient:
     """Client with no-op retry wait so tests run fast."""
     c = LixingerClient(token="fake")
