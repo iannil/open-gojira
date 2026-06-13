@@ -38,6 +38,8 @@ export default function PlanCard({
 
   return (
     <Card
+      className="gojira-card"
+      bordered={false}
       title={
         <Space>
           <span>{p.name}</span>
@@ -58,12 +60,12 @@ export default function PlanCard({
         </Space>
       }
     >
-      <div style={{ marginBottom: 8 }}>
-        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+      <div style={{ marginBottom: 'var(--sp-2)' }}>
+        <Typography.Text type="secondary" style={{ fontSize: 'var(--fs-xs)' }}>
           {p.description}
         </Typography.Text>
       </div>
-      <div style={{ marginBottom: 8 }}>
+      <div style={{ marginBottom: 'var(--sp-2)' }}>
         <Tag color={p.strategy_composition.logic === 'AND' ? 'blue' : 'orange'}>
           {LOGIC_MAP[p.strategy_composition.logic] ?? p.strategy_composition.logic}
         </Tag>
@@ -71,12 +73,14 @@ export default function PlanCard({
           <Tag key={id}>{strategyName(id)}</Tag>
         ))}
       </div>
-      <Space size="small" style={{ fontSize: 12 }}>
+      <Space size="small" style={{ fontSize: 'var(--fs-xs)' }}>
         <span>范围: {SCOPE_MAP[p.scan_scope.type] ?? p.scan_scope.type}</span>
         {p.trading_rules && <Tag color="purple">有交易规则</Tag>}
-        <span>候选: {p.candidate_count}</span>
+        <span>
+          候选: <span className="num">{p.candidate_count}</span>
+        </span>
       </Space>
-      <div style={{ marginTop: 8 }}>
+      <div style={{ marginTop: 'var(--sp-2)' }}>
         <Button size="small" onClick={onToggle}>
           {p.status === 'active' ? '暂停' : '启用'}
         </Button>
