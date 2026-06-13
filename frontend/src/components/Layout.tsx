@@ -12,6 +12,7 @@ import {
   TransactionOutlined,
   BarChartOutlined,
   BellOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 
 import { SystemAlertBanner } from './SystemAlertBanner';
@@ -44,6 +45,7 @@ const NAV_GROUPS: Array<{
     label: '执行',
     items: [
       { key: '/candidates', label: '候选池', labelEn: 'Candidates', icon: <UserOutlined /> },
+      { key: '/drafts', label: '草稿', labelEn: 'Drafts', icon: <FileTextOutlined /> },
       { key: '/trades', label: '成交流水', labelEn: 'Trades', icon: <TransactionOutlined /> },
     ],
   },
