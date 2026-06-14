@@ -57,6 +57,16 @@ class Stock(Base):
     )
     """G4 (invest3 §12): True = 该股在国内资源板块处于领先地位(国内优先于海外)。
     null = 未判定 → resource_hard_asset 策略视为 inconclusive → 剔除。"""
+    expansion_outlook: Mapped[bool | None] = mapped_column(
+        Boolean, nullable=True
+    )
+    """B2 (invest3 §12 资源股 7 维): True = 该股有明确扩产计划/在建产能。
+    主观判断,需要人工标注。null = 未判定 → resource_hard_asset 策略视为 inconclusive → 剔除。"""
+    geo_risk: Mapped[bool | None] = mapped_column(
+        Boolean, nullable=True
+    )
+    """B2 (invest3 §12 资源股 7 维): True = 该股地缘税收风险可接受(国内或稳定海外)。
+    False = 高风险(战乱/制裁/税收突变)。null = 未判定 → resource_hard_asset 策略视为 inconclusive → 剔除。"""
     # ── Trading-status fields (sourced from Lixinger /cn/company) ──────────
     # These are the raw source values for derived board/ST/suspension detection.
     # Storing raw beats inferring from code prefix or name (S0.6 spike finding).

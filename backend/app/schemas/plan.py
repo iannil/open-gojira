@@ -7,7 +7,7 @@ composition and scan scope configuration.
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, Optional
+from typing import Annotated, Any, Literal, Optional, Union
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -33,12 +33,32 @@ SellTriggerKind = Literal[
     "dyr_le",
     "dyr_fwd_le",
     "pe_pct_ge",
+    "cycle_position_ge",  # B1 (G1 v2): invest3 §5 "高位主动减仓"
 ]
 
 
 class SellTrigger(BaseModel):
     kind: SellTriggerKind
-    value: float = Field(gt=0)
+    # B1: cycle_position_ge 用 cycle position 字符串 (extreme_low/low/mid/high/extreme_high);
+    # 其他 op 用 float。Union[str, float] 兼容两种语义。
+    value: Union[str, float]
+
+    @model_validator(mode="after")
+    def _validate_value(self) -> "SellTrigger":
+        if self.kind == "cycle_position_ge":
+            valid = {"extreme_low", "low", "mid", "high", "extreme_high"}
+            if self.value not in valid:
+                raise ValueError(
+                    f"cycle_position_ge requires one of {valid}, got {self.value!r}"
+                )
+        else:
+            if not isinstance(self.value, (int, float)) or isinstance(self.value, bool):
+                raise ValueError(
+                    f"{self.kind} requires numeric value, got {self.value!r}"
+                )
+            if self.value <= 0:
+                raise ValueError(f"{self.kind} requires value > 0")
+        return self
 
 
 InvalidationKind = Literal[

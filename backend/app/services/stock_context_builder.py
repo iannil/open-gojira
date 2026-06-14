@@ -227,6 +227,8 @@ def build_context(db: Session, code: str) -> StockContext:
         market_temperature=market_temp,
         has_mine=stock.has_mine,
         domestic_leader=stock.domestic_leader,
+        expansion_outlook=stock.expansion_outlook,
+        geo_risk=stock.geo_risk,
         power_tier=power_tier,
     )
 

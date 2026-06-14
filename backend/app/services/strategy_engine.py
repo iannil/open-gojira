@@ -33,6 +33,9 @@ class StockContext:
     # G4: resource flags (invest3 §12)
     has_mine: bool | None = None
     domestic_leader: bool | None = None
+    # B2: resource v2 flags (invest3 §12 资源股 7 维剩 2 维)
+    expansion_outlook: bool | None = None
+    geo_risk: bool | None = None
 
     # C1: effective "求"字位阶 (power_tier_baseline from pattern OR qiu_score override)
     power_tier: int | None = None
@@ -69,6 +72,8 @@ def _resolve_field(ctx: StockContext, field: str) -> Any:
         "market_temperature": ctx.market_temperature,
         "has_mine": ctx.has_mine,
         "domestic_leader": ctx.domestic_leader,
+        "expansion_outlook": ctx.expansion_outlook,
+        "geo_risk": ctx.geo_risk,
         "power_tier": ctx.power_tier,
     }
     return mapping.get(field)

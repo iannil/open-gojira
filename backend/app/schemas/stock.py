@@ -30,7 +30,7 @@ class StockUpdate(BaseModel):
 
 
 class ResourceFlagsUpdate(BaseModel):
-    """A2 (G2+G4): partial update for stock resource attributes.
+    """A2 (G2+G4) + B2 (resource v2): partial update for stock resource attributes.
 
     All fields optional — only provided fields are updated. Use False to
     explicitly clear a previously-True flag; omit to leave unchanged.
@@ -38,6 +38,8 @@ class ResourceFlagsUpdate(BaseModel):
     cost_leader: Optional[bool] = None
     has_mine: Optional[bool] = None
     domestic_leader: Optional[bool] = None
+    expansion_outlook: Optional[bool] = None
+    geo_risk: Optional[bool] = None
 
 
 class StockResponse(BaseModel):
@@ -60,6 +62,8 @@ class StockResponse(BaseModel):
     is_cost_leader: Optional[bool] = None
     has_mine: Optional[bool] = None
     domestic_leader: Optional[bool] = None
+    expansion_outlook: Optional[bool] = None
+    geo_risk: Optional[bool] = None
     forward_dyr: Optional[float] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

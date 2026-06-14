@@ -89,6 +89,8 @@ def stock_to_response(stock: Stock, db: Session) -> dict:
         "is_cost_leader": stock.is_cost_leader,
         "has_mine": stock.has_mine,
         "domestic_leader": stock.domestic_leader,
+        "expansion_outlook": stock.expansion_outlook,
+        "geo_risk": stock.geo_risk,
         "forward_dyr": forward_dyr,
         "created_at": stock.created_at,
         "updated_at": stock.updated_at,

@@ -53,7 +53,7 @@ BUILTIN_STRATEGIES = [
     {
         "slug": "resource_hard_asset",
         "name": "资源类硬资产",
-        "description": "预期股息率≥4%、PB分位≤50%、有矿优先、国内优先(invest3 §12)",
+        "description": "预期股息率≥4%、PB分位≤50%、有矿+国内领先+扩产可见+地缘稳定(invest3 §12 完整 7 维)",
         "rule": {
             "logic": "AND",
             "conditions": [
@@ -61,6 +61,8 @@ BUILTIN_STRATEGIES = [
                 {"field": "pb_pct_10y", "op": "<=", "value": 0.50},
                 {"field": "has_mine", "op": "==", "value": True},
                 {"field": "domestic_leader", "op": "==", "value": True},
+                {"field": "expansion_outlook", "op": "==", "value": True},
+                {"field": "geo_risk", "op": "==", "value": True},
             ],
         },
     },
@@ -330,10 +332,10 @@ BUILTIN_BUSINESS_PATTERNS: list[dict] = [
         "lixinger_industries": ["农药", "农化制品"],
         "source_ref": "invest2 GGGF",
     },
-    # ── NULL theme (民生未在 themes 表中) ───────────────────────────
+    # ── 民生主线 (B3: theme_id 不再 null) ─────────────────────────────
     {
         "name": "药店零售",
-        "theme_name": None,
+        "theme_name": "民生",
         "description": "药店规模效应(老龄化 + 行业出清)",
         "first_principle_variable": "加盟店增速",
         "power_tier_baseline": 2,
@@ -347,7 +349,7 @@ BUILTIN_BUSINESS_PATTERNS: list[dict] = [
     },
     {
         "name": "旅游景区",
-        "theme_name": None,
+        "theme_name": "民生",
         "description": "低成本多巴胺(寺庙游/索道),数人头生意",
         "first_principle_variable": "客流 × 索道票均价",
         "power_tier_baseline": 2,
@@ -680,20 +682,21 @@ def seed_cost_leaders(db: Session) -> int:
 
 # ── G4 resource leaders (invest3 §12 显式案例) ────────────────────────
 # invest docs 反复强调的"有矿 + 国内优先"资源股 — seeder 启动时预填.
-# Map stock_code → {has_mine: bool, domestic_leader: bool}.
+# Map stock_code → {has_mine, domestic_leader, expansion_outlook, geo_risk}.
+# B2: 后 2 字段对 7 个公开案例都标 True (均为稳定扩产 + 地缘风险可控的龙头).
 BUILTIN_RESOURCE_LEADERS: dict[str, dict[str, bool]] = {
-    "600989": {"has_mine": True, "domestic_leader": True},  # 宝丰能源 (BFNY) 煤化工
-    "600219": {"has_mine": True, "domestic_leader": True},  # 南山铝业 (NSLY) 电解铝
-    "002170": {"has_mine": True, "domestic_leader": True},  # 芭田股份 (BTGF) 磷矿
-    "002895": {"has_mine": True, "domestic_leader": True},  # 川恒股份 (CHGF) 磷化工
-    "601899": {"has_mine": True, "domestic_leader": True},  # 紫金矿业 铜/金/锌
-    "600547": {"has_mine": True, "domestic_leader": True},  # 山东黄金 金矿
-    "600489": {"has_mine": True, "domestic_leader": True},  # 中金黄金 金矿
+    "600989": {"has_mine": True, "domestic_leader": True, "expansion_outlook": True, "geo_risk": True},  # 宝丰能源 (BFNY) 煤化工
+    "600219": {"has_mine": True, "domestic_leader": True, "expansion_outlook": True, "geo_risk": True},  # 南山铝业 (NSLY) 电解铝
+    "002170": {"has_mine": True, "domestic_leader": True, "expansion_outlook": True, "geo_risk": True},  # 芭田股份 (BTGF) 磷矿
+    "002895": {"has_mine": True, "domestic_leader": True, "expansion_outlook": True, "geo_risk": True},  # 川恒股份 (CHGF) 磷化工
+    "601899": {"has_mine": True, "domestic_leader": True, "expansion_outlook": True, "geo_risk": True},  # 紫金矿业 铜/金/锌
+    "600547": {"has_mine": True, "domestic_leader": True, "expansion_outlook": True, "geo_risk": True},  # 山东黄金 金矿
+    "600489": {"has_mine": True, "domestic_leader": True, "expansion_outlook": True, "geo_risk": True},  # 中金黄金 金矿
 }
 
 
 def seed_resource_leaders(db: Session) -> int:
-    """G4: pre-fill Stock.has_mine / domestic_leader for known resource leaders.
+    """G4 + B2: pre-fill Stock resource flags for known leaders.
 
     Idempotent — only updates rows that already exist in stocks table.
     """
@@ -703,12 +706,10 @@ def seed_resource_leaders(db: Session) -> int:
         if existing is None:
             continue
         changed = False
-        if existing.has_mine != flags["has_mine"]:
-            existing.has_mine = flags["has_mine"]
-            changed = True
-        if existing.domestic_leader != flags["domestic_leader"]:
-            existing.domestic_leader = flags["domestic_leader"]
-            changed = True
+        for field in ("has_mine", "domestic_leader", "expansion_outlook", "geo_risk"):
+            if getattr(existing, field) != flags[field]:
+                setattr(existing, field, flags[field])
+                changed = True
         if changed:
             updated += 1
     if updated:

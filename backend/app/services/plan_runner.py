@@ -397,6 +397,8 @@ def _format_sell_reason(trig_kind: str, actual: float | None, threshold: float) 
         return f"股息率 {pct(actual)} ≤ 警戒线 {pct(threshold)}"
     if trig_kind == "dyr_fwd_le":
         return f"预期股息率 {pct(actual)} ≤ 警戒线 {pct(threshold)}"
+    if trig_kind == "cycle_position_ge":
+        return f"市场周期 {actual} ≥ 减仓阈值 {threshold}"
     if trig_kind == "pe_pct_ge":
         return f"PE 10年分位 {pct1(actual)} ≥ 阈值 {pct1(threshold)}"
     return f"{trig_kind} triggered"
@@ -407,8 +409,13 @@ def _evaluate_trading_rules(
     plan: Plan,
     stock_code: str,
     ctx,
+    cycle_position: str | None = None,
 ) -> list:
-    """Evaluate trading rules for a watchlisted candidate. Returns draft intents."""
+    """Evaluate trading rules for a watchlisted candidate. Returns draft intents.
+
+    cycle_position: B1 (G1 v2) — current market cycle position, passed by
+    run_plan caller so cycle_position_ge sell triggers can be evaluated.
+    """
     from app.schemas.plan import TradingRules
     rules_json = plan.trading_rules_json
     if not rules_json:
@@ -480,6 +487,15 @@ def _evaluate_trading_rules(
         elif trig.kind == "pe_pct_ge" and ctx.pe_pct_10y is not None:
             triggered = ctx.pe_pct_10y >= trig.value
             actual = ctx.pe_pct_10y
+        elif trig.kind == "cycle_position_ge":
+            # B1 (G1 v2): invest3 §5 "高位主动减仓"
+            if cycle_position is not None:
+                current_rank = _cycle_position_rank(cycle_position)
+                trigger_rank = _cycle_position_rank(str(trig.value))
+                triggered = current_rank >= trigger_rank
+                actual = cycle_position
+            else:
+                triggered = False
 
         if triggered:
             reason = _format_sell_reason(trig.kind, actual, trig.value)
@@ -665,7 +681,9 @@ def run_plan(db: Session, plan: Plan) -> PlanRunResult:
         for code in passed_codes:
             try:
                 ctx = build_context(db, code)
-                intents = _evaluate_trading_rules(db, plan, code, ctx)
+                intents = _evaluate_trading_rules(
+                    db, plan, code, ctx, cycle_position=result.cycle_position,
+                )
                 for side, step_kind, step_index, add_pct, reduce_pct, reason in intents:
                     # G1: cycle gate suppresses BUY side
                     if side == "BUY" and cycle_blocks_buy:

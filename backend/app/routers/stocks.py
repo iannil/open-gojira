@@ -476,6 +476,10 @@ def patch_stock_resource_flags(
         stock.has_mine = payload.has_mine
     if payload.domestic_leader is not None:
         stock.domestic_leader = payload.domestic_leader
+    if payload.expansion_outlook is not None:
+        stock.expansion_outlook = payload.expansion_outlook
+    if payload.geo_risk is not None:
+        stock.geo_risk = payload.geo_risk
     db.commit()
     db.refresh(stock)
     return stock_to_response(stock, db)

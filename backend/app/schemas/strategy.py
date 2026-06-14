@@ -25,6 +25,8 @@ StrategyField = Literal[
     "market_temperature",
     "has_mine",
     "domestic_leader",
+    "expansion_outlook",
+    "geo_risk",
     "power_tier",
 ]
 

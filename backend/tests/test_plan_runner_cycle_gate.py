@@ -113,3 +113,77 @@ class TestRunPlanCycleUnavailable:
         assert result.cycle_unavailable_skipped is True
         assert result.cycle_position is None  # set later, after gate check
         assert any("cycle" in e.lower() for e in result.errors)
+
+
+class TestCyclePositionGeSellTrigger:
+    """B1 (G1 v2): cycle_position_ge sell trigger — invest3 §5 "高位主动减仓".
+
+    Semantics: when current cycle rank >= trigger threshold rank, emit SELL draft.
+    Lets users define "当 cycle ≥ high 时减仓 50%" 风格的规则。
+    """
+
+    def test_sell_triggers_when_cycle_at_or_above_threshold(self, db_session):
+        """cycle=high, trigger=high → trigger (rank 3 >= 3)."""
+        from app.services.plan_runner import _evaluate_trading_rules
+        from app.models.plan import Plan
+        from app.services.strategy_engine import StockContext
+
+        plan = Plan(
+            name="t", slug="t-cycle-sell", status="active",
+            strategy_composition_json='{"strategy_ids": [], "logic": "AND"}',
+            scan_scope_json='{"kind": "all"}',
+            schedule_cron="0 18 * * 1-5",
+            trading_rules_json='{"buy_ladder": [], "sell_ladder": [{"trigger": {"kind": "cycle_position_ge", "value": "high"}, "reduce_pct_of_position": 0.5}], "invalidation": [], "cooldown_days": 5}',
+            is_builtin=False,
+        )
+        db_session.add(plan)
+        db_session.flush()
+
+        ctx = StockContext(code="X")
+        intents = _evaluate_trading_rules(db_session, plan, "X", ctx, cycle_position="high")
+        assert len(intents) == 1
+        side, _, _, _, reduce_pct, _ = intents[0]
+        assert side == "SELL"
+        assert reduce_pct == 0.5
+
+    def test_sell_does_not_trigger_when_cycle_below_threshold(self, db_session):
+        """cycle=mid, trigger=high → no trigger (rank 2 < 3)."""
+        from app.services.plan_runner import _evaluate_trading_rules
+        from app.models.plan import Plan
+        from app.services.strategy_engine import StockContext
+
+        plan = Plan(
+            name="t", slug="t-cycle-sell-no", status="active",
+            strategy_composition_json='{"strategy_ids": [], "logic": "AND"}',
+            scan_scope_json='{"kind": "all"}',
+            schedule_cron="0 18 * * 1-5",
+            trading_rules_json='{"buy_ladder": [], "sell_ladder": [{"trigger": {"kind": "cycle_position_ge", "value": "high"}, "reduce_pct_of_position": 0.5}], "invalidation": [], "cooldown_days": 5}',
+            is_builtin=False,
+        )
+        db_session.add(plan)
+        db_session.flush()
+
+        ctx = StockContext(code="X")
+        intents = _evaluate_trading_rules(db_session, plan, "X", ctx, cycle_position="mid")
+        assert len(intents) == 0
+
+    def test_sell_does_not_trigger_when_cycle_position_none(self, db_session):
+        """cycle_position=None (unavailable) → no trigger (conservative)."""
+        from app.services.plan_runner import _evaluate_trading_rules
+        from app.models.plan import Plan
+        from app.services.strategy_engine import StockContext
+
+        plan = Plan(
+            name="t", slug="t-cycle-sell-none", status="active",
+            strategy_composition_json='{"strategy_ids": [], "logic": "AND"}',
+            scan_scope_json='{"kind": "all"}',
+            schedule_cron="0 18 * * 1-5",
+            trading_rules_json='{"buy_ladder": [], "sell_ladder": [{"trigger": {"kind": "cycle_position_ge", "value": "high"}, "reduce_pct_of_position": 0.5}], "invalidation": [], "cooldown_days": 5}',
+            is_builtin=False,
+        )
+        db_session.add(plan)
+        db_session.flush()
+
+        ctx = StockContext(code="X")
+        intents = _evaluate_trading_rules(db_session, plan, "X", ctx, cycle_position=None)
+        assert len(intents) == 0
