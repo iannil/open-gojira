@@ -149,6 +149,11 @@ def fetch_and_upsert_financials(
 
     Iterates granularity in (q, y). Each Lixinger call returns period
     records; period (date field) is the natural unique key.
+
+    Note: Lixinger returns financial data in a NESTED structure keyed by
+    granularity (q/y) → section (bs/ps/cfs/m) → field → {"t": value}.
+    We walk that structure via _nested_financial_value(); the prior flat
+    `r.get("ps.toi.t")` lookups always returned None.
     """
     client = get_lixinger_client()
     inserted = 0
@@ -194,22 +199,20 @@ def fetch_and_upsert_financials(
                     period=period,
                     report_date=report_date,
                     report_type=r.get("reportType"),
-                    revenue=_safe_float(r.get("revenue") or r.get("ps.toi.t")),
-                    net_profit=_safe_float(
-                        r.get("net_profit") or r.get("ps.np.t")
-                    ),
-                    operating_profit=_safe_float(r.get("ps.oi.t")),
-                    total_assets=_safe_float(r.get("bs.ta.t")),
-                    total_liabilities=_safe_float(r.get("bs.tl.t")),
-                    total_equity=_safe_float(r.get("bs.toe.t")),
-                    operating_cash_flow=_safe_float(r.get("cfs.ncffoa.t")),
-                    investing_cash_flow=_safe_float(r.get("cfs.ncffia.t")),
-                    financing_cash_flow=_safe_float(r.get("cfs.ncfffa.t")),
-                    roe=_safe_float(r.get("m.wroe.t")),
-                    roa=_safe_float(r.get("m.roa.t")),
-                    debt_ratio=_safe_float(r.get("m.tl_ta_r")),
-                    ocf_to_np_ratio=_safe_float(r.get("m.ncffoa_np_r")),
-                    gross_margin=_safe_float(r.get("m.gp_m")),
+                    revenue=_nested_financial_value(r, granularity, "ps", "toi"),
+                    net_profit=_nested_financial_value(r, granularity, "ps", "np"),
+                    operating_profit=_nested_financial_value(r, granularity, "ps", "oi"),
+                    total_assets=_nested_financial_value(r, granularity, "bs", "ta"),
+                    total_liabilities=_nested_financial_value(r, granularity, "bs", "tl"),
+                    total_equity=_nested_financial_value(r, granularity, "bs", "toe"),
+                    operating_cash_flow=_nested_financial_value(r, granularity, "cfs", "ncffoa"),
+                    investing_cash_flow=_nested_financial_value(r, granularity, "cfs", "ncffia"),
+                    financing_cash_flow=_nested_financial_value(r, granularity, "cfs", "ncfffa"),
+                    roe=_nested_financial_value(r, granularity, "m", "wroe"),
+                    roa=_nested_financial_value(r, granularity, "m", "roa"),
+                    debt_ratio=_nested_financial_value(r, granularity, "m", "tl_ta_r"),
+                    ocf_to_np_ratio=_nested_financial_value(r, granularity, "m", "ncffoa_np_r"),
+                    gross_margin=_nested_financial_value(r, granularity, "m", "gp_m"),
                 )
                 db.add(fin)
                 seen_periods.add(key)
@@ -220,6 +223,30 @@ def fetch_and_upsert_financials(
                 )
         db.flush()
     return inserted
+
+
+def _nested_financial_value(
+    record: dict, granularity: str, section: str, field: str,
+) -> float | None:
+    """Walk Lixinger's nested financial response: record[g][section][field][t].
+
+    Lixinger returns financials as nested dicts, e.g.:
+        {"q": {"ps": {"toi": {"t": 70987206095}}}}
+    Metrics are requested with a granularity prefix ("q.bs.ta.t") but the
+    response collapses them into nested form. This helper walks that tree.
+
+    Returns None if any level is missing or value is non-numeric.
+    """
+    bucket = record.get(granularity)
+    if not isinstance(bucket, dict):
+        return None
+    section_data = bucket.get(section)
+    if not isinstance(section_data, dict):
+        return None
+    field_data = section_data.get(field)
+    if not isinstance(field_data, dict):
+        return None
+    return _safe_float(field_data.get("t"))
 
 
 # --- Batch orchestrator ---

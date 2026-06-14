@@ -139,16 +139,32 @@ def test_fetch_and_upsert_valuations(db_session, setup, monkeypatch):
 
 
 def test_fetch_and_upsert_financials(db_session, setup, monkeypatch):
+    """Lixinger returns nested data: record[q][section][field][t].
+    Pipeline must walk that structure, not look for flat 'ps.toi.t' keys
+    (which never exist in real responses)."""
     fake = [
         {
             "stockCode": "600519", "date": "2024-03-31",
             "reportDate": "2024-04-26", "reportType": "first_quarterly_report",
-            "revenue": 40000000000, "net_profit": 25000000000,
+            "q": {
+                "ps": {"toi": {"t": 40000000000}, "np": {"t": 25000000000},
+                       "oi": {"t": 38000000000}},
+                "bs": {"ta": {"t": 500000000000}, "tl": {"t": 200000000000},
+                       "toe": {"t": 300000000000}},
+                "cfs": {"ncffoa": {"t": 22000000000}, "ncffia": {"t": -5000000000},
+                        "ncfffa": {"t": -17000000000}},
+                "m": {"wroe": {"t": 0.15}, "roa": {"t": 0.05},
+                      "tl_ta_r": {"t": 0.4}, "ncffoa_np_r": {"t": 0.88},
+                      "gp_m": {"t": 0.91}},
+            },
         },
         {
             "stockCode": "600519", "date": "2024-06-30",
             "reportDate": "2024-08-09", "reportType": "semi_annual_report",
-            "revenue": 80000000000, "net_profit": 45000000000,
+            "q": {
+                "ps": {"toi": {"t": 80000000000}, "np": {"t": 45000000000}},
+                "m": {"wroe": {"t": 0.165}},
+            },
         },
     ]
     monkeypatch.setattr(
@@ -164,6 +180,44 @@ def test_fetch_and_upsert_financials(db_session, setup, monkeypatch):
     rows = db_session.query(HistoricalFinancial).all()
     assert rows[0].report_date == date(2024, 4, 26)
     assert rows[0].revenue == 40000000000
+    assert rows[0].net_profit == 25000000000
+    assert rows[0].operating_cash_flow == 22000000000
+    assert rows[0].roe == 0.15
+    assert rows[0].ocf_to_np_ratio == 0.88
+    assert rows[0].gross_margin == 0.91
+    # Second record only has subset of fields — others should be None
+    assert rows[1].revenue == 80000000000
+    assert rows[1].operating_cash_flow is None
+    assert rows[1].roe == 0.165
+
+
+def test_nested_financial_value_helper():
+    """Direct test of the _nested_financial_value walker."""
+    from app.services.historical_data_pipeline import _nested_financial_value
+    record = {
+        "q": {
+            "ps": {"toi": {"t": 70987206095}, "np": {"t": 37331971189}},
+            "m": {"wroe": {"t": 0.167}},
+        },
+        "y": {
+            "ps": {"toi": {"t": 124000000000}},
+        },
+    }
+    # Granularity q
+    assert _nested_financial_value(record, "q", "ps", "toi") == 70987206095.0
+    assert _nested_financial_value(record, "q", "ps", "np") == 37331971189.0
+    assert _nested_financial_value(record, "q", "m", "wroe") == 0.167
+    # Granularity y
+    assert _nested_financial_value(record, "y", "ps", "toi") == 124000000000.0
+    # Missing path returns None gracefully
+    assert _nested_financial_value(record, "q", "ps", "nonexistent") is None
+    assert _nested_financial_value(record, "q", "nonexistent", "x") is None
+    assert _nested_financial_value(record, "z", "ps", "toi") is None
+    # Empty / malformed input
+    assert _nested_financial_value({}, "q", "ps", "toi") is None
+    assert _nested_financial_value({"q": "not a dict"}, "q", "ps", "toi") is None
+    assert _nested_financial_value({"q": {"ps": None}}, "q", "ps", "toi") is None
+    assert _nested_financial_value({"q": {"ps": {"toi": None}}}, "q", "ps", "toi") is None
 
 
 # --- run_historical_sync (batch) ---
