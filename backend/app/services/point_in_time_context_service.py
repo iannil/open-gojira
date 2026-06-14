@@ -146,18 +146,33 @@ def build_stock_context_at(
     Wraps build_context_at + Stock table lookup to produce a StockContext
     consumable by strategy_engine.evaluate.
 
-    Fields requiring windowed computation (pe_pct_10y, pb_pct_10y,
-    price_52w_high, price_drop_pct, dividend_sustainability) are left None.
-    The backtest engine or spot-check script can populate these via separate
-    queries when needed; for slice verification the basic fields suffice.
+    Derived fields computed from historical windows:
+    - pe_pct_10y / pb_pct_10y: percentile rank of current pe_ttm/pb within
+      the [day-window_years, day] range. Window is best-effort — uses
+      whatever historical_valuations data exists (may be < 10y if backfill
+      was partial). Returns None if window has < 30 data points (statistically
+      unstable).
+    - price_drop_pct: 1 - close / 52w_high. Window uses historical_klines.
+    - forward_dyr: proxy from trailing dyr (forward forecasts not stored).
+      This is a documented approximation — trailing dyr = forward dyr when
+      dividend is stable; differs when dividends change.
 
-    Forward dyr is left None — historical forward dividend forecasts are
-    not stored; only realized dyr from HistoricalValuation is available.
+    Not populated (require additional data sources):
+    - dividend_sustainability: needs historical dividend events table.
+    - power_tier: from BusinessPattern, not loaded here.
     """
     pit = build_context_at(db, stock_code, day)
     stock = db.execute(
         select(Stock).where(Stock.code == stock_code)
     ).scalar_one_or_none()
+
+    pe_pct_10y = _compute_percentile_at(
+        db, stock_code, day, "pe_ttm", years=10,
+    )
+    pb_pct_10y = _compute_percentile_at(
+        db, stock_code, day, "pb", years=10,
+    )
+    price_drop_pct = _compute_price_drop_pct_at(db, stock_code, day)
 
     return StockContext(
         code=stock_code,
@@ -172,17 +187,93 @@ def build_stock_context_at(
         expansion_outlook=stock.expansion_outlook if stock else None,
         geo_risk=stock.geo_risk if stock else None,
 
-        # Valuation
+        # Valuation — dyr_fwd proxied from trailing dyr
         dyr=pit.valuation.dyr if pit.valuation else None,
-        # pe_pct_10y / pb_pct_10y need windowed computation — None here
+        forward_dyr=pit.valuation.dyr if pit.valuation else None,
+        pe_pct_10y=pe_pct_10y,
+        pb_pct_10y=pb_pct_10y,
 
         # Financial
         ocf_to_ni=pit.financial.ocf_to_np_ratio if pit.financial else None,
         # dividend_sustainability needs dividend history — None here
 
-        # Price
+        # Price + windowed price_drop_pct
         price=pit.kline.close if pit.kline else None,
-        # price_52w_high / price_drop_pct need windowed computation — None here
-
-        # power_tier from business pattern — not loaded here, caller adds if needed
+        price_drop_pct=price_drop_pct,
     )
+
+
+def _compute_percentile_at(
+    db: Session,
+    stock_code: str,
+    day: date,
+    field: str,
+    years: int = 10,
+    min_samples: int = 30,
+) -> Optional[float]:
+    """Percentile rank (0-1) of current field value within past window.
+
+    Returns None when:
+    - No valuation record exists at `day` (current value unknown)
+    - Window has fewer than `min_samples` records (statistically unstable)
+    - All historical values are None or non-numeric
+    """
+    current = db.execute(
+        select(getattr(HistoricalValuation, field)).where(
+            HistoricalValuation.stock_code == stock_code,
+            HistoricalValuation.date == day,
+        )
+    ).scalar_one_or_none()
+    if current is None:
+        return None
+
+    window_start = date(day.year - years, day.month, day.day)
+    rows = db.execute(
+        select(getattr(HistoricalValuation, field))
+        .where(
+            HistoricalValuation.stock_code == stock_code,
+            HistoricalValuation.date >= window_start,
+            HistoricalValuation.date <= day,
+            getattr(HistoricalValuation, field).is_not(None),
+        )
+    ).scalars().all()
+    if len(rows) < min_samples:
+        return None
+
+    # Percentile rank: fraction of historical values <= current
+    le_count = sum(1 for v in rows if v is not None and v <= current)
+    return le_count / len(rows)
+
+
+def _compute_price_drop_pct_at(
+    db: Session,
+    stock_code: str,
+    day: date,
+    window_days: int = 366,
+) -> Optional[float]:
+    """Price drop from 52w high. Returns None if no kline data in window."""
+    current_kline = db.execute(
+        select(HistoricalKline.close).where(
+            HistoricalKline.stock_code == stock_code,
+            HistoricalKline.date == day,
+        )
+    ).scalar_one_or_none()
+    if current_kline is None:
+        return None
+
+    from datetime import timedelta
+    window_start = day - timedelta(days=window_days)
+    high_52w = db.execute(
+        select(HistoricalKline.high)
+        .where(
+            HistoricalKline.stock_code == stock_code,
+            HistoricalKline.date >= window_start,
+            HistoricalKline.date <= day,
+        )
+    ).scalars().all()
+    if not high_52w:
+        return None
+    high = max(high_52w)
+    if high <= 0:
+        return None
+    return (high - current_kline) / high
