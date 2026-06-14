@@ -105,6 +105,9 @@ class ScanScope(BaseModel):
 
 PlanStatus = Literal["active", "paused", "archived"]
 
+# G1 cycle gate: 5 positions (rank 升序 = 越来越高估)
+CycleBuyMax = Literal["extreme_low", "low", "mid", "high", "extreme_high"]
+
 
 class PlanCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
@@ -114,6 +117,8 @@ class PlanCreate(BaseModel):
     scan_scope: ScanScope
     schedule_cron: str = "0 18 * * 1-5"
     trading_rules: Optional[TradingRules] = None
+    cycle_buy_max: CycleBuyMax = "mid"
+    disable_midstream_filter: bool = False
 
 
 class PlanUpdate(BaseModel):
@@ -124,6 +129,8 @@ class PlanUpdate(BaseModel):
     scan_scope: Optional[ScanScope] = None
     schedule_cron: Optional[str] = None
     trading_rules: Optional[TradingRules] = None
+    cycle_buy_max: Optional[CycleBuyMax] = None
+    disable_midstream_filter: Optional[bool] = None
 
 
 class PlanResponse(BaseModel):
@@ -136,6 +143,8 @@ class PlanResponse(BaseModel):
     scan_scope: ScanScope
     schedule_cron: str
     trading_rules: Optional[TradingRules] = None
+    cycle_buy_max: CycleBuyMax = "mid"
+    disable_midstream_filter: bool = False
     last_run_at: Any = None
     last_run_summary: Any = None
     is_builtin: bool

@@ -411,3 +411,76 @@ class TestExternalServiceEndpoints:
     def test_revenue_composition_stock_not_found(self, client):
         resp = client.get("/api/stocks/999999/revenue-composition")
         assert resp.status_code == 404
+
+
+class TestPatchResourceFlags:
+    """A-BE-1: PATCH /stocks/{code}/resource-flags — manual override for
+    is_cost_leader / has_mine / domestic_leader (G2 + G4 fields).
+    """
+
+    def test_patch_has_mine_only(self, client):
+        client.post("/api/stocks", json={"code": "600989", "name": "宝丰能源", "auto_fetch": False})
+        resp = client.patch("/api/stocks/600989/resource-flags", json={"has_mine": True})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["has_mine"] is True
+        assert body["is_cost_leader"] is None  # untouched
+        assert body["domestic_leader"] is None
+
+    def test_patch_domestic_leader_only(self, client):
+        client.post("/api/stocks", json={"code": "600219", "name": "南山铝业", "auto_fetch": False})
+        resp = client.patch("/api/stocks/600219/resource-flags", json={"domestic_leader": True})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["domestic_leader"] is True
+        assert body["has_mine"] is None
+
+    def test_patch_cost_leader_only(self, client):
+        client.post("/api/stocks", json={"code": "000001", "name": "测试", "auto_fetch": False})
+        resp = client.patch("/api/stocks/000001/resource-flags", json={"cost_leader": True})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["is_cost_leader"] is True
+
+    def test_patch_all_three_at_once(self, client):
+        client.post("/api/stocks", json={"code": "601899", "name": "紫金矿业", "auto_fetch": False})
+        resp = client.patch("/api/stocks/601899/resource-flags", json={
+            "cost_leader": True,
+            "has_mine": True,
+            "domestic_leader": True,
+        })
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["is_cost_leader"] is True
+        assert body["has_mine"] is True
+        assert body["domestic_leader"] is True
+
+    def test_patch_clears_flag_with_false(self, client):
+        client.post("/api/stocks", json={"code": "600989", "name": "宝丰", "auto_fetch": False})
+        client.patch("/api/stocks/600989/resource-flags", json={"has_mine": True})
+        # Now clear it
+        resp = client.patch("/api/stocks/600989/resource-flags", json={"has_mine": False})
+        assert resp.status_code == 200
+        assert resp.json()["has_mine"] is False
+
+    def test_patch_404_when_stock_missing(self, client):
+        resp = client.patch("/api/stocks/999999/resource-flags", json={"has_mine": True})
+        assert resp.status_code == 404
+
+    def test_patch_empty_body_no_change(self, client):
+        client.post("/api/stocks", json={"code": "600989", "name": "宝丰", "auto_fetch": False})
+        client.patch("/api/stocks/600989/resource-flags", json={"has_mine": True})
+        # Empty body → no change
+        resp = client.patch("/api/stocks/600989/resource-flags", json={})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["has_mine"] is True  # unchanged
+
+    def test_stock_response_includes_resource_flags(self, client):
+        client.post("/api/stocks", json={"code": "600989", "name": "宝丰", "auto_fetch": False})
+        # GET response should include 3 nullable fields
+        resp = client.get("/api/stocks/600989")
+        body = resp.json()
+        assert "is_cost_leader" in body
+        assert "has_mine" in body
+        assert "domestic_leader" in body

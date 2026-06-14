@@ -861,6 +861,77 @@ function PlansList({ plans }: { plans: CockpitResponse['plans'] }) {
   );
 }
 
+// ── Plan Run Alerts (G1/G2 feedback) ─────────────────────────────────
+
+const CYCLE_POSITION_LABEL: Record<string, string> = {
+  extreme_low: '极度低估',
+  low: '低估',
+  mid: '中等',
+  high: '高估',
+  extreme_high: '极度高估',
+};
+
+function PlanRunAlerts({ plans }: { plans: CockpitResponse['plans'] }) {
+  if (!plans || plans.length === 0) return null;
+
+  // Build up to 1 alert per plan (priority: error > warning > info), then take first 3 to avoid noise
+  const alerts: {
+    type: 'error' | 'warning' | 'info';
+    message: string;
+    description?: string;
+  }[] = [];
+
+  for (const p of plans) {
+    const s = p.last_run_summary;
+    if (!s) continue;
+
+    if (s.cycle_unavailable_skipped) {
+      alerts.push({
+        type: 'error',
+        message: `Plan「${p.name}」跳过运行：周期数据缺失`,
+        description:
+          'Lixinger 同步失败或 CashflowGoal 未配置 current_index_pe_pct。请到数据管理页检查后手动触发 plan。',
+      });
+      continue;
+    }
+
+    if ((s.cycle_buy_blocked ?? 0) > 0) {
+      alerts.push({
+        type: 'warning',
+        message: `Plan「${p.name}」：${s.cycle_buy_blocked} 个 BUY drafts 被周期阻断`,
+        description: `当前周期 ${CYCLE_POSITION_LABEL[s.cycle_position ?? 'mid'] ?? s.cycle_position}，plan 阈值 cycle_buy_max=${p.cycle_buy_max ?? 'mid'}。到 Plan 编辑页可调阈值。`,
+      });
+      continue;
+    }
+
+    if ((s.filtered_midstream_non_leader ?? 0) > 0) {
+      alerts.push({
+        type: 'info',
+        message: `Plan「${p.name}」：${s.filtered_midstream_non_leader} 股被中游过滤剔除`,
+        description:
+          'invest3 §13: 中游企业除非成本最低，否则剔除。到 StockDetail 标记成本领先者可保留。',
+      });
+    }
+  }
+
+  if (alerts.length === 0) return null;
+
+  return (
+    <div style={{ marginBottom: 'var(--sp-3)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+      {alerts.slice(0, 3).map((a, i) => (
+        <Alert
+          key={i}
+          type={a.type}
+          showIcon
+          banner
+          message={a.message}
+          description={a.description}
+        />
+      ))}
+    </div>
+  );
+}
+
 // ── page ──────────────────────────────────────────────────────────────
 
 export default function CockpitPage() {
@@ -970,6 +1041,8 @@ export default function CockpitPage() {
           description={data.errors.join('；')}
         />
       )}
+
+      <PlanRunAlerts plans={data.plans} />
 
       <GoalNavigator data={data.cashflow} onEdit={() => setGoalEditorOpen(true)} />
       <GoalEditor open={goalEditorOpen} onClose={() => setGoalEditorOpen(false)} />

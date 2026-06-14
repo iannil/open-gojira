@@ -35,6 +35,7 @@ import {
 } from './useStockDetailMutations';
 import ThesisVariablesModal from './components/ThesisVariablesModal';
 import IndustryContextPanel from './components/IndustryContextPanel';
+import ResourceFlagsPanel from './components/ResourceFlagsPanel';
 
 const { Text } = Typography;
 
@@ -248,6 +249,15 @@ export default function StockDetailPage() {
           subtitle="该股票归属的生意模式 + 第一性原理核心变量(自动推断自 Lixinger industry,可手动覆盖)"
         >
           <IndustryContextPanel stock={stock} />
+        </PageSection>
+      </div>
+
+      <div style={{ marginTop: 'var(--sp-4)' }}>
+        <PageSection
+          title="资源股属性"
+          subtitle="G2/G3/G4 manual override — 预期股息率 + 中游成本领先 + 有矿 + 国内领先"
+        >
+          <ResourceFlagsPanel stock={stock} />
         </PageSection>
       </div>
 

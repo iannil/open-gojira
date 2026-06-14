@@ -50,6 +50,7 @@ import type {
   PriceBand,
   QuarterlyReview,
   QiuScoreInput,
+  ResourceFlagsUpdate,
   ReviewResponse,
   RiskRuleCreate,
   RiskRuleUpdate,
@@ -405,6 +406,17 @@ export async function updateStockBusinessPattern(
   const res = await apiClient.patch<StockResponse>(
     `/stocks/${code}/business-pattern`,
     { business_pattern_id: patternId },
+  );
+  return res.data;
+}
+
+export async function updateStockResourceFlags(
+  code: string,
+  flags: ResourceFlagsUpdate,
+): Promise<StockResponse> {
+  const res = await apiClient.patch<StockResponse>(
+    `/stocks/${code}/resource-flags`,
+    flags,
   );
   return res.data;
 }

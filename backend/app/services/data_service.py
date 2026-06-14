@@ -62,6 +62,14 @@ def stock_to_response(stock: Stock, db: Session) -> dict:
             bp_first_principle = bp.first_principle_variable
             bp_power_tier = bp.power_tier_baseline
 
+    # G3: forward DYR (预期股息率) — 3-year avg per-share / latest close
+    forward_dyr = None
+    try:
+        from app.services.dividend_projector_service import compute_forward_dyr_for_stock
+        forward_dyr = compute_forward_dyr_for_stock(db, stock.code)
+    except Exception:
+        logger.warning("compute_forward_dyr_for_stock failed for %s", stock.code, exc_info=True)
+
     return {
         "code": stock.code,
         "name": stock.name,
@@ -78,6 +86,10 @@ def stock_to_response(stock: Stock, db: Session) -> dict:
         "business_pattern_name": bp_name,
         "business_pattern_first_principle_variable": bp_first_principle,
         "business_pattern_power_tier": bp_power_tier,
+        "is_cost_leader": stock.is_cost_leader,
+        "has_mine": stock.has_mine,
+        "domestic_leader": stock.domestic_leader,
+        "forward_dyr": forward_dyr,
         "created_at": stock.created_at,
         "updated_at": stock.updated_at,
         "latest_valuation_date": latest_val_date,

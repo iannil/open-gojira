@@ -16,6 +16,7 @@ from app.schemas.stock import (
     NorthFlowRecord,
     PriceBandResponse,
     QiuScoreInput,
+    ResourceFlagsUpdate,
     ShareholderRecord,
     StockCreate,
     StockResponse,
@@ -445,6 +446,36 @@ def patch_stock_business_pattern(
         stock = override_stock_pattern(db, code, pattern_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    db.commit()
+    db.refresh(stock)
+    return stock_to_response(stock, db)
+
+
+@router.patch("/{code}/resource-flags", response_model=StockResponse)
+def patch_stock_resource_flags(
+    code: str,
+    payload: ResourceFlagsUpdate,
+    db: Session = Depends(get_db),
+):
+    """A2 (G2+G4): manually override stock resource attributes.
+
+    Accepts partial update — only provided fields are modified. Use False to
+    clear a previously-True flag; omit to leave unchanged.
+
+    Fields:
+    - cost_leader: G2 midstream filter — True = cost leader within BusinessPattern
+    - has_mine: G4 resource_hard_asset — True = owns mineral resources
+    - domestic_leader: G4 resource_hard_asset — True = leading domestic player
+    """
+    stock = db.query(Stock).filter(Stock.code == code).first()
+    if not stock:
+        raise HTTPException(status_code=404, detail=f"Stock {code} not found")
+    if payload.cost_leader is not None:
+        stock.is_cost_leader = payload.cost_leader
+    if payload.has_mine is not None:
+        stock.has_mine = payload.has_mine
+    if payload.domestic_leader is not None:
+        stock.domestic_leader = payload.domestic_leader
     db.commit()
     db.refresh(stock)
     return stock_to_response(stock, db)

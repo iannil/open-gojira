@@ -85,6 +85,12 @@ class CockpitPlan(BaseModel):
     status: str
     description: Optional[str] = None
     is_builtin: Optional[bool] = None
+    cycle_buy_max: Optional[str] = "mid"
+    disable_midstream_filter: bool = False
+    last_run_at: Optional[str] = None
+    last_run_summary: Optional[dict[str, Any]] = None
+    """G1/G2 feedback: keys include filtered_midstream_non_leader, cycle_buy_blocked,
+    cycle_unavailable_skipped, cycle_position, passed, scanned, drafts_emitted."""
 
 
 class CockpitResponse(BaseModel):

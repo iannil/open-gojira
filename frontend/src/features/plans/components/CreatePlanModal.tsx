@@ -1,5 +1,10 @@
-import { Form, Input, Modal, Row, Col, Select } from 'antd';
-import type { PlanCreate, StrategyResponse } from '../../../api/types';
+import { Form, Input, Modal, Row, Col, Select, Switch } from 'antd';
+import {
+  CYCLE_BUY_MAX_OPTIONS,
+  type CycleBuyMax,
+  type PlanCreate,
+  type StrategyResponse,
+} from '../../../api/types';
 
 interface FormValues {
   name: string;
@@ -9,6 +14,8 @@ interface FormValues {
   logic?: 'AND' | 'OR';
   scope_type?: string;
   scope_values?: string;
+  cycle_buy_max?: CycleBuyMax;
+  disable_midstream_filter?: boolean;
 }
 
 export interface CreatePlanModalProps {
@@ -34,6 +41,8 @@ function buildPayload(v: FormValues): PlanCreate {
       values:
         v.scope_values?.split(',').map((s) => s.trim()).filter(Boolean) ?? [],
     },
+    cycle_buy_max: v.cycle_buy_max ?? 'mid',
+    disable_midstream_filter: v.disable_midstream_filter ?? false,
   };
 }
 
@@ -73,7 +82,12 @@ export default function CreatePlanModal({
       <Form
         form={form}
         layout="vertical"
-        initialValues={{ logic: 'AND', scope_type: 'all_stocks' }}
+        initialValues={{
+          logic: 'AND',
+          scope_type: 'all_stocks',
+          cycle_buy_max: 'mid',
+          disable_midstream_filter: false,
+        }}
       >
         <Row gutter={16}>
           <Col span={12}>
@@ -128,6 +142,27 @@ export default function CreatePlanModal({
           <Col span={12}>
             <Form.Item name="scope_values" label="范围值 (逗号分隔)">
               <Input placeholder="行业/代码列表, 逗号分隔" />
+            </Form.Item>
+          </Col>
+        </Row>
+        <Row gutter={16}>
+          <Col span={14}>
+            <Form.Item
+              name="cycle_buy_max"
+              label="周期买入上限 (G1)"
+              tooltip="invest3 §5: 大盘整体高位时不要融资加杠杆。当前 cycle 高于此阈值时 plan_runner 抑制 BUY drafts。"
+            >
+              <Select options={CYCLE_BUY_MAX_OPTIONS} />
+            </Form.Item>
+          </Col>
+          <Col span={10}>
+            <Form.Item
+              name="disable_midstream_filter"
+              label="关闭中游过滤 (G2)"
+              valuePropName="checked"
+              tooltip="invest3 §13: 中游企业除非成本最低,否则剔除。开关 = 跳过此过滤(用于逆向等特殊场景)。"
+            >
+              <Switch />
             </Form.Item>
           </Col>
         </Row>

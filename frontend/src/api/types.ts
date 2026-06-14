@@ -28,6 +28,18 @@ export interface StockResponse {
   business_pattern_name?: string | null;
   business_pattern_first_principle_variable?: string | null;
   business_pattern_power_tier?: number | null;
+  // G2/G4 resource flags (manual override via PATCH /stocks/{code}/resource-flags)
+  is_cost_leader?: boolean | null;
+  has_mine?: boolean | null;
+  domestic_leader?: boolean | null;
+  // G3 forward DYR (预期股息率) — computed backend-side
+  forward_dyr?: number | null;
+}
+
+export interface ResourceFlagsUpdate {
+  cost_leader?: boolean;
+  has_mine?: boolean;
+  domestic_leader?: boolean;
 }
 
 export interface KlinePoint {
@@ -174,6 +186,8 @@ export interface ScanScope {
   values: string[];
 }
 
+export type CycleBuyMax = 'extreme_low' | 'low' | 'mid' | 'high' | 'extreme_high';
+
 export interface PlanResponse {
   id: number;
   name: string;
@@ -184,6 +198,8 @@ export interface PlanResponse {
   scan_scope: ScanScope;
   schedule_cron: string;
   trading_rules: TradingRules | null;
+  cycle_buy_max: CycleBuyMax;
+  disable_midstream_filter: boolean;
   last_run_at: string | null;
   last_run_summary: Record<string, unknown> | null;
   is_builtin: boolean;
@@ -200,6 +216,8 @@ export interface PlanCreate {
   scan_scope: ScanScope;
   schedule_cron?: string;
   trading_rules?: TradingRules | null;
+  cycle_buy_max?: CycleBuyMax;
+  disable_midstream_filter?: boolean;
 }
 
 export interface PlanUpdate {
@@ -210,7 +228,17 @@ export interface PlanUpdate {
   scan_scope?: ScanScope;
   schedule_cron?: string;
   trading_rules?: TradingRules | null;
+  cycle_buy_max?: CycleBuyMax;
+  disable_midstream_filter?: boolean;
 }
+
+export const CYCLE_BUY_MAX_OPTIONS: { value: CycleBuyMax; label: string }[] = [
+  { value: 'extreme_low', label: '极度低估（可重仓）' },
+  { value: 'low', label: '低估（积极配置）' },
+  { value: 'mid', label: '中等（默认，正常持有）' },
+  { value: 'high', label: '高估（主动减仓）' },
+  { value: 'extreme_high', label: '极度高估（尽量空仓）' },
+];
 
 export interface DraftResponse {
   id: number;
@@ -297,6 +325,17 @@ export interface CockpitAlertItem {
   triggered_at: string | null;
 }
 
+export interface CockpitPlanRunSummary {
+  passed?: number;
+  scanned?: number;
+  drafts_emitted?: number;
+  filtered_midstream_non_leader?: number;
+  cycle_buy_blocked?: number;
+  cycle_unavailable_skipped?: boolean;
+  cycle_position?: string | null;
+  errors?: string[];
+}
+
 export interface CockpitPlanSummary {
   id: number;
   slug: string;
@@ -304,6 +343,10 @@ export interface CockpitPlanSummary {
   status: PlanStatus;
   description: string;
   is_builtin: boolean;
+  cycle_buy_max?: CycleBuyMax;
+  disable_midstream_filter?: boolean;
+  last_run_at?: string | null;
+  last_run_summary?: CockpitPlanRunSummary | null;
 }
 
 export interface CycleAssessment {

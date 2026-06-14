@@ -63,6 +63,8 @@ def create(db: Session, data: PlanCreate) -> Plan:
         trading_rules_json=(
             data.trading_rules.model_dump_json() if data.trading_rules else None
         ),
+        cycle_buy_max=data.cycle_buy_max,
+        disable_midstream_filter=data.disable_midstream_filter,
         is_builtin=False,
     )
     db.add(plan)
@@ -91,6 +93,10 @@ def update(db: Session, plan: Plan, data: PlanUpdate) -> Plan:
         plan.schedule_cron = data.schedule_cron
     if data.trading_rules is not None:
         plan.trading_rules_json = data.trading_rules.model_dump_json()
+    if data.cycle_buy_max is not None:
+        plan.cycle_buy_max = data.cycle_buy_max
+    if data.disable_midstream_filter is not None:
+        plan.disable_midstream_filter = data.disable_midstream_filter
     db.flush()
     return plan
 
@@ -136,6 +142,8 @@ def to_response(plan: Plan) -> PlanResponse:
         scan_scope=scope,
         schedule_cron=plan.schedule_cron,
         trading_rules=rules,
+        cycle_buy_max=plan.cycle_buy_max,
+        disable_midstream_filter=plan.disable_midstream_filter,
         last_run_at=plan.last_run_at,
         last_run_summary=summary,
         is_builtin=plan.is_builtin,

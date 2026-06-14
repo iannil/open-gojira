@@ -107,6 +107,19 @@ def _serialize_drafts_ranked(db: Session) -> list[dict]:
 
 
 def _serialize_plan(p) -> dict:
+    """Serialize a plan for cockpit display, including last run feedback.
+
+    Includes G1/G2 fields (cycle_buy_max, disable_midstream_filter) and
+    PlanRunResult feedback from last_run_summary (filtered_midstream_non_leader,
+    cycle_buy_blocked, cycle_unavailable_skipped, cycle_position).
+    """
+    import json
+    summary: dict | None = None
+    if p.last_run_summary:
+        try:
+            summary = json.loads(p.last_run_summary)
+        except (json.JSONDecodeError, TypeError):
+            summary = None
     return {
         "id": p.id,
         "slug": p.slug,
@@ -114,6 +127,10 @@ def _serialize_plan(p) -> dict:
         "status": p.status,
         "description": p.description,
         "is_builtin": p.is_builtin,
+        "cycle_buy_max": p.cycle_buy_max,
+        "disable_midstream_filter": p.disable_midstream_filter,
+        "last_run_at": p.last_run_at.isoformat() if p.last_run_at else None,
+        "last_run_summary": summary,
     }
 
 

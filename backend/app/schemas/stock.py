@@ -29,6 +29,17 @@ class StockUpdate(BaseModel):
     notes: Optional[str] = None
 
 
+class ResourceFlagsUpdate(BaseModel):
+    """A2 (G2+G4): partial update for stock resource attributes.
+
+    All fields optional — only provided fields are updated. Use False to
+    explicitly clear a previously-True flag; omit to leave unchanged.
+    """
+    cost_leader: Optional[bool] = None
+    has_mine: Optional[bool] = None
+    domestic_leader: Optional[bool] = None
+
+
 class StockResponse(BaseModel):
     code: str
     name: str
@@ -46,6 +57,10 @@ class StockResponse(BaseModel):
     business_pattern_name: Optional[str] = None
     business_pattern_first_principle_variable: Optional[str] = None
     business_pattern_power_tier: Optional[int] = None
+    is_cost_leader: Optional[bool] = None
+    has_mine: Optional[bool] = None
+    domestic_leader: Optional[bool] = None
+    forward_dyr: Optional[float] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     analysis_count: int = 0
