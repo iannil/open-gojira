@@ -19,6 +19,8 @@ from sqlalchemy.orm import Session
 from app.models.historical_financial import HistoricalFinancial
 from app.models.historical_kline import HistoricalKline
 from app.models.historical_valuation import HistoricalValuation
+from app.models.stock import Stock
+from app.services.strategy_engine import StockContext
 
 
 # CSRC 法定披露日上限(用 publish_date 缺失时兜底)
@@ -133,4 +135,54 @@ def build_context_at(
         kline=get_kline_at(db, stock_code, day),
         valuation=get_valuation_at(db, stock_code, day),
         financial=get_latest_financial_as_of(db, stock_code, day),
+    )
+
+
+def build_stock_context_at(
+    db: Session, stock_code: str, day: date
+) -> StockContext:
+    """Build a StockContext at a specific point in time.
+
+    Wraps build_context_at + Stock table lookup to produce a StockContext
+    consumable by strategy_engine.evaluate.
+
+    Fields requiring windowed computation (pe_pct_10y, pb_pct_10y,
+    price_52w_high, price_drop_pct, dividend_sustainability) are left None.
+    The backtest engine or spot-check script can populate these via separate
+    queries when needed; for slice verification the basic fields suffice.
+
+    Forward dyr is left None — historical forward dividend forecasts are
+    not stored; only realized dyr from HistoricalValuation is available.
+    """
+    pit = build_context_at(db, stock_code, day)
+    stock = db.execute(
+        select(Stock).where(Stock.code == stock_code)
+    ).scalar_one_or_none()
+
+    return StockContext(
+        code=stock_code,
+        name=stock.name if stock else "",
+        industry=stock.industry if stock else None,
+        security_theme=stock.security_theme if stock else None,
+        tier=stock.tier if stock else None,
+        qiu_score=stock.qiu_score if stock else None,
+        hq_region=stock.hq_region if stock else None,
+        has_mine=stock.has_mine if stock else None,
+        domestic_leader=stock.domestic_leader if stock else None,
+        expansion_outlook=stock.expansion_outlook if stock else None,
+        geo_risk=stock.geo_risk if stock else None,
+
+        # Valuation
+        dyr=pit.valuation.dyr if pit.valuation else None,
+        # pe_pct_10y / pb_pct_10y need windowed computation — None here
+
+        # Financial
+        ocf_to_ni=pit.financial.ocf_to_np_ratio if pit.financial else None,
+        # dividend_sustainability needs dividend history — None here
+
+        # Price
+        price=pit.kline.close if pit.kline else None,
+        # price_52w_high / price_drop_pct need windowed computation — None here
+
+        # power_tier from business pattern — not loaded here, caller adds if needed
     )

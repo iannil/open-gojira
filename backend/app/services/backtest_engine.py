@@ -1,32 +1,44 @@
 """Backtest engine — day-by-day strategy replay on historical data.
 
 Loads BacktestRun.config, iterates trading days in range, builds
-point-in-time context per stock, evaluates strategy rules, simulates
-fills, records daily portfolio value. On completion, computes metrics
-and stores in BacktestRun.result_json.
+point-in-time context per stock, evaluates production strategies via
+strategy_engine, simulates fills, records daily portfolio value.
+On completion, computes metrics and stores in BacktestRun.result_json.
 
-Strategy rules format (simplified for v1):
-[
-    {"metric": "pe_ttm"|"pb"|"dyr"|"sp",
-     "operator": "<"|">"|"<="|">=",
-     "threshold": number,
-     "action": "BUY"|"SELL",
-     "target_pct": float  # for BUY, fraction of NAV to use
-    },
-    ...
-]
+Config format:
+{
+  "stock_codes": list[str],          # universe
+  "start_date": "YYYY-MM-DD",
+  "end_date": "YYYY-MM-DD",
+  "initial_capital": float,          # default 1_000_000
+  "slippage_bps": int,               # default 10
+  "strategies": list[int],           # strategy IDs to filter with (AND across strategies)
+  "target_pct": float,               # per-BUY fraction of cash, default 0.10
+}
 
-v1 limitations (documented, not bugs):
-- Single stock at a time per signal (no portfolio-level constraints)
-- No shorting (SELL only if held)
-- Strategy rules evaluated independently (AND/OR not supported in v1)
-- Lixinger data must already be in historical_* tables (S4B.2)
+Semantics:
+- For each (day, stock): evaluate all strategies (AND-wise).
+- All strategies pass AND not held → BUY target_pct of cash.
+- Any strategy fails AND held → SELL entire position.
+- Otherwise hold.
+
+v1 simplifications (still apply):
+- Single position per stock (no pyramiding).
+- No shorting.
+- Lixinger data must already be in historical_* tables.
+
+Note: derived fields requiring windowed computation (pe_pct_10y,
+pb_pct_10y, price_drop_pct, dividend_sustainability) are left None in
+the StockContext produced by build_stock_context_at. Strategies that
+depend on these will report condition as "data unavailable" → not passed.
+For meaningful backtests of such strategies, populate these fields via
+separate queries before evaluation.
 """
 from __future__ import annotations
 
 import logging
 from datetime import date, datetime, timezone
-from typing import Any, Optional
+from typing import Optional
 
 from fastapi import HTTPException
 from sqlalchemy import distinct, select
@@ -36,12 +48,17 @@ from app.models.backtest_run import BacktestRun
 from app.models.broker_fee_config import BrokerFeeConfig
 from app.models.corp_action import CorpAction
 from app.models.historical_kline import HistoricalKline
+from app.models.strategy import Strategy
+from app.schemas.strategy import StrategyRule
 from app.services.backtest_metrics import compute_all_metrics
 from app.services.backtest_simulator import (
     PortfolioState, simulate_buy, simulate_sell,
     apply_dividend, apply_stock_dividend, apply_capitalization,
 )
-from app.services.point_in_time_context_service import build_context_at
+from app.services.point_in_time_context_service import (
+    build_context_at, build_stock_context_at,
+)
+from app.services.strategy_engine import evaluate as strategy_evaluate
 
 
 logger = logging.getLogger(__name__)
@@ -76,53 +93,43 @@ def _get_active_fee_config(db: Session) -> BrokerFeeConfig:
     return cfg
 
 
-def _resolve_metric(metric: str, ctx) -> Optional[float]:
-    """Pull metric value from point-in-time context."""
-    if not ctx.valuation:
-        return None
-    return {
-        "pe_ttm": ctx.valuation.pe_ttm,
-        "pb": ctx.valuation.pb,
-        "ps_ttm": ctx.valuation.ps_ttm,
-        "dyr": ctx.valuation.dyr,
-        "sp": ctx.valuation.sp,
-        "mc": ctx.valuation.mc,
-    }.get(metric)
+def _load_strategies(db: Session, strategy_ids: list[int]) -> list[Strategy]:
+    """Load Strategy rows by ID, parsed rule_json cached on attribute."""
+    if not strategy_ids:
+        return []
+    rows = db.execute(
+        select(Strategy).where(Strategy.id.in_(strategy_ids))
+    ).scalars().all()
+    return list(rows)
 
 
-_OPERATORS = {
-    "<": lambda a, b: a < b,
-    ">": lambda a, b: a > b,
-    "<=": lambda a, b: a <= b,
-    ">=": lambda a, b: a >= b,
-    "==": lambda a, b: a == b,
-}
+def _evaluate_strategies(
+    db: Session,
+    strategies: list[Strategy],
+    code: str,
+    day: date,
+) -> bool:
+    """Evaluate all strategies AND-wise against a single stock on a single day.
 
-
-def _evaluate_rule(rule: dict, ctx) -> Optional[str]:
-    """Return 'BUY' / 'SELL' / None based on rule vs context.
-
-    ctx is PointInTimeContext with .valuation, .financial, .kline.
-    Returns None when any field is missing or operator unknown.
+    Returns True iff all strategies pass. Strategies with missing data
+    fields return condition_results with passed=False → strategy fails →
+    AND over strategies returns False.
     """
-    metric = rule.get("metric")
-    operator = rule.get("operator")
-    threshold = rule.get("threshold")
-    action = rule.get("action")
-
-    if not all([metric, operator, threshold is not None, action]):
-        return None
-
-    value = _resolve_metric(metric, ctx)
-    if value is None:
-        return None
-
-    fn = _OPERATORS.get(operator)
-    if not fn:
-        return None
-    if fn(value, threshold):
-        return action
-    return None
+    if not strategies:
+        return False  # No strategies = no signals (avoids accidental all-buy)
+    ctx = build_stock_context_at(db, code, day)
+    for s in strategies:
+        try:
+            rule = StrategyRule.model_validate_json(s.rule_json)
+        except Exception:
+            logger.warning(
+                "Strategy %s has invalid rule_json; treating as fail", s.id
+            )
+            return False
+        result = strategy_evaluate(rule, ctx)
+        if not result.passed:
+            return False
+    return True
 
 
 def _apply_corp_actions_for_day(
@@ -177,12 +184,11 @@ def _execute_signal_buy(
     broker_cfg: BrokerFeeConfig,
     slippage_bps: int,
     day: date,
-    rule: dict,
+    target_pct: float,
 ) -> None:
-    """Sizing + simulate_buy for a BUY signal (v1: target_pct of cash)."""
+    """Sizing + simulate_buy for a BUY signal (target_pct of cash)."""
     if code in portfolio.positions:
-        return  # v1: single position per stock, no pyramiding
-    target_pct = float(rule.get("target_pct", 0.10))
+        return  # single position per stock, no pyramiding
     target_cash = portfolio.cash * target_pct
     close = ctx.kline.close
     if close <= 0:
@@ -209,7 +215,7 @@ def _execute_signal_sell(
     slippage_bps: int,
     day: date,
 ) -> None:
-    """SELL entire position (v1 simplification)."""
+    """SELL entire position."""
     pos = portfolio.positions.get(code)
     if not pos or pos.quantity <= 0:
         return
@@ -246,8 +252,10 @@ def run_backtest(db: Session, run_id: int) -> BacktestRun:
         end = datetime.strptime(config["end_date"], "%Y-%m-%d").date()
         initial_capital = float(config.get("initial_capital", 1000000))
         slippage_bps = int(config.get("slippage_bps", 10))
-        rules: list[dict] = list(config.get("strategy_rules", []))
+        target_pct = float(config.get("target_pct", 0.10))
+        strategy_ids: list[int] = list(config.get("strategies", []))
 
+        strategies = _load_strategies(db, strategy_ids)
         broker_cfg = _get_active_fee_config(db)
         trading_days = _get_trading_days(db, start, end)
         if not trading_days:
@@ -264,29 +272,28 @@ def run_backtest(db: Session, run_id: int) -> BacktestRun:
 
         for day in trading_days:
             # Apply corp_actions for the day (before evaluating).
-            # Affects held positions (cash in, share count, cost basis).
             _apply_corp_actions_for_day(db, portfolio, day, stock_codes)
 
-            # Evaluate rules per stock
+            # Evaluate strategies per stock
             for code in stock_codes:
                 ctx = build_context_at(db, code, day)
                 if not ctx.kline:
                     continue  # no trading that day
 
-                for rule in rules:
-                    signal = _evaluate_rule(rule, ctx)
-                    if signal == "BUY":
-                        _execute_signal_buy(
-                            portfolio=portfolio, code=code, ctx=ctx,
-                            broker_cfg=broker_cfg, slippage_bps=slippage_bps,
-                            day=day, rule=rule,
-                        )
-                    elif signal == "SELL":
-                        _execute_signal_sell(
-                            portfolio=portfolio, code=code, ctx=ctx,
-                            broker_cfg=broker_cfg, slippage_bps=slippage_bps,
-                            day=day,
-                        )
+                all_passed = _evaluate_strategies(db, strategies, code, day)
+
+                if all_passed and code not in portfolio.positions:
+                    _execute_signal_buy(
+                        portfolio=portfolio, code=code, ctx=ctx,
+                        broker_cfg=broker_cfg, slippage_bps=slippage_bps,
+                        day=day, target_pct=target_pct,
+                    )
+                elif not all_passed and code in portfolio.positions:
+                    _execute_signal_sell(
+                        portfolio=portfolio, code=code, ctx=ctx,
+                        broker_cfg=broker_cfg, slippage_bps=slippage_bps,
+                        day=day,
+                    )
 
             # End-of-day portfolio value (cash + positions × close).
             value = _compute_portfolio_value(portfolio, db, day)

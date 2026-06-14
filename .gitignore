@@ -38,5 +38,6 @@ Thumbs.db
 
 .dev-pids/
 .dev-logs/
+.playwright-mcp/
 
 invest*.md
