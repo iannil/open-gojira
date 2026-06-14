@@ -1,7 +1,7 @@
 import { Descriptions, Space, Switch, Tag, Tooltip, Typography } from 'antd';
 
 import { updateStockResourceFlags } from '../../../api/client';
-import type { StockResponse } from '../../../api/types';
+import type { ResourceFlagsUpdate, StockResponse } from '../../../api/types';
 import { useToastMutation } from '../../../lib/useToastMutation';
 import { stockKeys } from '../queries';
 
@@ -23,7 +23,7 @@ interface Props {
  */
 export default function ResourceFlagsPanel({ stock }: Props) {
   const flagsM = useToastMutation(
-    (flags: { cost_leader?: boolean; has_mine?: boolean; domestic_leader?: boolean }) =>
+    (flags: ResourceFlagsUpdate) =>
       updateStockResourceFlags(stock.code, flags),
     {
       successMsg: '资源股属性已更新',
@@ -92,6 +92,36 @@ export default function ResourceFlagsPanel({ stock }: Props) {
           <Tooltip title="G4 (invest3 §12): True = 该股在国内资源板块处于领先地位(国内优先于海外)。resource_hard_asset 策略要求 == True。">
             <Tag style={{ cursor: 'help' }}>
               {stock.domestic_leader == null ? '未判定' : stock.domestic_leader ? '是' : '否'}
+            </Tag>
+          </Tooltip>
+        </Space>
+      </Descriptions.Item>
+
+      <Descriptions.Item label="扩产可见 (B2)">
+        <Space>
+          <Switch
+            size="small"
+            checked={stock.expansion_outlook === true}
+            onChange={(checked) => flagsM.mutate({ expansion_outlook: checked })}
+          />
+          <Tooltip title="B2 (invest3 §12 资源股 7 维): True = 该股有明确扩产计划/在建产能。主观判断,人工标注。resource_hard_asset 策略要求 == True。">
+            <Tag style={{ cursor: 'help' }}>
+              {stock.expansion_outlook == null ? '未判定' : stock.expansion_outlook ? '是' : '否'}
+            </Tag>
+          </Tooltip>
+        </Space>
+      </Descriptions.Item>
+
+      <Descriptions.Item label="地缘稳定 (B2)">
+        <Space>
+          <Switch
+            size="small"
+            checked={stock.geo_risk === true}
+            onChange={(checked) => flagsM.mutate({ geo_risk: checked })}
+          />
+          <Tooltip title="B2 (invest3 §12 资源股 7 维): True = 该股地缘税收风险可接受(国内或稳定海外)。False = 高风险(战乱/制裁/税收突变)。resource_hard_asset 策略要求 == True。">
+            <Tag style={{ cursor: 'help' }}>
+              {stock.geo_risk == null ? '未判定' : stock.geo_risk ? '是' : '否'}
             </Tag>
           </Tooltip>
         </Space>

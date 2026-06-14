@@ -28,10 +28,12 @@ export interface StockResponse {
   business_pattern_name?: string | null;
   business_pattern_first_principle_variable?: string | null;
   business_pattern_power_tier?: number | null;
-  // G2/G4 resource flags (manual override via PATCH /stocks/{code}/resource-flags)
+  // G2/G4/B2 resource flags (manual override via PATCH /stocks/{code}/resource-flags)
   is_cost_leader?: boolean | null;
   has_mine?: boolean | null;
   domestic_leader?: boolean | null;
+  expansion_outlook?: boolean | null;
+  geo_risk?: boolean | null;
   // G3 forward DYR (预期股息率) — computed backend-side
   forward_dyr?: number | null;
 }
@@ -40,6 +42,8 @@ export interface ResourceFlagsUpdate {
   cost_leader?: boolean;
   has_mine?: boolean;
   domestic_leader?: boolean;
+  expansion_outlook?: boolean;
+  geo_risk?: boolean;
 }
 
 export interface KlinePoint {
@@ -150,8 +154,13 @@ export interface BuyTrigger {
 }
 
 export interface SellTrigger {
-  kind: 'profit_pct_ge' | 'dyr_le' | 'pe_pct_ge';
-  value: number;
+  kind:
+    | 'profit_pct_ge'
+    | 'dyr_le'
+    | 'dyr_fwd_le'
+    | 'pe_pct_ge'
+    | 'cycle_position_ge';  // B1 (G1 v2)
+  value: number | string;  // cycle_position_ge uses CycleBuyMax string
 }
 
 export interface InvalidationRule {
