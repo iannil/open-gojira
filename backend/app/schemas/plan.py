@@ -180,7 +180,7 @@ class PlanResponse(BaseModel):
 # ── Draft schemas ────────────────────────────────────────────────────
 
 DraftSide = Literal["BUY", "SELL"]
-DraftStatus = Literal["pending", "executed", "cancelled"]
+DraftStatus = Literal["pending", "executed", "cancelled", "superseded"]
 
 
 class DraftResponse(BaseModel):

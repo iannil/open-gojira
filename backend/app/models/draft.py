@@ -40,7 +40,7 @@ class Draft(Base):
     side: Mapped[str] = mapped_column(String, nullable=False)  # BUY | SELL
     status: Mapped[str] = mapped_column(
         String, nullable=False, default="pending", index=True
-    )  # pending | executed | cancelled
+    )  # pending | executed | cancelled | superseded
 
     step_kind: Mapped[str] = mapped_column(String, nullable=False)  # buy_ladder | sell_ladder
     step_index: Mapped[int] = mapped_column(Integer, nullable=False)

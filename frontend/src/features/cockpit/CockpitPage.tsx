@@ -53,7 +53,7 @@ import {
   useCancelDraftMutation,
   useExecuteDraftMutation,
 } from '../drafts/useDraftMutations';
-import { useCashflowGoalQuery, useCockpitQuery, useThemeExposureQuery } from './useCockpitQueries';
+import { useCashflowGoalQuery, useCockpitQuery, useCriticalAlertsQuery, useThemeExposureQuery } from './useCockpitQueries';
 import { useUpdateCashflowGoalMutation } from './useCockpitMutations';
 import type { CashflowGoalUpdate } from '../../api/types';
 import type {
@@ -934,6 +934,34 @@ function PlanRunAlerts({ plans }: { plans: CockpitResponse['plans'] }) {
 
 // ── page ──────────────────────────────────────────────────────────────
 
+/** Top-of-page banner for critical system alerts (Q15 B-min decision).
+ * Renders when there are unresolved critical alerts (e.g. Lixinger token
+ * expired, circuit open). Non-blocking — visual reminder only. Click → /data
+ * for details and remediation. */
+function SystemAlertBanner() {
+  const q = useCriticalAlertsQuery();
+  const alerts = q.data ?? [];
+  if (alerts.length === 0) return null;
+  const latest = alerts[0];
+  const extra = alerts.length > 1 ? `（另 ${alerts.length - 1} 条）` : '';
+  return (
+    <Link to="/data" style={{ display: 'block', marginBottom: 'var(--sp-3)' }}>
+      <Alert
+        type="error"
+        showIcon
+        banner
+        message={`⚠️ 数据可能过期或异常：${latest.message}${extra}`}
+        description={
+          <span>
+            系统检测到 {alerts.length} 条 critical 警报。点击查看详情并修复。
+            <strong> 修复前请审慎评估 draft 与告警的可信度。</strong>
+          </span>
+        }
+      />
+    </Link>
+  );
+}
+
 export default function CockpitPage() {
   const cockpitQ = useCockpitQuery();
   const themeExposureQ = useThemeExposureQuery();
@@ -1041,6 +1069,8 @@ export default function CockpitPage() {
           description={data.errors.join('；')}
         />
       )}
+
+      <SystemAlertBanner />
 
       <PlanRunAlerts plans={data.plans} />
 

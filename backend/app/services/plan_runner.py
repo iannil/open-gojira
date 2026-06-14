@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 from app.models.broker_fee_config import BrokerFeeConfig
 from app.models.candidate import Candidate
 from app.models.cash_balance import CashBalance
+from app.models.draft import Draft
 from app.models.plan import Plan
 from app.models.stock import Stock
 from app.models.strategy import Strategy
@@ -58,6 +59,11 @@ class PlanRunResult:
     removed: int = 0
     new: int = 0
     drafts_emitted: int = 0
+    drafts_superseded: int = 0
+    """Count of previously-pending drafts marked 'superseded' this run.
+    A draft is superseded when its (plan, code, step) wasn't re-confirmed
+    by the current run — either the stock dropped out of candidates or
+    trading rules no longer fire."""
     filtered_midstream_non_leader: int = 0
     cycle_position: str | None = None
     """G1: current cycle position when plan ran (extreme_low/low/mid/high/extreme_high)."""
@@ -664,6 +670,9 @@ def run_plan(db: Session, plan: Plan) -> PlanRunResult:
             result.removed += 1
 
     # 5. Trading rules for all passing candidates (重审 #1+#4: 闸门已删)
+    # Track IDs of drafts emitted/refreshed this run so we can supersede
+    # the rest. (D 分支 Q18 决策) — avoids unreliable timestamp comparison.
+    emitted_draft_ids: set[int] = set()
     if plan.trading_rules_json:
         # G1 (Q8=A): cycle gate — block BUY drafts when market is too hot.
         # SELL drafts remain unaffected (cycle=high may legitimately trigger
@@ -727,9 +736,33 @@ def run_plan(db: Session, plan: Plan) -> PlanRunResult:
                         suggested_quantity=suggested_qty,
                     )
                     if draft:
+                        emitted_draft_ids.add(draft.id)
                         result.drafts_emitted += 1
             except Exception as e:
                 result.errors.append(f"trading eval failed for {code}: {e}")
+
+    # 5b. Auto-supersede stale drafts (D 分支 Q18 决策)
+    # Any pending draft for this plan that wasn't emitted/refreshed this run
+    # is stale — either the stock dropped out of candidates (no trading rule
+    # evaluation) or trading rules no longer fire. Either way, the draft no
+    # longer represents a current suggestion → supersede.
+    now_supersede = datetime.now(timezone.utc).replace(tzinfo=None)
+    pending_drafts = db.execute(
+        select(Draft).where(
+            Draft.plan_id == plan.id,
+            Draft.status == "pending",
+        )
+    ).scalars().all()
+    stale_drafts = [d for d in pending_drafts if d.id not in emitted_draft_ids]
+    for d in stale_drafts:
+        d.status = "superseded"
+        d.executed_at = now_supersede
+    if stale_drafts:
+        logger.info(
+            "Plan '%s': superseded %d stale drafts (not re-confirmed this run)",
+            plan.name, len(stale_drafts),
+        )
+    result.drafts_superseded = len(stale_drafts)
 
     # 6. Update run summary
     plan.last_run_at = now
@@ -739,6 +772,7 @@ def run_plan(db: Session, plan: Plan) -> PlanRunResult:
         "removed": result.removed,
         "new": result.new,
         "drafts": result.drafts_emitted,
+        "drafts_superseded": result.drafts_superseded,
         "errors": result.errors[:10],
     })
 
