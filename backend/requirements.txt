@@ -34,5 +34,8 @@ APScheduler==3.10.4
 # Resilience (retry + circuit breaker)
 tenacity==9.0.0
 
+# LLM (serenity research integration)
+zhipuai==2.1.5.20250825
+
 # Testing
 pytest==9.0.3
