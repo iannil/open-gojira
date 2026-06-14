@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field, model_validator
 BuyTriggerKind = Literal[
     "price_le",
     "dyr_ge",
+    "dyr_fwd_ge",
     "drawdown_from_last_buy",
     "pe_pct_le",
 ]
@@ -30,6 +31,7 @@ class BuyTrigger(BaseModel):
 SellTriggerKind = Literal[
     "profit_pct_ge",
     "dyr_le",
+    "dyr_fwd_le",
     "pe_pct_ge",
 ]
 

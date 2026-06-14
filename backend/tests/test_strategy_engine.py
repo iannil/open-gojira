@@ -116,6 +116,124 @@ class TestConditionOps:
         assert evaluate(rule, _make_ctx(industry="白酒")).passed is False
 
 
+class TestDyrFwdField:
+    """G3: dyr_fwd field — forward DYR (预期股息率).
+
+    Mirrors `dyr` semantics. None → condition fails (剔除, per Q4 fallback).
+    """
+
+    def test_dyr_fwd_gte_pass(self):
+        rule = StrategyRule(logic="AND", conditions=[
+            Condition(field="dyr_fwd", op=">=", value=0.04),
+        ])
+        ctx = _make_ctx(forward_dyr=0.05)
+        result = evaluate(rule, ctx)
+        assert result.passed is True
+
+    def test_dyr_fwd_gte_fail(self):
+        rule = StrategyRule(logic="AND", conditions=[
+            Condition(field="dyr_fwd", op=">=", value=0.04),
+        ])
+        ctx = _make_ctx(forward_dyr=0.03)
+        result = evaluate(rule, ctx)
+        assert result.passed is False
+
+    def test_dyr_fwd_lte_pass(self):
+        rule = StrategyRule(logic="AND", conditions=[
+            Condition(field="dyr_fwd", op="<=", value=0.05),
+        ])
+        ctx = _make_ctx(forward_dyr=0.04)
+        result = evaluate(rule, ctx)
+        assert result.passed is True
+
+    def test_dyr_fwd_none_fails_condition(self):
+        """forward_dyr=None → data unavailable → 剔除 (Q4 fallback)."""
+        rule = StrategyRule(logic="AND", conditions=[
+            Condition(field="dyr_fwd", op=">=", value=0.04),
+        ])
+        ctx = _make_ctx(forward_dyr=None)
+        result = evaluate(rule, ctx)
+        assert result.passed is False
+        assert result.condition_results[0].passed is False
+        assert "data unavailable" in result.condition_results[0].detail
+
+    def test_dyr_fwd_dyr_independent(self):
+        """dyr and dyr_fwd resolve independently."""
+        rule = StrategyRule(logic="AND", conditions=[
+            Condition(field="dyr", op=">=", value=0.06),
+            Condition(field="dyr_fwd", op=">=", value=0.04),
+        ])
+        # Trailing 0.06, Forward 0.04 → both pass
+        ctx = _make_ctx(dyr=0.06, forward_dyr=0.04)
+        result = evaluate(rule, ctx)
+        assert result.passed is True
+
+        # Trailing 0.06, Forward 0.03 → forward fails
+        ctx = _make_ctx(dyr=0.06, forward_dyr=0.03)
+        result = evaluate(rule, ctx)
+        assert result.passed is False
+
+
+class TestResourceFlagsFields:
+    """G4: has_mine + domestic_leader fields for resource_hard_asset strategy.
+
+    invest3 §12 "没矿的有色股他会很警惕" + "国内优先" → both must be True for
+    a stock to pass resource_hard_asset. None = data unavailable → 剔除.
+    """
+
+    def test_has_mine_field_exists(self):
+        ctx = StockContext(code="X")
+        assert hasattr(ctx, "has_mine")
+        assert ctx.has_mine is None
+
+    def test_domestic_leader_field_exists(self):
+        ctx = StockContext(code="X")
+        assert hasattr(ctx, "domestic_leader")
+        assert ctx.domestic_leader is None
+
+    def test_has_mine_eq_true_passes(self):
+        rule = StrategyRule(logic="AND", conditions=[
+            Condition(field="has_mine", op="==", value=True),
+        ])
+        ctx = _make_ctx(has_mine=True)
+        result = evaluate(rule, ctx)
+        assert result.passed is True
+
+    def test_has_mine_eq_true_fails_when_false(self):
+        rule = StrategyRule(logic="AND", conditions=[
+            Condition(field="has_mine", op="==", value=True),
+        ])
+        ctx = _make_ctx(has_mine=False)
+        result = evaluate(rule, ctx)
+        assert result.passed is False
+
+    def test_has_mine_none_fails(self):
+        """has_mine=None → data unavailable → 剔除 (Q4 fallback)."""
+        rule = StrategyRule(logic="AND", conditions=[
+            Condition(field="has_mine", op="==", value=True),
+        ])
+        ctx = _make_ctx(has_mine=None)
+        result = evaluate(rule, ctx)
+        assert result.passed is False
+        assert "data unavailable" in result.condition_results[0].detail
+
+    def test_domestic_leader_eq_true_passes(self):
+        rule = StrategyRule(logic="AND", conditions=[
+            Condition(field="domestic_leader", op="==", value=True),
+        ])
+        ctx = _make_ctx(domestic_leader=True)
+        result = evaluate(rule, ctx)
+        assert result.passed is True
+
+    def test_domestic_leader_none_fails(self):
+        rule = StrategyRule(logic="AND", conditions=[
+            Condition(field="domestic_leader", op="==", value=True),
+        ])
+        ctx = _make_ctx(domestic_leader=None)
+        result = evaluate(rule, ctx)
+        assert result.passed is False
+
+
 class TestNullHandling:
     def test_null_field_fails(self):
         rule = StrategyRule(logic="AND", conditions=[

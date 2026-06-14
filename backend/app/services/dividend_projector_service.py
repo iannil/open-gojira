@@ -98,6 +98,36 @@ def _historical_avg_per_share(db: Session, code: str, years: int = 3) -> float |
     return float(row) if row else None
 
 
+def _latest_close_price(db: Session, code: str) -> float | None:
+    """Return the latest close price for a stock, or None if no kline data."""
+    from app.models.price_kline import PriceKline
+    row = db.execute(
+        select(PriceKline.close)
+        .where(PriceKline.stock_code == code)
+        .order_by(PriceKline.date.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+    return float(row) if row else None
+
+
+def compute_forward_dyr_for_stock(db: Session, code: str) -> float | None:
+    """G3: Forward dividend yield for a single stock.
+
+    Algorithm: 3-year average dividend_per_share / latest_close_price.
+    Returns None when dividend history missing OR price missing — caller
+    treats None as inconclusive (剔除).
+
+    Aligns with invest3 §8 "预期股息率，而不是过去股息率".
+    """
+    avg_per_share = _historical_avg_per_share(db, code)
+    if avg_per_share is None or avg_per_share <= 0:
+        return None
+    price = _latest_close_price(db, code)
+    if price is None or price <= 0:
+        return None
+    return avg_per_share / price
+
+
 def _trailing_12m_actual(db: Session) -> float:
     cutoff = date.today() - timedelta(days=365)
     row = db.execute(

@@ -10,6 +10,7 @@ import { queryClient } from './lib/queryClient';
 const CockpitPage = lazy(() => import('./pages/CockpitPage'));
 const UniversePage = lazy(() => import('./pages/UniversePage'));
 const StrategiesPage = lazy(() => import('./pages/StrategiesPage'));
+const BusinessPatternsPage = lazy(() => import('./pages/BusinessPatternsPage'));
 const PlansPage = lazy(() => import('./pages/PlansPage'));
 const CandidatesPage = lazy(() => import('./pages/CandidatesPage'));
 const TradesPage = lazy(() => import('./pages/TradesPage'));
@@ -91,6 +92,7 @@ function App() {
                     <Route index element={<CockpitPage />} />
                     <Route path="universe" element={<UniversePage />} />
                     <Route path="strategies" element={<StrategiesPage />} />
+                    <Route path="business-patterns" element={<BusinessPatternsPage />} />
                     <Route path="plans" element={<PlansPage />} />
                     <Route path="candidates" element={<CandidatesPage />} />
                     <Route path="drafts" element={<DraftsPage />} />

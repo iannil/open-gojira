@@ -199,6 +199,39 @@ def compute(
         for code, n in stock_counter.most_common(10)
     ]
 
+    # Enrich by_stock with business_pattern context (D3: 核心变量提示)
+    # so the Review UI can prompt auditors to check each stock's core driver.
+    if summary.by_stock:
+        from app.models.business_pattern import BusinessPattern
+        from app.models.stock import Stock
+        codes = [item["stock_code"] for item in summary.by_stock]
+        stock_rows = (
+            db.query(Stock.code, Stock.business_pattern_id)
+            .filter(Stock.code.in_(codes))
+            .all()
+        )
+        code_to_pid = {row[0]: row[1] for row in stock_rows}
+        pids = {pid for pid in code_to_pid.values() if pid is not None}
+        patterns = (
+            db.query(BusinessPattern)
+            .filter(BusinessPattern.id.in_(pids))
+            .all()
+            if pids
+            else []
+        )
+        pid_to_pattern = {p.id: p for p in patterns}
+        for item in summary.by_stock:
+            pid = code_to_pid.get(item["stock_code"])
+            if pid is None:
+                item["business_pattern_name"] = None
+                item["first_principle_variable"] = None
+                continue
+            p = pid_to_pattern.get(pid)
+            item["business_pattern_name"] = p.name if p else None
+            item["first_principle_variable"] = (
+                p.first_principle_variable if p else None
+            )
+
     # Trim entries to most recent N for the timeline view
     rows_sorted = sorted(
         rows,

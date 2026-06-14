@@ -1,8 +1,16 @@
 """Thesis variable sync service — auto-populates thesis variables from stored
 financial data for held stocks.
 
-Maps industry-specific thesis variables to FinancialStatement columns and
-writes current values into ``Stock.thesis_variables_json``.
+T6.1 refactor: templates now live in the BusinessPattern table (seeded at startup
+by builtin_seeder). The previous module-level ``THESIS_VARIABLE_TEMPLATES`` /
+``VARIABLE_TO_COLUMN`` constants have been replaced:
+- ``THESIS_VARIABLE_TEMPLATES`` → ``BusinessPattern.thesis_variables_json`` (DB)
+- ``VARIABLE_TO_COLUMN`` → kept here, keyed by pattern **name** (only '银行' has
+  lixinger-source variables today; other patterns are all 'manual')
+
+A Stock must have ``business_pattern_id`` set (via auto-inference or manual
+override) to participate in sync. Stocks without a pattern are skipped with
+reason='no_pattern'.
 """
 
 from __future__ import annotations
@@ -16,12 +24,17 @@ from sqlalchemy.orm import Session
 
 from app.models.financial import FinancialStatement
 from app.models.stock import Stock
+from app.services.business_pattern_service import get_pattern
 
 logger = logging.getLogger(__name__)
 
-# ── Industry → (variable_name → FinancialStatement column) ──────────────
+# ── Pattern name → (variable_name → FinancialStatement column) ────────
 # Only variables with source "lixinger" are mapped here.
-# Variables with source "manual" are left untouched.
+# Variables with source "manual" are left untouched (user-entered).
+#
+# Note: keyed by BusinessPattern.name (was: Stock.industry string).
+# When adding a new lixinger-source variable, also update builtin_seeder.py
+# to mark the variable as source='lixinger' in BUILTIN_BUSINESS_PATTERNS.
 
 VARIABLE_TO_COLUMN: dict[str, dict[str, str]] = {
     "银行": {
@@ -32,47 +45,25 @@ VARIABLE_TO_COLUMN: dict[str, dict[str, str]] = {
     },
 }
 
-# ── Industry variable templates (kept from previous version) ─────────────
 
-THESIS_VARIABLE_TEMPLATES: dict[str, list[dict]] = {
-    "银行": [
-        {"name": "不良贷款率", "unit": "%", "source": "lixinger"},
-        {"name": "拨备覆盖率", "unit": "%", "source": "lixinger"},
-        {"name": "净息差", "unit": "%", "source": "lixinger"},
-        {"name": "核心一级资本充足率", "unit": "%", "source": "lixinger"},
-    ],
-    "煤化工": [
-        {"name": "煤油比", "unit": "", "source": "manual"},
-        {"name": "烯烃吨成本", "unit": "元/吨", "source": "manual"},
-        {"name": "产能利用率", "unit": "%", "source": "manual"},
-    ],
-    "磷化工": [
-        {"name": "磷矿价格", "unit": "元/吨", "source": "manual"},
-        {"name": "磷矿石自给率", "unit": "%", "source": "manual"},
-        {"name": "磷酸一铵价格", "unit": "元/吨", "source": "manual"},
-    ],
-    "黄金": [
-        {"name": "全球央行净买入", "unit": "吨", "source": "manual"},
-        {"name": "上海金交所金价", "unit": "元/克", "source": "manual"},
-        {"name": "门店数量", "unit": "家", "source": "manual"},
-    ],
-    "药品零售": [
-        {"name": "门店数量", "unit": "家", "source": "manual"},
-        {"name": "同店增长率", "unit": "%", "source": "manual"},
-        {"name": "处方外配比例", "unit": "%", "source": "manual"},
-    ],
-    "铝业": [
-        {"name": "电价成本", "unit": "元/度", "source": "manual"},
-        {"name": "氧化铝价格", "unit": "元/吨", "source": "manual"},
-        {"name": "电解铝产能", "unit": "万吨", "source": "manual"},
-    ],
-}
+def get_template_for_pattern(db: Session, pattern_id: int | None) -> list[dict]:
+    """Return the thesis variable template for a BusinessPattern id.
 
-
-def get_template_for_industry(industry: str | None) -> list[dict]:
-    if not industry:
+    Empty list if pattern_id is None or pattern has no thesis_variables_json.
+    """
+    if pattern_id is None:
         return []
-    return THESIS_VARIABLE_TEMPLATES.get(industry, [])
+    pattern = get_pattern(db, pattern_id)
+    if pattern is None or not pattern.thesis_variables_json:
+        return []
+    try:
+        data = json.loads(pattern.thesis_variables_json)
+        return data if isinstance(data, list) else []
+    except (json.JSONDecodeError, TypeError):
+        logger.warning(
+            "Failed to parse thesis_variables_json for pattern %s", pattern_id
+        )
+        return []
 
 
 # ── Core sync logic ─────────────────────────────────────────────────────
@@ -105,27 +96,43 @@ def _set_variables(stock: Stock, variables: list[dict]) -> None:
     stock.thesis_variables_json = json.dumps(variables, ensure_ascii=False)
 
 
+def _pattern_name(db: Session, pattern_id: int | None) -> str | None:
+    if pattern_id is None:
+        return None
+    pattern = get_pattern(db, pattern_id)
+    return pattern.name if pattern else None
+
+
 def sync_stock(
     db: Session,
     stock_code: str,
     *,
     audit: bool = True,
 ) -> dict:
-    """Sync thesis variables for a single stock.
+    """Sync thesis variables for a single stock from FinancialStatement.
 
     Returns a summary dict: {synced, skipped, errors}.
     """
     stock = db.get(Stock, stock_code)
-    if not stock or not stock.industry:
-        return {"synced": 0, "skipped": 0, "errors": 0, "reason": "no_stock_or_industry"}
+    if stock is None:
+        return {"synced": 0, "skipped": 0, "errors": 0, "reason": "no_stock"}
 
-    template = get_template_for_industry(stock.industry)
+    if stock.business_pattern_id is None:
+        return {"synced": 0, "skipped": 0, "errors": 0, "reason": "no_pattern"}
+
+    template = get_template_for_pattern(db, stock.business_pattern_id)
     if not template:
         return {"synced": 0, "skipped": 0, "errors": 0, "reason": "no_template"}
 
-    column_map = VARIABLE_TO_COLUMN.get(stock.industry, {})
+    pattern_name = _pattern_name(db, stock.business_pattern_id)
+    column_map = VARIABLE_TO_COLUMN.get(pattern_name or "", {})
     if not column_map:
-        return {"synced": 0, "skipped": len(template), "errors": 0, "reason": "all_manual"}
+        return {
+            "synced": 0,
+            "skipped": len(template),
+            "errors": 0,
+            "reason": "all_manual",
+        }
 
     stmt = _latest_stmt(db, stock_code)
     if not stmt:

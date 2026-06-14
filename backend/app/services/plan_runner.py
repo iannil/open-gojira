@@ -58,6 +58,13 @@ class PlanRunResult:
     removed: int = 0
     new: int = 0
     drafts_emitted: int = 0
+    filtered_midstream_non_leader: int = 0
+    cycle_position: str | None = None
+    """G1: current cycle position when plan ran (extreme_low/low/mid/high/extreme_high)."""
+    cycle_buy_blocked: int = 0
+    """G1: count of BUY drafts suppressed by cycle gate (current_rank > plan.cycle_buy_max)."""
+    cycle_unavailable_skipped: bool = False
+    """G1: True if plan run was skipped entirely because cycle data was unavailable."""
     errors: list[str] = field(default_factory=list)
 
 
@@ -92,6 +99,61 @@ def _resolve_scope(db: Session, plan: Plan) -> list[str]:
     elif scope.type == "custom":
         return scope.values
     return []
+
+
+def _should_filter_as_midstream_non_leader(
+    db: Session, stock: Stock, plan: Plan
+) -> bool:
+    """G2 (invest3 §13): filter midstream non-cost-leader stocks.
+
+    Rule: if stock's BusinessPattern.is_midstream=True AND stock.is_cost_leader
+    is not strictly True → filter (剔除). This implements the文档硬规则
+    "中游企业一般不要投资，除非它是成本最低的那个".
+
+    Bypass conditions:
+    - plan.disable_midstream_filter=True → never filter
+    - stock has no business_pattern_id → cannot apply (keep)
+    - pattern.is_midstream=False → not midstream (keep)
+
+    Returns True if stock should be filtered out.
+    """
+    if plan.disable_midstream_filter:
+        return False
+    if stock.business_pattern_id is None:
+        return False
+    from app.models.business_pattern import BusinessPattern
+    pattern = db.get(BusinessPattern, stock.business_pattern_id)
+    if pattern is None or not pattern.is_midstream:
+        return False
+    return stock.is_cost_leader is not True
+
+
+# ── G1 cycle gate (invest3 §5) ────────────────────────────────────────
+# 5 cycle positions (rank 升序 = 越来越高估):
+_CYCLE_POSITION_RANKS = {
+    "extreme_low": 0,
+    "low": 1,
+    "mid": 2,
+    "high": 3,
+    "extreme_high": 4,
+}
+
+
+def _cycle_position_rank(pos: str) -> int:
+    """Convert cycle position string to ordinal rank (0=most undervalued)."""
+    if pos not in _CYCLE_POSITION_RANKS:
+        raise ValueError(f"unknown cycle position: {pos!r}")
+    return _CYCLE_POSITION_RANKS[pos]
+
+
+def _check_cycle_gate(plan_max: str, current: str) -> bool:
+    """G1 (invest3 §5): should BUY drafts be blocked?
+
+    Returns True if current cycle rank > plan.cycle_buy_max rank — meaning
+    market is too hot and new buys should be suppressed. SELL drafts are
+    unaffected (cycle=high may legitimately trigger take-profit).
+    """
+    return _cycle_position_rank(current) > _cycle_position_rank(plan_max)
 
 
 def _strategy_definitely_fails(rule, ctx: StockContext) -> bool:
@@ -300,6 +362,8 @@ def _format_buy_reason(trig_kind: str, actual: float | None, threshold: float) -
     pct1 = lambda v: f"{v * 100:.1f}%" if v is not None else "—"
     if trig_kind == "dyr_ge":
         return f"股息率 {pct(actual)} ≥ 阈值 {pct(threshold)}"
+    if trig_kind == "dyr_fwd_ge":
+        return f"预期股息率 {pct(actual)} ≥ 阈值 {pct(threshold)}"
     if trig_kind == "pe_pct_le":
         return f"PE 10年分位 {pct1(actual)} ≤ 阈值 {pct1(threshold)}"
     if trig_kind == "price_le":
@@ -317,6 +381,8 @@ def _format_sell_reason(trig_kind: str, actual: float | None, threshold: float) 
         return f"收益率 +{pct1(actual)} ≥ 止盈线 +{pct1(threshold)}"
     if trig_kind == "dyr_le":
         return f"股息率 {pct(actual)} ≤ 警戒线 {pct(threshold)}"
+    if trig_kind == "dyr_fwd_le":
+        return f"预期股息率 {pct(actual)} ≤ 警戒线 {pct(threshold)}"
     if trig_kind == "pe_pct_ge":
         return f"PE 10年分位 {pct1(actual)} ≥ 阈值 {pct1(threshold)}"
     return f"{trig_kind} triggered"
@@ -347,6 +413,9 @@ def _evaluate_trading_rules(
         if trig.kind == "dyr_ge" and ctx.dyr is not None:
             triggered = ctx.dyr >= trig.value
             actual = ctx.dyr
+        elif trig.kind == "dyr_fwd_ge" and ctx.forward_dyr is not None:
+            triggered = ctx.forward_dyr >= trig.value
+            actual = ctx.forward_dyr
         elif trig.kind == "pe_pct_le" and ctx.pe_pct_10y is not None:
             triggered = ctx.pe_pct_10y <= trig.value
             actual = ctx.pe_pct_10y
@@ -391,6 +460,9 @@ def _evaluate_trading_rules(
         elif trig.kind == "dyr_le" and ctx.dyr is not None:
             triggered = ctx.dyr <= trig.value
             actual = ctx.dyr
+        elif trig.kind == "dyr_fwd_le" and ctx.forward_dyr is not None:
+            triggered = ctx.forward_dyr <= trig.value
+            actual = ctx.forward_dyr
         elif trig.kind == "pe_pct_ge" and ctx.pe_pct_10y is not None:
             triggered = ctx.pe_pct_10y >= trig.value
             actual = ctx.pe_pct_10y
@@ -414,6 +486,30 @@ def run_plan(db: Session, plan: Plan) -> PlanRunResult:
         assert_fresh_enough(db, _category, max_age_hours=48)
 
     result = PlanRunResult(plan_id=plan.id, plan_name=plan.name)
+
+    # G1 (Q10=C): cycle gate — if cycle data unavailable, skip entire plan run.
+    # Rationale: per invest3 §5, market position must inform buy decisions;
+    # without it, all drafts would be based on incomplete context.
+    try:
+        from app.services.cycle_assessment_service import assess_cycle
+        cycle = assess_cycle(db)
+        if cycle.pe_pct_10y is None:
+            result.cycle_unavailable_skipped = True
+            result.errors.append(
+                "cycle_assessment data unavailable (pe_pct_10y is None) — "
+                "plan run skipped per G1 fallback policy"
+            )
+            logger.warning(
+                "Plan '%s' skipped: cycle_assessment data unavailable",
+                plan.name,
+            )
+            return result
+        result.cycle_position = cycle.cycle_position
+    except Exception as e:
+        result.cycle_unavailable_skipped = True
+        result.errors.append(f"cycle_assessment failed: {e} — plan run skipped")
+        logger.warning("Plan '%s' skipped: cycle_assessment error", plan.name, exc_info=True)
+        return result
 
     # 1. Resolve scope
     try:
@@ -490,6 +586,12 @@ def run_plan(db: Session, plan: Plan) -> PlanRunResult:
             if not passed:
                 continue
 
+            # G2 midstream filter (invest3 §13)
+            stock = db.get(Stock, code)
+            if stock is not None and _should_filter_as_midstream_non_leader(db, stock, plan):
+                result.filtered_midstream_non_leader += 1
+                continue
+
             passed_codes.append(code)
             _upsert_candidate(db, plan, code, strategy_results, result)
     else:
@@ -503,6 +605,12 @@ def run_plan(db: Session, plan: Plan) -> PlanRunResult:
 
             strategy_results, passed = _evaluate_strategies(strategies, ctx, comp)
             if not passed:
+                continue
+
+            # G2 midstream filter (invest3 §13)
+            stock = db.get(Stock, code)
+            if stock is not None and _should_filter_as_midstream_non_leader(db, stock, plan):
+                result.filtered_midstream_non_leader += 1
                 continue
 
             passed_codes.append(code)
@@ -527,12 +635,28 @@ def run_plan(db: Session, plan: Plan) -> PlanRunResult:
 
     # 5. Trading rules for all passing candidates (重审 #1+#4: 闸门已删)
     if plan.trading_rules_json:
+        # G1 (Q8=A): cycle gate — block BUY drafts when market is too hot.
+        # SELL drafts remain unaffected (cycle=high may legitimately trigger
+        # take-profit). cycle_unavailable was already handled at plan start.
+        cycle_blocks_buy = (
+            result.cycle_position is not None
+            and _check_cycle_gate(plan.cycle_buy_max, result.cycle_position)
+        )
+        if cycle_blocks_buy:
+            logger.info(
+                "Plan '%s': cycle gate active (cycle=%s, max=%s) — BUY drafts suppressed",
+                plan.name, result.cycle_position, plan.cycle_buy_max,
+            )
         eval_moment = datetime.now(timezone.utc).replace(tzinfo=None)
         for code in passed_codes:
             try:
                 ctx = build_context(db, code)
                 intents = _evaluate_trading_rules(db, plan, code, ctx)
                 for side, step_kind, step_index, add_pct, reduce_pct, reason in intents:
+                    # G1: cycle gate suppresses BUY side
+                    if side == "BUY" and cycle_blocks_buy:
+                        result.cycle_buy_blocked += 1
+                        continue
                     # S2.5: SELL T+1 — if no settled shares are available,
                     # emitting a SELL draft would only produce noise.
                     if side == "SELL":

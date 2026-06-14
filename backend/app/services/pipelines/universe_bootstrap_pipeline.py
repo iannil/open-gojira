@@ -199,6 +199,20 @@ class UniverseBootstrapPipeline(BasePipeline):
             "Universe upsert: fetched=%d, inserted=%d, updated=%d, delisted=%d, reactivated=%d",
             len(companies), inserted, updated, delisted, reactivated,
         )
+
+        # Re-infer business_pattern_id for all stocks (industry-driven).
+        # Skip stocks with manual overrides (inferred_at IS NULL, id NOT NULL).
+        try:
+            from app.services.business_pattern_service import infer_all_stocks
+            infer_summary = infer_all_stocks(self.db)
+            self._logger.info(
+                "Business pattern inference: %s", infer_summary
+            )
+        except Exception:
+            self._logger.exception(
+                "Business pattern inference failed (continuing)"
+            )
+
         return {
             "total_fetched": len(companies),
             "inserted": inserted,

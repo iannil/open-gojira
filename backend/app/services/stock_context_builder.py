@@ -188,6 +188,14 @@ def build_context(db: Session, code: str) -> StockContext:
     # OCF/NI
     ocf_ni = _ocf_to_ni(db, code)
 
+    # G3: Forward DYR (预期股息率) — uses 3-year avg dividend / latest price
+    forward_dyr = None
+    try:
+        from app.services.dividend_projector_service import compute_forward_dyr_for_stock
+        forward_dyr = compute_forward_dyr_for_stock(db, code)
+    except Exception:
+        logger.warning("compute_forward_dyr_for_stock failed for %s", code, exc_info=True)
+
     return StockContext(
         code=code,
         name=stock.name,
@@ -197,6 +205,7 @@ def build_context(db: Session, code: str) -> StockContext:
         qiu_score=stock.qiu_score if stock.qiu_score else None,
         hq_region=stock.hq_region,
         dyr=val.dividend_yield if val else None,
+        forward_dyr=forward_dyr,
         pe_pct_10y=(val.pe_percentile_10y / 100.0 if val and val.pe_percentile_10y is not None else None),
         pb_pct_10y=(val.pb_percentile_10y / 100.0 if val and val.pb_percentile_10y is not None else None),
         dividend_sustainability=div_sust,
@@ -206,6 +215,8 @@ def build_context(db: Session, code: str) -> StockContext:
         price_drop_pct=price_drop_pct,
         bank_blind_box=bank_verdict,
         market_temperature=market_temp,
+        has_mine=stock.has_mine,
+        domestic_leader=stock.domestic_leader,
     )
 
 

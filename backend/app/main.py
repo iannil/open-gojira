@@ -23,6 +23,7 @@ from app.db.engine import engine
 from app.models import *  # noqa: F401,F403 — ensure all models register with Base.metadata
 from app.routers import (
     alerts, audit_log, backtests as backtests_router,
+    business_patterns as business_patterns_router,
     cashflow_goal, candidates as candidates_router,
     cash as cash_router,
     cockpit as cockpit_router, corp_actions as corp_actions_router,
@@ -233,6 +234,7 @@ app.include_router(candidates_router.router)
 app.include_router(cockpit_router.router)
 app.include_router(review_router.router)
 app.include_router(theme_router.router)
+app.include_router(business_patterns_router.router)
 app.include_router(data_management.router)
 app.include_router(observability_router.router)
 app.include_router(trades_router.router)

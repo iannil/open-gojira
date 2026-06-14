@@ -80,6 +80,11 @@ import type {
   FullUniverseResponse,
   UniverseCoverageStats,
   WatchlistGroupResponse,
+  BusinessPattern,
+  BusinessPatternCreate,
+  BusinessPatternUpdate,
+  BusinessPatternThesisTemplates,
+  InferAllSummary,
 } from './types';
 
 import { installTracer } from '../observability/tracer';
@@ -339,6 +344,68 @@ export async function fetchThesisTemplates(code: string): Promise<{
   templates: { name: string; unit: string; source: string }[];
 }> {
   const res = await apiClient.get(`/stocks/${code}/thesis-templates`);
+  return res.data;
+}
+
+// ── Business patterns (生意模式) ─────────────────────────────────────
+
+export async function listBusinessPatterns(
+  builtinOnly = false,
+): Promise<BusinessPattern[]> {
+  const res = await apiClient.get<BusinessPattern[]>('/business-patterns', {
+    params: builtinOnly ? { builtin_only: true } : undefined,
+  });
+  return res.data;
+}
+
+export async function createBusinessPattern(
+  payload: BusinessPatternCreate,
+): Promise<BusinessPattern> {
+  const res = await apiClient.post<BusinessPattern>('/business-patterns', payload);
+  return res.data;
+}
+
+export async function getBusinessPattern(id: number): Promise<BusinessPattern> {
+  const res = await apiClient.get<BusinessPattern>(`/business-patterns/${id}`);
+  return res.data;
+}
+
+export async function updateBusinessPattern(
+  id: number,
+  payload: BusinessPatternUpdate,
+): Promise<BusinessPattern> {
+  const res = await apiClient.patch<BusinessPattern>(`/business-patterns/${id}`, payload);
+  return res.data;
+}
+
+export async function deleteBusinessPattern(id: number): Promise<void> {
+  await apiClient.delete(`/business-patterns/${id}`);
+}
+
+export async function inferAllBusinessPatterns(force = false): Promise<InferAllSummary> {
+  const res = await apiClient.post<InferAllSummary>('/business-patterns/infer-all', null, {
+    params: force ? { force: true } : undefined,
+  });
+  return res.data;
+}
+
+export async function getBusinessPatternThesisTemplates(
+  patternId: number,
+): Promise<BusinessPatternThesisTemplates> {
+  const res = await apiClient.get<BusinessPatternThesisTemplates>(
+    `/business-patterns/${patternId}/thesis-templates`,
+  );
+  return res.data;
+}
+
+export async function updateStockBusinessPattern(
+  code: string,
+  patternId: number | null,
+): Promise<StockResponse> {
+  const res = await apiClient.patch<StockResponse>(
+    `/stocks/${code}/business-pattern`,
+    { business_pattern_id: patternId },
+  );
   return res.data;
 }
 

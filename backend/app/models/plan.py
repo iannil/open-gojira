@@ -45,6 +45,22 @@ class Plan(Base):
     trading_rules_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     """JSON: {gates, buy_ladder, sell_ladder, invalidation, cooldown_days}"""
 
+    # --- G2 midstream filter toggle ---
+    disable_midstream_filter: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0"
+    )
+    """G2 (invest3 §13): when False (default), plan_runner filters out stocks
+    whose BusinessPattern.is_midstream=True AND Stock.is_cost_leader != True.
+    Plan-level逃生口: set True to bypass for special-case plans."""
+
+    # --- G1 cycle gate ---
+    cycle_buy_max: Mapped[str] = mapped_column(
+        String, nullable=False, default="mid", server_default="mid"
+    )
+    """G1 (invest3 §5): max cycle position at which BUY drafts may be emitted.
+    Enum: extreme_low / low / mid / high / extreme_high.
+    Default 'mid' = block when market is high/extreme_high. Set 'extreme_high' to disable."""
+
     # --- Run state ---
     last_run_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_run_summary: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -26,8 +26,13 @@ class StockContext:
 
     # Valuation
     dyr: float | None = None
+    forward_dyr: float | None = None
     pe_pct_10y: float | None = None
     pb_pct_10y: float | None = None
+
+    # G4: resource flags (invest3 §12)
+    has_mine: bool | None = None
+    domestic_leader: bool | None = None
 
     # Financial
     dividend_sustainability: float | None = None
@@ -47,6 +52,7 @@ def _resolve_field(ctx: StockContext, field: str) -> Any:
     """Map field name to StockContext attribute value."""
     mapping = {
         "dyr": ctx.dyr,
+        "dyr_fwd": ctx.forward_dyr,
         "pe_pct_10y": ctx.pe_pct_10y,
         "pb_pct_10y": ctx.pb_pct_10y,
         "dividend_sustainability": ctx.dividend_sustainability,
@@ -58,6 +64,8 @@ def _resolve_field(ctx: StockContext, field: str) -> Any:
         "price_drop_pct": ctx.price_drop_pct,
         "hq_region_tier": ctx.hq_region,
         "market_temperature": ctx.market_temperature,
+        "has_mine": ctx.has_mine,
+        "domestic_leader": ctx.domestic_leader,
     }
     return mapping.get(field)
 

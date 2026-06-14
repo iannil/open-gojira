@@ -13,6 +13,7 @@ import {
   BarChartOutlined,
   BellOutlined,
   FileTextOutlined,
+  ClusterOutlined,
 } from '@ant-design/icons';
 
 import { SystemAlertBanner } from './SystemAlertBanner';
@@ -38,6 +39,7 @@ const NAV_GROUPS: Array<{
     label: '策略',
     items: [
       { key: '/strategies', label: '策略库', labelEn: 'Strategies', icon: <ThunderboltOutlined /> },
+      { key: '/business-patterns', label: '商业模式', labelEn: 'Patterns', icon: <ClusterOutlined /> },
       { key: '/plans', label: '预案', labelEn: 'Plans', icon: <ScheduleOutlined /> },
     ],
   },

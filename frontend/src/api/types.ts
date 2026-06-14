@@ -23,6 +23,11 @@ export interface StockResponse {
   tier?: string | null;
   notes?: string | null;
   thesis_variables?: ThesisVariable[];
+  business_pattern_id?: number | null;
+  business_pattern_inferred_at?: string | null;
+  business_pattern_name?: string | null;
+  business_pattern_first_principle_variable?: string | null;
+  business_pattern_power_tier?: number | null;
 }
 
 export interface KlinePoint {
@@ -368,6 +373,8 @@ export interface CockpitResponse {
 export interface ReviewByStock {
   stock_code: string;
   drafts_triggered: number;
+  business_pattern_name?: string | null;
+  first_principle_variable?: string | null;
 }
 
 export interface ReviewEntry {
@@ -465,6 +472,65 @@ export interface ThesisVariable {
   unit: string | null;
   source?: string | null;
   synced_at?: string | null;
+}
+
+// ── BusinessPattern (生意模式) ──────────────────────────────────────
+
+export interface ThesisVariableTemplate {
+  name: string;
+  unit: string | null;
+  source: string; // 'manual' | 'lixinger'
+  current_value?: number | null;
+  target_condition?: string | null;
+}
+
+export interface BusinessPattern {
+  id: number;
+  name: string;
+  theme_id?: number | null;
+  description?: string | null;
+  first_principle_variable?: string | null;
+  power_tier_baseline: number;
+  thesis_variables: ThesisVariableTemplate[];
+  lixinger_industries: string[];
+  source_ref?: string | null;
+  is_builtin: boolean;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface BusinessPatternCreate {
+  name: string;
+  theme_id?: number | null;
+  description?: string | null;
+  first_principle_variable?: string | null;
+  power_tier_baseline?: number;
+  thesis_variables?: ThesisVariableTemplate[];
+  lixinger_industries?: string[];
+}
+
+export interface BusinessPatternUpdate {
+  name?: string;
+  theme_id?: number | null;
+  description?: string | null;
+  first_principle_variable?: string | null;
+  power_tier_baseline?: number;
+  thesis_variables?: ThesisVariableTemplate[];
+  lixinger_industries?: string[];
+  source_ref?: string | null;
+}
+
+export interface BusinessPatternThesisTemplates {
+  pattern_id: number;
+  pattern_name: string;
+  templates: ThesisVariableTemplate[];
+}
+
+export interface InferAllSummary {
+  total: number;
+  updated: number;
+  protected: number;
+  cleared: number;
 }
 
 // ── Revenue ────────────────────────────────────────────────────────

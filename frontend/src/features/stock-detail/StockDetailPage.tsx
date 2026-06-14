@@ -34,6 +34,7 @@ import {
   useUpdateThesisVariablesMutation,
 } from './useStockDetailMutations';
 import ThesisVariablesModal from './components/ThesisVariablesModal';
+import IndustryContextPanel from './components/IndustryContextPanel';
 
 const { Text } = Typography;
 
@@ -238,6 +239,15 @@ export default function StockDetailPage() {
             <Descriptions.Item label="行业">{stock.industry ?? '-'}</Descriptions.Item>
             <Descriptions.Item label="上市日">{stock.listed_date ?? '-'}</Descriptions.Item>
           </Descriptions>
+        </PageSection>
+      </div>
+
+      <div style={{ marginTop: 'var(--sp-4)' }}>
+        <PageSection
+          title="商业模式"
+          subtitle="该股票归属的生意模式 + 第一性原理核心变量(自动推断自 Lixinger industry,可手动覆盖)"
+        >
+          <IndustryContextPanel stock={stock} />
         </PageSection>
       </div>
 

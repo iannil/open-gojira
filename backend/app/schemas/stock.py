@@ -41,6 +41,11 @@ class StockResponse(BaseModel):
     tier: Optional[str] = None
     notes: Optional[str] = None
     thesis_variables: Optional[list[dict]] = None
+    business_pattern_id: Optional[int] = None
+    business_pattern_inferred_at: Optional[datetime] = None
+    business_pattern_name: Optional[str] = None
+    business_pattern_first_principle_variable: Optional[str] = None
+    business_pattern_power_tier: Optional[int] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     analysis_count: int = 0

@@ -69,7 +69,13 @@ export default function ThesisVariablesModal({
     try {
       const res = await fetchThesisTemplates(code);
       if (res.templates.length === 0) {
-        message.info(`行业 "${res.industry}" 暂无模板`);
+        // After T6.1, templates come from BusinessPattern, not industry string.
+        // Empty templates usually means stock has no business_pattern_id.
+        message.info(
+          res.industry
+            ? `"${res.industry}" 暂无模板。若未关联商业模式,请先在「Industry Context」面板关联。`
+            : '该股票尚未关联商业模式,请先在「Industry Context」面板关联一个生意模式。',
+        );
         return;
       }
       const newVars: ThesisVariable[] = res.templates.map((t) => ({

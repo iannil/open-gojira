@@ -2,6 +2,7 @@ from app.models.alert import AlertEvent, AlertRule
 from app.models.audit_log import AuditLog
 from app.models.backtest_run import BacktestRun
 from app.models.broker_fee_config import BrokerFeeConfig
+from app.models.business_pattern import BusinessPattern
 from app.models.candidate import Candidate
 from app.models.cash_adjustment import CashAdjustment
 from app.models.corp_action import CorpAction
@@ -48,6 +49,7 @@ __all__ = [
     "CashAdjustment",
     "CorpAction",
     "BrokerFeeConfig",
+    "BusinessPattern",
     "AuditLog",
     "BacktestRun",
     "Plan",
