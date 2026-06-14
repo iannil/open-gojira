@@ -25,6 +25,7 @@ StrategyField = Literal[
     "market_temperature",
     "has_mine",
     "domestic_leader",
+    "power_tier",
 ]
 
 ComparisonOp = Literal[">=", "<=", "==", "in"]
@@ -33,7 +34,7 @@ ComparisonOp = Literal[">=", "<=", "==", "in"]
 class Condition(BaseModel):
     field: StrategyField
     op: ComparisonOp
-    value: Union[bool, float, str, list[str]]
+    value: Union[bool, int, float, str, list[str]]
 
     @model_validator(mode="after")
     def _validate_value_type(self) -> "Condition":

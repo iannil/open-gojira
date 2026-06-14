@@ -234,6 +234,48 @@ class TestResourceFlagsFields:
         assert result.passed is False
 
 
+class TestPowerTierField:
+    """C1: power_tier — effective "求"字位阶 from qiu_score or pattern baseline.
+
+    Semantics:
+    - If stock.qiu_score > 0 (user explicitly scored) → use qiu_score
+    - Else fallback to pattern.power_tier_baseline (when business_pattern assigned)
+    - Both absent → None → condition fails (剔除)
+    """
+
+    def test_power_tier_field_exists(self):
+        ctx = StockContext(code="X")
+        assert hasattr(ctx, "power_tier")
+        assert ctx.power_tier is None
+
+    def test_power_tier_gte_passes(self):
+        rule = StrategyRule(logic="AND", conditions=[
+            Condition(field="power_tier", op=">=", value=2),
+        ])
+        ctx = _make_ctx(power_tier=2)
+        result = evaluate(rule, ctx)
+        assert result.passed is True
+
+    def test_power_tier_eq_value(self):
+        rule = StrategyRule(logic="AND", conditions=[
+            Condition(field="power_tier", op="==", value=3),
+        ])
+        ctx = _make_ctx(power_tier=3)
+        assert evaluate(rule, ctx).passed is True
+        ctx = _make_ctx(power_tier=2)
+        assert evaluate(rule, ctx).passed is False
+
+    def test_power_tier_none_fails(self):
+        """power_tier=None → data unavailable → 剔除."""
+        rule = StrategyRule(logic="AND", conditions=[
+            Condition(field="power_tier", op=">=", value=2),
+        ])
+        ctx = _make_ctx(power_tier=None)
+        result = evaluate(rule, ctx)
+        assert result.passed is False
+        assert "data unavailable" in result.condition_results[0].detail
+
+
 class TestNullHandling:
     def test_null_field_fails(self):
         rule = StrategyRule(logic="AND", conditions=[

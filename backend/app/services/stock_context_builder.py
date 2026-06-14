@@ -196,6 +196,16 @@ def build_context(db: Session, code: str) -> StockContext:
     except Exception:
         logger.warning("compute_forward_dyr_for_stock failed for %s", code, exc_info=True)
 
+    # C1: effective power_tier — qiu_score 优先, fallback 到 pattern.power_tier_baseline
+    power_tier: int | None = None
+    if stock.qiu_score and stock.qiu_score > 0:
+        power_tier = stock.qiu_score
+    elif stock.business_pattern_id is not None:
+        from app.models.business_pattern import BusinessPattern
+        bp = db.get(BusinessPattern, stock.business_pattern_id)
+        if bp is not None:
+            power_tier = bp.power_tier_baseline
+
     return StockContext(
         code=code,
         name=stock.name,
@@ -217,6 +227,7 @@ def build_context(db: Session, code: str) -> StockContext:
         market_temperature=market_temp,
         has_mine=stock.has_mine,
         domestic_leader=stock.domestic_leader,
+        power_tier=power_tier,
     )
 
 

@@ -536,6 +536,21 @@ def _monthly_thesis_variable_sync_job() -> dict:
     return result
 
 
+def weekly_business_pattern_inference_job() -> dict:
+    """C3: weekly batch re-inference of Stock.business_pattern_id.
+
+    Skips user-overridden stocks (inferred_at IS NULL + id NOT NULL).
+    Catches stocks synced after the last inference run, plus industry
+    string changes that weren't caught by the per-sync hook.
+    """
+    from app.services.business_pattern_service import infer_all_stocks
+
+    with SessionLocal() as db:
+        result = infer_all_stocks(db, force=False)
+    logger.info("weekly_business_pattern_inference_job: %s", result)
+    return result
+
+
 # ── Phase S4A: corporate action pipeline ──────────────────────────────────
 
 
@@ -693,6 +708,7 @@ JOB_REGISTRY = {
     "daily_plan_evaluation": daily_plan_evaluation_job,
     "weekly_rebalancing_review": weekly_rebalancing_review_job,
     "monthly_thesis_variable_sync": _monthly_thesis_variable_sync_job,
+    "weekly_business_pattern_inference": weekly_business_pattern_inference_job,
     "intraday_monitor": intraday_monitor_job,
     "weekly_dividend_sync": weekly_dividend_sync_job,
     "daily_corp_action_apply": daily_corp_action_apply_job,

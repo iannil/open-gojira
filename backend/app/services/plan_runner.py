@@ -98,6 +98,20 @@ def _resolve_scope(db: Session, plan: Plan) -> list[str]:
         ).scalars().all())
     elif scope.type == "custom":
         return scope.values
+    elif scope.type == "business_pattern":
+        # C2: 按 BusinessPattern 圈定扫描范围。values 是 pattern ID 字符串。
+        try:
+            pattern_ids = [int(v) for v in scope.values]
+        except ValueError as e:
+            raise ValueError(
+                f"business_pattern scope values must be integers: {scope.values}"
+            ) from e
+        return list(db.execute(
+            select(Stock.code).where(
+                Stock.business_pattern_id.in_(pattern_ids),
+                Stock.delisted_at.is_(None),
+            )
+        ).scalars().all())
     return []
 
 

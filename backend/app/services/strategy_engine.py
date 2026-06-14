@@ -34,6 +34,9 @@ class StockContext:
     has_mine: bool | None = None
     domestic_leader: bool | None = None
 
+    # C1: effective "求"字位阶 (power_tier_baseline from pattern OR qiu_score override)
+    power_tier: int | None = None
+
     # Financial
     dividend_sustainability: float | None = None
     ocf_to_ni: float | None = None
@@ -66,6 +69,7 @@ def _resolve_field(ctx: StockContext, field: str) -> Any:
         "market_temperature": ctx.market_temperature,
         "has_mine": ctx.has_mine,
         "domestic_leader": ctx.domestic_leader,
+        "power_tier": ctx.power_tier,
     }
     return mapping.get(field)
 

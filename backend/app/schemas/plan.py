@@ -84,18 +84,22 @@ class StrategyComposition(BaseModel):
     logic: Literal["AND", "OR"] = "AND"
 
 
-ScanScopeType = Literal["all_stocks", "industries", "index", "watchlist", "custom"]
+ScanScopeType = Literal[
+    "all_stocks", "industries", "index", "watchlist", "custom",
+    "business_pattern",  # C2: 按 BusinessPattern 圈定扫描范围
+]
 
 
 class ScanScope(BaseModel):
     type: ScanScopeType
     values: list[str] = Field(default_factory=list)
+    """For 'business_pattern' type, values are pattern IDs as strings."""
 
     @model_validator(mode="after")
     def _validate_values(self) -> "ScanScope":
         if self.type == "all_stocks":
             pass  # values ignored
-        elif self.type in ("industries", "index", "watchlist", "custom"):
+        elif self.type in ("industries", "index", "watchlist", "custom", "business_pattern"):
             if not self.values:
                 raise ValueError(f"'{self.type}' scope requires non-empty values")
         return self

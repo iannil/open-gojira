@@ -68,6 +68,10 @@ DEFAULT_JOBS: dict[str, dict] = {
         "cron_expr": "30 4 1 * *",
         "description": "月度论点变量同步",
     },
+    "weekly_business_pattern_inference": {
+        "cron_expr": "30 4 * * 0",
+        "description": "周度 BusinessPattern 推断（跳过用户已 override 的股票）",
+    },
     "intraday_monitor": {
         "cron_expr": "*/5 9-14 * * 1-5",
         "description": "盘中价格监控（每5分钟检查止盈告警，默认关闭）",
