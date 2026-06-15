@@ -251,9 +251,8 @@ Alembic 迁移链: 21 个版本文件,head = `s2_candidate_source_field`。
 **P0 (2026-06-15 审计后重排 — 阻塞真实使用)**:
 
 - **P0-1 [最高]**: **解 GLM 账号余额** — 429 code 1113。充值后跑 Phase 1 #9 真实研究 (spike 1 + ship 后 2 次)。external blocker。
-- **P0-2 [高]**: **验证 Lixinger token 有效性** — `.env` 有 token,但 2026-06-13 实测 expired。需调用 `/api/health/lixinger` 实测。
-
-**~~原 P0-1~~ 修正为 P1** (2026-06-15 晚): ~~修 backtest derived fields 限制~~ — **审计错误**。实测 `build_stock_context_at` 已计算 3/4 derived fields (pe_pct_10y / pb_pct_10y / price_drop_pct / ocf_to_ni)。600519 在 2023-03-01 PIT context: pe_pct_10y=0.51 / dyr=0.024 → 所有保守策略正确不通过 → 0 trades 是**正确行为**。只有 `dividend_sustainability` 缺失 (需历史分红表),影响 2/6 策略 (高股息 / 超跌)。详见 `docs/reports/2026-06-15-completeness-audit.md` 文末"审计错误更正记录"。
+- ~~**P0-2** 验证 Lixinger token~~ ✅ **已实测有效** (2026-06-15 晚) — `client.get_company_list()` 直接拉 500 股成功。STATUS.md 之前说 expired 是过期信息。
+- ~~**原 P0-1** 修 backtest derived fields~~ ✅ **审计错误** (2026-06-15 晚) — `build_stock_context_at` 已计算 3/4 derived fields。600519 (茅台) 0 trades 是因为标的不匹配保守策略,**正确行为**。只有 `dividend_sustainability` 缺失 (影响 2/6 策略),降为 P1。详见 `docs/reports/2026-06-15-completeness-audit.md` 文末"审计错误更正记录"。
 
 **已完成项 (从 P0/P1 移除)**:
 

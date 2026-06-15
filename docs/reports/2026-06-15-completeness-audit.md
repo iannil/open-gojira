@@ -155,7 +155,7 @@ ResearchRun.llm_provider 字段写入: glm-4.7 (硬编码,不看 .env)
 ### P0 — 阻塞真实使用 (修正后)
 
 1. **解 GLM 账号余额** — 充值后跑 Phase 1 #9 真实研究验证 (spike 1 + ship 后 2 次)。external blocker。
-2. **验证 Lixinger token 有效性** — 调用 `/api/health/lixinger` 看实际状态。
+2. ~~**验证 Lixinger token 有效性**~~ ✅ **已实测有效** (2026-06-15 晚) — Python 直调 `client.get_company_list()` 拉回 500 股成功 (`永大股份 920126` 等)。`.env` 的 token `2b365f7e-...` 工作正常。STATUS.md 之前说 expired 是过期信息,本次同步修正。
 
 ### P1 — 后续
 
