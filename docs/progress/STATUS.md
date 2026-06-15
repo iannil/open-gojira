@@ -250,9 +250,10 @@ Alembic 迁移链: 21 个版本文件,head = `s2_candidate_source_field`。
 
 **P0 (2026-06-15 审计后重排 — 阻塞真实使用)**:
 
-- **P0-1 [最高]**: **修 backtest derived fields 限制** — 4/6 内置策略 (高股息安全垫 / 低估值买入信号 / 现金流资产 / 超跌逆向) 依赖 `pe_pct_10y` / `pb_pct_10y` / `dividend_sustainability` / `price_drop_pct`,backtest context 中全 None → 0 trades → 全 0 metrics。需实现 PIT 窗口计算。**这是 #7B「双层闸门」实际单层的根因**。
-- **P0-2 [高]**: **解 GLM 账号余额** — 429 code 1113。充值后跑 Phase 1 #9 真实研究 (spike 1 + ship 后 2 次)。
-- **P0-3 [高]**: **验证 Lixinger token 有效性** — `.env` 有 token,但 2026-06-13 实测 expired。需调用 `/api/health/lixinger` 实测。
+- **P0-1 [最高]**: **解 GLM 账号余额** — 429 code 1113。充值后跑 Phase 1 #9 真实研究 (spike 1 + ship 后 2 次)。external blocker。
+- **P0-2 [高]**: **验证 Lixinger token 有效性** — `.env` 有 token,但 2026-06-13 实测 expired。需调用 `/api/health/lixinger` 实测。
+
+**~~原 P0-1~~ 修正为 P1** (2026-06-15 晚): ~~修 backtest derived fields 限制~~ — **审计错误**。实测 `build_stock_context_at` 已计算 3/4 derived fields (pe_pct_10y / pb_pct_10y / price_drop_pct / ocf_to_ni)。600519 在 2023-03-01 PIT context: pe_pct_10y=0.51 / dyr=0.024 → 所有保守策略正确不通过 → 0 trades 是**正确行为**。只有 `dividend_sustainability` 缺失 (需历史分红表),影响 2/6 策略 (高股息 / 超跌)。详见 `docs/reports/2026-06-15-completeness-audit.md` 文末"审计错误更正记录"。
 
 **已完成项 (从 P0/P1 移除)**:
 
@@ -292,7 +293,7 @@ Alembic 迁移链: 21 个版本文件,head = `s2_candidate_source_field`。
 9. **重审 7 项决策 (2026-06-13)**: production-readiness-plan ship 后实测 0 真实使用,根因是 watchlist 闸门吞 296 候选。重审产出 7 项架构决策: 删 PROMOTE / 合并 EXECUTE+TRADE_ENTRY / 保留 backtest (作 #7B 前置) / watchlist 去闸门留股池 / 跳过 S6 / draft 全表现+Qiu 排序 / 双层闸门 (backtest 验证 + DisciplineChecklistModal)。详见 `docs/reference/specs/2026-06-13-revisit-production-readiness-plan.md`。
 10. **Serenity 集成 19 项决策 (2026-06-14)**: Q1-Q9 核心架构 (B 完整工作流 / A 新 ResearchTheme / D 6 张表 + 手动导出 / D LLM Web Search / GLM-5.2 / D 手动+可选调度 / D 多入口 UI / C 硬约束+软上限 / D spike 先验证) + Q10-Q19 实施细节 (异步 ThreadPoolExecutor / 不查 Checklist / 跳过 failed / 三重硬约束 / index 反向链接 / Phase 1 仅列表 / 不抽 LLMProvider / 复用 NotificationChannel / react-markdown / 失败条件 Phase 2 不做)。详见 `docs/reference/specs/2026-06-14-serenity-skill-integration.md`。
 11. **Candidate.plan_id nullable (2026-06-15 Phase 2)**: Phase 2 临时用 Sentinel Plan 绕开 FK NOT NULL,审计后发现是绕路非 spec。改为 `plan_id nullable` (s2 migration),serenity Candidate 写 NULL,rule_based Candidate 业务层校验必须有 plan_id。删除 `_get_or_create_serenity_export_plan` 全部复杂度。
-12. **Backtest derived fields 是已知限制,不是 bug (2026-06-15 审计)**: `backtest_engine.py:30-35` docstring 明示 derived fields (`pe_pct_10y` / `pb_pct_10y` / `dividend_sustainability` / `price_drop_pct`) 在 PIT context 中 None。但 4/6 内置策略依赖这些字段 → backtest 永远 0 trades → metrics 全 0。意味 #7B「双层闸门」实际单层 (DisciplineChecklistModal 是唯一 gate)。修法是实现 PIT 窗口计算 (P0-1 新)。
+12. **~~Backtest derived fields 是已知限制,不是 bug~~** (修正于 2026-06-15 晚): 原审计错误地认为 `backtest_engine.py:30-35` docstring 反映现状。实测 `point_in_time_context_service.build_stock_context_at` **已经计算** 3/4 derived fields (pe_pct_10y / pb_pct_10y / price_drop_pct / ocf_to_ni)。docstring 是过期的,本次同步修正。只有 `dividend_sustainability` 缺失 (需历史分红事件表),影响 2/6 策略 (高股息安全垫 / 超跌逆向)。600519 (茅台) 0 trades 是因为标的不匹配任何保守策略 (PE/PB 分位 0.51 + DYR 0.024),**正确行为**。详见 `docs/reports/2026-06-15-completeness-audit.md` 文末"审计错误更正记录"。
 
 ---
 

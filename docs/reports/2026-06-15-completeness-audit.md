@@ -20,8 +20,8 @@
 1. **STATUS.md 已严重过期** — P0-3 (watchlist 闸门) 实测已完成,STATUS 仍写"未做";backtest 实测 3 次,STATUS 写"0 runs"。需要刷新。
 2. **Sentinel Plan pattern 是绕路,非 spec 设计** — Q3 D 决策要求 `Candidate.source='serenity'` 区分来源,但没要求用 sentinel Plan。当前实现是临时绕路,正确做法是 `plan_id` nullable。
 3. **7 个 bug 隐藏在 Phase 2 批次中** — 详见下文 [Bug Inventory](#bug-inventory)。
-4. **Backtest 引擎结构上对当前 6 策略失效** — 3 次 backtest 全 0 trades,根因是 derived fields (pe_pct_10y / pb_pct_10y / dividend_sustainability / price_drop_pct) 在 backtest context 中不可计算。文档 (engine docstring) 已说明,但 UI 未提示用户。
-5. **重审 #7B「双层闸门」实际是单层** — backtest 验证层因 Bug #4 失效,DisciplineChecklistModal 是唯一在工作的 gate。
+4. **~~Backtest 引擎结构上对当前 6 策略失效~~** (修正于 2026-06-15 晚,详见文末) — 原论断错误。实测 `build_stock_context_at` 已计算 3/4 derived fields。600519 0 trades 是因为标的高估值/低股息,不匹配任何保守策略,**正确行为**。只有 `dividend_sustainability` 缺失影响 2/6 策略。
+5. **重审 #7B「双层闸门」仍是有效设计** (修正后) — backtest 验证层对 4/6 策略可用,仅高股息/超跌类受 `dividend_sustainability` 缺失阻塞。
 
 ---
 
@@ -106,26 +106,13 @@ ResearchRun.llm_provider 字段写入: glm-4.7 (硬编码,不看 .env)
 | P0-2 | 跑首个 backtest | "0 runs" | ⚠️ **3 runs 已跑过,但 metrics 全 0** |
 | P0-3 | 去 watchlist 闸门 (line 494) | "未做" | ✅ **已完成** — `plan_runner.py:10-13` docstring 明示 |
 
-### Backtest 0 metrics 根因
+### Backtest 0 metrics ~~根因~~ (修正:见下方"审计错误更正记录")
 
-`backtest_engine.py:30-35` docstring 明示:
+**原审计论断(已被修正)**: backtest_engine.py docstring 说 derived fields 全 None → 4/6 策略失效 → 0 trades。
 
-> derived fields requiring windowed computation (pe_pct_10y, pb_pct_10y, price_drop_pct, dividend_sustainability) are left None in the StockContext. **Strategies that depend on these will report condition as "data unavailable" → not passed.**
+**修正后**:docstring 是过期的,实际 `build_stock_context_at` 已计算 3/4 derived fields。0 trades 的真正原因是 600519 (茅台) 高估值 + 低 DYR,不匹配任何保守策略。**0 trades 是正确行为**。
 
-实测验证:
-- 600519 `historical_klines` 有 118 天 (2023-01-03 → 2023-06-30) ✅ 数据齐全
-- 但 4/6 内置策略依赖 derived fields:
-  - 高股息安全垫 → `dividend_sustainability`
-  - 低估值买入信号 → `pe_pct_10y`, `pb_pct_10y`
-  - 现金流资产 → `pe_pct_10y`
-  - 超跌逆向机会 → `price_drop_pct`, `dividend_sustainability`
-- 6 策略均不通过 → 0 trades → 全 0 metrics
-
-**含义**:
-
-1. backtest 引擎本身没坏,数据也齐,但**结构上对当前策略集合失效**
-2. 重审 #7B「双层闸门」实际是单层 — backtest 验证层无输出,DisciplineChecklistModal 是唯一 gate
-3. UI 不向用户暴露这个限制,用户跑完看到全 0 会以为引擎坏了
+详见文末"审计错误更正记录"。
 
 ### 真实生产状态 (DB 实测)
 
@@ -156,23 +143,58 @@ ResearchRun.llm_provider 字段写入: glm-4.7 (硬编码,不看 .env)
 5. ✅ 删除 Sentinel Plan (research_export_service)
 6. ✅ 修 Bug #1 / #2 / #3 / #5 / #6 / #7
 7. ✅ 更新测试 + 跑 pytest + commit
+8. ✅ STATUS.md 刷新 (commit `508600a`)
+9. ✅ CandidatesPage source filter UI (commit `e6e2518`)
 
-### P2 — 后续 grill
+### ~~P0-1~~ → **P1** (修正于 2026-06-15 晚)
 
-8. CandidatesPage source filter UI 补全
-9. Phase 2 #9 (失败条件 → 论点变量转译, Q19)
-10. Phase 2 #10 (历史 Run diff 视图, Q15)
-11. **刷新 STATUS.md** — 同步 P0-3 已完成 / backtest 3 runs / 0 holdings / 220 drafts 真实数据
+~~修 backtest derived fields 限制~~ — **审计错误**。实测 `build_stock_context_at` 已计算 pe_pct_10y / pb_pct_10y / price_drop_pct / ocf_to_ni。backtest_engine.py docstring 过期。600519 (茅台) 在 2023-03-01 PIT context 实测:pe_pct_10y=0.51 / pb_pct_10y=0.51 / dyr=0.024 → 所有保守策略正确不通过 → 0 trades 是**正确行为**。
+
+**修正后**:只有 `dividend_sustainability` 缺失(需要历史分红表),影响 2/6 策略(高股息安全垫 / 超跌逆向)。降为 P1。backtest_engine.py docstring 已同步修正。
+
+### P0 — 阻塞真实使用 (修正后)
+
+1. **解 GLM 账号余额** — 充值后跑 Phase 1 #9 真实研究验证 (spike 1 + ship 后 2 次)。external blocker。
+2. **验证 Lixinger token 有效性** — 调用 `/api/health/lixinger` 看实际状态。
+
+### P1 — 后续
+
+3. 实现 `dividend_sustainability` PIT 计算 (需历史分红事件表 + 窗口计算,影响 2/6 策略 backtest)
+4. Phase 2 #9 (失败条件 → 论点变量转译, Q19)
+5. Phase 2 #10 (历史 Run diff 视图, Q15)
 
 ### P3 — 技术债
 
-12. 统一 GLM model 配置 (spec / .env / SERENITY_RUN_CONFIG / docstring)
-13. STATUS.md 自动化生成 (避免再次失真)
+6. 统一 GLM model 配置 (spec / .env / SERENITY_RUN_CONFIG / docstring)
+7. STATUS.md 自动化生成 (避免再次失真)
+8. backtest 数据稀疏警告 (600519 只有 2 条 financials,窗口不足时 UI 应提示)
 
 ---
 
 ## 结论
 
-- [ ] **建议发布 Phase 2 commit**: 是 — 同 session 走 schema 变动 + Sentinel Plan 移除 + Bug #1-#7 修复
-- [ ] **建议生产可用**: 否 — 三大 external/structural blocker 待解 (GLM quota / Lixinger token 验证 / backtest derived fields)
-- [ ] **遗留问题**: 11 项 (P0×3 + P2×4 + P3×2 + 1 项 Phase 1 #9 external)
+- [x] **建议发布 Phase 2 commit**: 是 — `e0a915f` schema 变动 + Sentinel Plan 移除 + Bug #1-#7 修复;`508600a` STATUS.md 刷新;`e6e2518` source filter UI
+- [ ] **建议生产可用**: 否 — 两大 external blocker 待解 (GLM quota / Lixinger token 验证)
+- [ ] **遗留问题**: 7 项 (P0×2 external + P1×3 + P3×2 + Phase 1 #9 external)
+
+---
+
+## 审计错误更正记录 (2026-06-15 晚)
+
+原报告称 backtest「结构上对当前 6 策略失效」(P0-1)。**这是错误的**。修正依据:
+
+1. `point_in_time_context_service.py:141-203` `build_stock_context_at` 实测**已计算** 3/4 derived fields:
+   - `pe_pct_10y` / `pb_pct_10y` (10y 窗口分位,需 ≥30 样本)
+   - `price_drop_pct` (52w high 跌幅)
+   - `ocf_to_ni` (从 ≤day 发布的最新 financial)
+2. 只有 `dividend_sustainability` 未实现(docstring 明示 "needs historical dividend events table")
+3. `backtest_engine.py:30-35` docstring 仍写"derived fields 全 None",**已过期**,本次更正同步修复
+4. 实测 600519 (茅台) 2023-03-01 PIT context:
+   - `pe_pct_10y=0.51` / `pb_pct_10y=0.51` → 高估值,正确不通过 strategy 2 (低估值)
+   - `dyr=0.024` → 低于 4% 阈值,正确不通过所有 DYR 依赖策略
+   - `price_drop_pct=0.05` → 跌幅不足 20%,正确不通过 strategy 6 (超跌)
+5. 3 次 backtest runs 全用 strategy_id=1 (高股息安全垫),该策略依赖 `dividend_sustainability`(PIT 不可用)→ 必然 0 trades。换 strategy 2 / 3 / 4 / 5 仍可能 0 trades (取决于标的是否匹配策略),但**不是结构失效**
+
+**修正影响**:
+- 老报告 #7B「双层闸门」实际单层的论断**部分错误**。backtest 验证层**部分可用**(4/6 策略),仅高股息/超跌类策略受 `dividend_sustainability` 缺失阻塞。双层闸门仍是有效设计。
+- backtest 模块从「不可用」修正为「可用,但受数据稀疏限制 + 缺 dividend_sustainability」

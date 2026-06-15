@@ -27,12 +27,20 @@ v1 simplifications (still apply):
 - No shorting.
 - Lixinger data must already be in historical_* tables.
 
-Note: derived fields requiring windowed computation (pe_pct_10y,
-pb_pct_10y, price_drop_pct, dividend_sustainability) are left None in
-the StockContext produced by build_stock_context_at. Strategies that
-depend on these will report condition as "data unavailable" → not passed.
-For meaningful backtests of such strategies, populate these fields via
-separate queries before evaluation.
+Derived field availability in `build_stock_context_at` (point_in_time_context_service):
+- pe_pct_10y / pb_pct_10y: ✅ computed via 10y window percentile (requires
+  ≥30 samples in historical_valuations, else None)
+- price_drop_pct: ✅ computed from 52w high in historical_klines
+- ocf_to_ni: ✅ from latest historical_financials PUBLISHED ≤ day
+  (point-in-time correct; None before first financial report)
+- dividend_sustainability: ❌ None (no historical dividend events table).
+  Strategies 1 (高股息安全垫) and 6 (超跌逆向) depend on this — they will
+  report "data unavailable" → not passed. Implementing this requires a
+  historical dividend sustainability table + windowed computation.
+
+A 0-trade backtest is therefore usually CORRECT behavior (the stock didn't
+match the strategy), not a bug. Verify by inspecting `build_stock_context_at`
+output for the stock at a sample day.
 """
 from __future__ import annotations
 
