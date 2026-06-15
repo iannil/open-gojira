@@ -2,16 +2,16 @@
 
 > **此文档是项目当前状态的真实来源。AI 代理应首先阅读此文件。**
 >
-> | 字段 | 值 (实测于 2026-06-13) |
+> | 字段 | 值 (实测于 2026-06-15) |
 > |---|---|
-> | 最后更新 | 2026-06-13 |
+> | 最后更新 | 2026-06-15 |
 > | 分支 | `master` |
-> | 测试 | **816 passed**, 0 failed (`pytest`) |
-> | 测试函数数 | 816 (含 S0-S5 production-readiness + watchlist 闸门移除测试) |
-> | Alembic head | `3c5b80889c29` (strategy_driven_screening_system) |
-> | Alembic 版本文件数 | 19 (静态可验证: `ls backend/alembic/versions/*.py \| wc -l`) |
-> | 后端代码 | 17,518 行 (app/) + 6,980 行 (tests/) |
-> | 前端代码 | 8,115 行 (src/) |
+> | 测试 | **972 passed**, 0 failed (`pytest`) |
+> | 测试函数数 | 972 (含 S0-S5 + serenity-skill 集成 34 个新测试) |
+> | Alembic head | `s1_serenity_research_module` |
+> | Alembic 版本文件数 | 20 |
+> | 后端代码 | ~20,500 行 (app/) + ~7,650 行 (tests/) |
+> | 前端代码 | ~10,900 行 (src/) |
 > | 远程仓库 | 暂无 (`git remote -v` 为空) |
 > | 真实使用 | **0 trades / 0 holdings / 0 drafts / 0 backtests** (production-readiness ship 但未实盘) |
 
@@ -52,7 +52,7 @@ Gojira 是一台 **「个人股票自动驾驶舱」**:基于 `docs/reference/in
 
 ## 3. 模块清单 (实测)
 
-### 3.1 后端 Routers (21 个业务模块)
+### 3.1 后端 Routers (22 个业务模块)
 
 | 路由 | 用途 |
 |---|---|
@@ -77,8 +77,9 @@ Gojira 是一台 **「个人股票自动驾驶舱」**:基于 `docs/reference/in
 | `cockpit` | 主看板聚合 |
 | **`data_management`** | 数据同步 / Pipeline / 股票池 / 质量 / 清理 |
 | **`observability`** | Trace / Span / Event 查询接口 |
+| **`research`** | serenity-skill 研究工作流 (主题 / Run / 导出 / 反向链接) |
 
-### 3.2 后端核心 Services (42 个,按职能分组)
+### 3.2 后端核心 Services (46 个,按职能分组)
 
 **业务引擎**:
 - `strategy_engine` — 纯函数策略评估器 (StrategyRule + StockContext → EvalResult)
@@ -127,21 +128,33 @@ Gojira 是一台 **「个人股票自动驾驶舱」**:基于 `docs/reference/in
 **支撑**:
 - `alert_service` / `audit_log_service` / `scheduler_config_service` / `theme_service` / `review_service` / `watchlist_service` / `builtin_seeder` (启动时初始化 6 策略 + 4 预案)
 
-### 3.3 数据库表 (17 个 ORM 模型)
+**Serenity 研究模块 (Q1-Q19 决策)**:
+- `research_runner_service` — Q10 异步 ThreadPoolExecutor + Q13 三重硬约束 + Q17 EventBus
+- `research_persistence_service` — LLM 输出 → 6 子表 + schema 校验
+- `research_context_builder` — Lixinger 行业成分股装配
+- `research_export_service` — Q11 Phase 1 仅 watchlist 导出
+- `research_scheduler_service` — Q6 周度自动刷新 + Q12 跳过 failed
+- `llm/zhipu_client` + `llm/prompts` — GLM SDK 封装 + serenity system prompt
+
+### 3.3 数据库表 (24 个 ORM 模型)
 
 核心表: `stocks` / `valuations` / `holdings` / `dividends` / `financial_statements` / `price_klines` / `watchlist_groups` / `watchlist_items` / `alert_rules` / `alert_events` / `cashflow_goals` / `audit_logs` / `themes` / **`strategies`** / **`plans`** (统一模型) / **`candidates`** / **`drafts`**
 
+Serenity 研究表 (7 个,Q14 stock_code × 3 表 index): `research_themes` / `research_runs` / `value_chain_layers` / `scarce_layers` / `research_company_universe` / `research_evidence` / `research_company_ranking`
+
 辅助表: `scheduler_jobs` (调度配置) / `pipeline_runs` (Pipeline 运行记录)
 
-Alembic 迁移链: 19 个版本文件,head = `3c5b80889c29` (strategy_driven_screening_system)。
+Alembic 迁移链: 20 个版本文件,head = `s1_serenity_research_module`。
 
-### 3.4 前端页面 (9 个)
+### 3.4 前端页面 (11 个)
 
 | 路径 | 页面 | 用途 |
 |---|---|---|
 | `/` | `CockpitPage` | 目标进度 + 持仓 + 草稿 + 告警 + 周期仪表盘 |
 | `/universe` | `UniversePage` | 股票池 (全市场/自选/持仓) |
 | `/strategies` | `StrategiesPage` | 策略库 (内置+自定义, CRUD+单股测试) |
+| `/research` | `ResearchThemesPage` | serenity 研究方向列表 + 新建 |
+| `/research/:themeId` | `ResearchThemeDetailPage` | 研究详情 (6 tab: 概览/价值链/公司/证据/失败/历史) |
 | `/plans` | `PlansPage` | 预案管理 (CRUD+运行+状态切换) |
 | `/candidates` | `CandidatesPage` | 候选池 (筛选结果+提升到自选,7 个筛选条件) |
 | `/review` | `ReviewPage` | 月度复盘 |
@@ -216,6 +229,8 @@ Alembic 迁移链: 19 个版本文件,head = `3c5b80889c29` (strategy_driven_scr
 最新审计报告: `docs/reports/completed/full-audit-round6-2026-06-11.md`
 
 ### 5.2 最近里程碑 (按时间倒序)
+
+**2026-06-15**: serenity-skill 集成 Phase 1 完成。grill-me 会话产出 19 项决策 (Q1-Q9 核心架构 + Q10-Q19 实施细节),实施 7 张新表 / 10 个 API endpoint / 4 个 service / 异步 LLM 调用 + EventBus 告警 / Q14 反向链接 index / 34 个新测试 (972 总通过)。GLM 账号余额不足阻塞 spike 真实验证,等充值后跑 2 次真实研究。详见 `docs/reference/specs/2026-06-14-serenity-skill-integration.md` + `docs/progress/2026-06-15-serenity-skill-integration.md`。
 
 **2026-06-13**: production-readiness-plan 重审。grill-me 会话产出 7 项决策 (删 PROMOTE / 合并 EXECUTE / 保留 backtest / watchlist 去闸门 / 跳过 S6 / draft 全表现 / 双层闸门)。**实测发现 296 候选股被 watchlist 闸门静默吞掉 → 0 draft**。详见 `docs/reference/specs/2026-06-13-revisit-production-readiness-plan.md`。
 
