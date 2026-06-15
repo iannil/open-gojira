@@ -20,7 +20,13 @@ from app.models.holding_risk_rule import HoldingRiskRule
 from app.models.notification_channel import NotificationChannel
 from app.models.plan import Plan
 from app.models.price_kline import PriceKline
+from app.models.research_company_ranking import ResearchCompanyRanking
+from app.models.research_company_universe import ResearchCompanyUniverse
+from app.models.research_evidence import ResearchEvidence
+from app.models.research_run import ResearchRun
+from app.models.research_theme import ResearchTheme
 from app.models.scheduler_config import JobExecution, SchedulerJob
+from app.models.scarce_layer import ScarceLayer
 from app.models.stock import Stock
 from app.models.strategy import Strategy
 from app.models.system_alert import SystemAlert
@@ -28,6 +34,7 @@ from app.models.theme import Theme
 from app.models.trade import Trade
 from app.models.trading_calendar import TradingCalendar
 from app.models.valuation import ValuationSnapshot
+from app.models.value_chain_layer import ValueChainLayer
 from app.models.watchlist import WatchlistGroup, WatchlistItem
 
 __all__ = [
@@ -65,4 +72,12 @@ __all__ = [
     "TradingCalendar",
     "HoldingRiskRule",
     "NotificationChannel",
+    # Serenity research module
+    "ResearchTheme",
+    "ResearchRun",
+    "ValueChainLayer",
+    "ScarceLayer",
+    "ResearchCompanyUniverse",
+    "ResearchEvidence",
+    "ResearchCompanyRanking",
 ]

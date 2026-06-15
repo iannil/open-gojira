@@ -536,6 +536,18 @@ def _monthly_thesis_variable_sync_job() -> dict:
     return result
 
 
+def _weekly_research_refresh_job() -> dict:
+    """Serenity research weekly auto-refresh (Q6 D trigger).
+
+    Q12: skips themes with last_run_status='failed' to avoid burning tokens.
+    """
+    from app.services.research_scheduler_service import run_due_research_themes
+
+    result = run_due_research_themes()
+    logger.info("weekly_research_refresh_job: %s", result)
+    return result
+
+
 def weekly_business_pattern_inference_job() -> dict:
     """C3: weekly batch re-inference of Stock.business_pattern_id.
 
@@ -713,6 +725,7 @@ JOB_REGISTRY = {
     "weekly_dividend_sync": weekly_dividend_sync_job,
     "daily_corp_action_apply": daily_corp_action_apply_job,
     "intraday_price_poll": intraday_price_poll_job,
+    "weekly_research_refresh": _weekly_research_refresh_job,
 }
 
 

@@ -26,6 +26,7 @@ def test_job_registry_has_expected_jobs():
         "weekly_dividend_sync",
         "daily_corp_action_apply",
         "intraday_price_poll",
+        "weekly_research_refresh",
     }
 
 

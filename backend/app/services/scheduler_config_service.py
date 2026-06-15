@@ -88,6 +88,10 @@ DEFAULT_JOBS: dict[str, dict] = {
         "cron_expr": "*/5 9-14 * * 1-5",
         "description": "盘中价格轮询（每5分钟，工作日 9-14 点；job 内还会做 trading_day + 时段校验）",
     },
+    "weekly_research_refresh": {
+        "cron_expr": "0 8 * * 1",  # Monday 8am Asia/Shanghai
+        "description": "周度 serenity 研究自动刷新（auto_refresh_freq=weekly 的主题；Q12 跳过 last_run_status=failed）",
+    },
 }
 
 

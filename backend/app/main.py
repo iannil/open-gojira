@@ -33,6 +33,7 @@ from app.routers import (
     notifications as notifications_router,
     observability as observability_router,
     plans as plans_router, portfolio,
+    research as research_router,
     review as review_router, risk_rules as risk_rules_router,
     scheduler as scheduler_router,
     stocks, strategies as strategies_router,
@@ -244,4 +245,5 @@ app.include_router(system_alerts_router.router)
 app.include_router(corp_actions_router.router)
 app.include_router(backtests_router.router)
 app.include_router(notifications_router.router)
+app.include_router(research_router.router)
 app.include_router(risk_rules_router.router)

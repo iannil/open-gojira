@@ -14,7 +14,10 @@ import logging
 from app.core.events import (
     DataSyncCompleted,
     DraftCreated,
+    MonthlyBudgetExceeded,
     PlanEvaluationCompleted,
+    ResearchRunCompleted,
+    ResearchRunFailed,
     bus,
 )
 
@@ -205,6 +208,74 @@ def on_plan_completed_check_alerts(event: PlanEvaluationCompleted) -> None:
 # For testing
 _sync_handlers = [on_valuation_sync_reassess_strategies, on_financials_sync_thesis_variables, on_kline_sync_price_alert]
 
+
+# ── Serenity research handlers (Q17: route to NotificationChannel) ────────
+
+
+def on_research_run_failed(event: ResearchRunFailed) -> None:
+    """Serenity run failed → emit SystemAlert + dispatch to NotificationChannel."""
+    from datetime import datetime, timezone
+
+    from app.db.session import SessionLocal
+    from app.models.system_alert import SystemAlert
+    from app.services.notification_service import dispatch_alert
+
+    alert = SystemAlert(
+        severity="warning",
+        category="research",
+        title=f"Serenity 研究失败: {event.research_theme_name}",
+        message=(
+            f"theme_id={event.research_theme_id} run_id={event.run_id} "
+            f"attempts={event.attempt_count}\n\nError: {event.error[:500]}"
+        ),
+        source="research_runner",
+        payload={
+            "run_id": event.run_id,
+            "theme_id": event.research_theme_id,
+            "attempt_count": event.attempt_count,
+        },
+        triggered_at=datetime.now(timezone.utc).replace(tzinfo=None),
+    )
+    with SessionLocal() as db:
+        db.add(alert)
+        db.commit()
+        db.refresh(alert)
+        dispatch_alert(db, alert)
+
+
+def on_monthly_budget_exceeded(event: MonthlyBudgetExceeded) -> None:
+    """Monthly LLM budget exceeded → emit SystemAlert (Q8 soft limit, alert only)."""
+    from datetime import datetime, timezone
+
+    from app.db.session import SessionLocal
+    from app.models.system_alert import SystemAlert
+    from app.services.notification_service import dispatch_alert
+
+    alert = SystemAlert(
+        severity="warning",
+        category="research",
+        title=f"Serenity 月度预算超限: {event.month}",
+        message=(
+            f"已花费 ¥{event.spend_cny:.2f} 超出预算 ¥{event.budget_cny:.2f}\n"
+            f"由 run_id={event.triggered_by_run_id} 触发。\n"
+            f"提示:这是软上限,仅告警不禁用。可在 .env 调整 SERENITY_MONTHLY_BUDGET_CNY。"
+        ),
+        source="research_runner",
+        payload={
+            "month": event.month,
+            "spend_cny": event.spend_cny,
+            "budget_cny": event.budget_cny,
+            "triggered_by_run_id": event.triggered_by_run_id,
+        },
+        triggered_at=datetime.now(timezone.utc).replace(tzinfo=None),
+    )
+    with SessionLocal() as db:
+        db.add(alert)
+        db.commit()
+        db.refresh(alert)
+        dispatch_alert(db, alert)
+
+
 # Register handlers with the event bus
 bus.subscribe(DataSyncCompleted, on_valuation_sync_reassess_strategies)
 bus.subscribe(DataSyncCompleted, on_financials_sync_thesis_variables)
@@ -212,3 +283,5 @@ bus.subscribe(DataSyncCompleted, on_kline_sync_price_alert)
 bus.subscribe(DraftCreated, on_draft_check_position)
 bus.subscribe(DraftCreated, on_draft_audit_log)
 bus.subscribe(PlanEvaluationCompleted, on_plan_completed_check_alerts)
+bus.subscribe(ResearchRunFailed, on_research_run_failed)
+bus.subscribe(MonthlyBudgetExceeded, on_monthly_budget_exceeded)

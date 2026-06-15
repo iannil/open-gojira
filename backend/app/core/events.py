@@ -97,6 +97,36 @@ class AlertTriggered(BaseEvent):
     severity: str = "info"
 
 
+# ── Serenity research events (Q10/Q17) ─────────────────────────────────────
+
+
+class ResearchRunCompleted(BaseEvent):
+    run_id: int
+    research_theme_id: int
+    research_theme_name: str
+    company_count: int = 0
+    evidence_count: int = 0
+    ranking_count: int = 0
+    token_input: int = 0
+    token_output: int = 0
+    elapsed_sec: float = 0.0
+
+
+class ResearchRunFailed(BaseEvent):
+    run_id: int
+    research_theme_id: int
+    research_theme_name: str
+    error: str
+    attempt_count: int = 1
+
+
+class MonthlyBudgetExceeded(BaseEvent):
+    month: str  # YYYY-MM
+    spend_cny: float
+    budget_cny: float
+    triggered_by_run_id: int | None = None
+
+
 # ── EventBus ────────────────────────────────────────────────────────────────
 
 Handler = Callable[[BaseEvent], None]
