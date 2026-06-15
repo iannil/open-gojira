@@ -1333,3 +1333,148 @@ export interface RiskRuleUpdate {
   enabled?: boolean;
   peak_price?: number | null;
 }
+
+// ── Serenity Research ──────────────────────────────────────────────────
+
+export type ResearchMarket = 'A_SHARE' | 'HK' | 'US' | 'TW' | 'JP' | 'KR' | 'EU' | 'GLOBAL';
+export type ResearchAutoRefreshFreq = 'manual' | 'weekly' | 'monthly';
+export type ResearchRunStatus = 'running' | 'completed' | 'failed';
+export type ResearchEvidenceGrade = 'strong' | 'medium' | 'weak' | 'lead';
+
+export interface ResearchTheme {
+  id: number;
+  name: string;
+  description: string | null;
+  market: string;
+  status: string;
+  auto_refresh_freq: string;
+  last_run_at: string | null;
+  last_run_status: string | null;
+  last_run_error: string | null;
+  parent_theme_id: number | null;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface ResearchThemeCreate {
+  name: string;
+  description?: string;
+  market?: ResearchMarket;
+  auto_refresh_freq?: ResearchAutoRefreshFreq;
+  parent_theme_id?: number | null;
+}
+
+export interface ResearchThemeUpdate {
+  name?: string;
+  description?: string;
+  market?: ResearchMarket;
+  status?: 'active' | 'archived';
+  auto_refresh_freq?: ResearchAutoRefreshFreq;
+  parent_theme_id?: number | null;
+}
+
+export interface ValueChainLayer {
+  id: number;
+  layer_index: number;
+  name: string;
+  description: string | null;
+}
+
+export interface ScarceLayer {
+  id: number;
+  rank: number;
+  layer_ref_id: number;
+  layer_name?: string | null;
+  scarcity_reason_md: string;
+  expansion_difficulty: 'high' | 'medium' | 'low';
+}
+
+export interface ResearchCompanyUniverseRow {
+  id: number;
+  stock_code: string;
+  classification: 'controls' | 'supplies' | 'benefits' | 'weak' | 'story';
+  layer_ref_id: number | null;
+  layer_name?: string | null;
+  note: string | null;
+}
+
+export interface ResearchEvidenceRow {
+  id: number;
+  stock_code: string | null;
+  source_type: string;
+  source_url: string;
+  source_title: string;
+  published_at: string | null;
+  grade: ResearchEvidenceGrade;
+  summary_md: string;
+}
+
+export interface ResearchCompanyRankingRow {
+  id: number;
+  rank: number;
+  stock_code: string;
+  constrains_what: string;
+  chain_position: string;
+  rank_reason_md: string;
+  evidence_summary_md: string;
+  main_risk_md: string;
+}
+
+export interface ResearchRun {
+  id: number;
+  research_theme_id: number;
+  status: ResearchRunStatus;
+  scope_market: string;
+  scope_time_window: string;
+  triggered_by: 'manual' | 'scheduler';
+  llm_provider: string;
+  llm_token_input: number;
+  llm_token_output: number;
+  llm_search_count: number;
+  attempt_count: number;
+  system_change_md: string | null;
+  failure_conditions_md: string | null;
+  next_steps_md: string | null;
+  error_message: string | null;
+  started_at: string;
+  completed_at: string | null;
+  value_chain_layers?: ValueChainLayer[];
+  scarce_layers?: ScarceLayer[];
+  company_universe?: ResearchCompanyUniverseRow[];
+  evidence?: ResearchEvidenceRow[];
+  company_ranking?: ResearchCompanyRankingRow[];
+}
+
+export interface ResearchRunSummary {
+  id: number;
+  research_theme_id: number;
+  status: ResearchRunStatus;
+  triggered_by: 'manual' | 'scheduler';
+  llm_provider: string;
+  llm_token_input: number;
+  llm_token_output: number;
+  llm_search_count: number;
+  started_at: string;
+  completed_at: string | null;
+  company_count: number;
+  evidence_count: number;
+  ranking_count: number;
+}
+
+export interface ResearchExportResponse {
+  exported_count: number;
+  skipped_codes: string[];
+  target: 'watchlist' | 'candidate';
+  target_id: number | null;
+}
+
+export interface StockResearchAppearance {
+  research_theme_id: number;
+  research_theme_name: string;
+  run_id: number;
+  run_started_at: string;
+  rank: number | null;
+  classification: string | null;
+  constrains_what: string | null;
+  main_risk_md: string | null;
+}

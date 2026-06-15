@@ -880,3 +880,85 @@ export async function updateRiskRule(
 export async function deleteRiskRule(id: number): Promise<void> {
   await apiClient.delete(`/risk-rules/${id}`);
 }
+
+// ── Serenity Research ──────────────────────────────────────────────────
+
+import type {
+  ResearchExportResponse,
+  ResearchRun,
+  ResearchRunSummary,
+  ResearchTheme,
+  ResearchThemeCreate,
+  ResearchThemeUpdate,
+  StockResearchAppearance,
+} from './types';
+
+export async function listResearchThemes(status?: string): Promise<ResearchTheme[]> {
+  const params = status ? { status } : {};
+  const res = await apiClient.get<ResearchTheme[]>('/research/themes', { params });
+  return res.data;
+}
+
+export async function createResearchTheme(payload: ResearchThemeCreate): Promise<ResearchTheme> {
+  const res = await apiClient.post<ResearchTheme>('/research/themes', payload);
+  return res.data;
+}
+
+export async function getResearchTheme(themeId: number): Promise<ResearchTheme> {
+  const res = await apiClient.get<ResearchTheme>(`/research/themes/${themeId}`);
+  return res.data;
+}
+
+export async function updateResearchTheme(
+  themeId: number,
+  payload: ResearchThemeUpdate,
+): Promise<ResearchTheme> {
+  const res = await apiClient.put<ResearchTheme>(`/research/themes/${themeId}`, payload);
+  return res.data;
+}
+
+export async function archiveResearchTheme(themeId: number): Promise<void> {
+  await apiClient.delete(`/research/themes/${themeId}`);
+}
+
+export async function triggerResearchRun(
+  themeId: number,
+  payload?: { market?: string; time_window?: string },
+): Promise<ResearchRunSummary> {
+  const res = await apiClient.post<ResearchRunSummary>(
+    `/research/themes/${themeId}/run`,
+    payload ?? {},
+  );
+  return res.data;
+}
+
+export async function listResearchRuns(themeId: number, limit = 20): Promise<ResearchRunSummary[]> {
+  const res = await apiClient.get<ResearchRunSummary[]>(
+    `/research/themes/${themeId}/runs`,
+    { params: { limit } },
+  );
+  return res.data;
+}
+
+export async function getResearchRun(runId: number): Promise<ResearchRun> {
+  const res = await apiClient.get<ResearchRun>(`/research/runs/${runId}`);
+  return res.data;
+}
+
+export async function exportResearchRun(
+  runId: number,
+  payload: { target: 'watchlist'; rank_max?: number; watchlist_group_id: number },
+): Promise<ResearchExportResponse> {
+  const res = await apiClient.post<ResearchExportResponse>(
+    `/research/runs/${runId}/export`,
+    payload,
+  );
+  return res.data;
+}
+
+export async function listResearchAppearances(stockCode: string): Promise<StockResearchAppearance[]> {
+  const res = await apiClient.get<StockResearchAppearance[]>(
+    `/research/appearances/${stockCode}`,
+  );
+  return res.data;
+}

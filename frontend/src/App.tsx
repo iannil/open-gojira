@@ -21,6 +21,8 @@ const SchedulerPage = lazy(() => import('./pages/SchedulerPage'));
 const BacktestPage = lazy(() => import('./pages/BacktestPage'));
 const MonitoringPage = lazy(() => import('./pages/MonitoringPage'));
 const DraftsPage = lazy(() => import('./pages/DraftsPage'));
+const ResearchThemesPage = lazy(() => import('./pages/ResearchThemesPage'));
+const ResearchThemeDetailPage = lazy(() => import('./pages/ResearchThemeDetailPage'));
 
 // DEV-ONLY primitives preview route. Vite tree-shakes the dynamic import
 // out of production builds because the false branch is dead code.
@@ -103,6 +105,8 @@ function App() {
                     <Route path="scheduler" element={<SchedulerPage />} />
                     <Route path="backtest" element={<BacktestPage />} />
                     <Route path="monitoring" element={<MonitoringPage />} />
+                    <Route path="research" element={<ResearchThemesPage />} />
+                    <Route path="research/:themeId" element={<ResearchThemeDetailPage />} />
                     {import.meta.env.DEV && (
                       <Route path="__primitives__" element={<PrimitivesPreview />} />
                     )}
