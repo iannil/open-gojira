@@ -90,6 +90,7 @@ interface GroupedCandidate {
   status: 'active' | 'removed';
   first_seen_at: string | null;
   last_confirmed_at: string | null;
+  sources: Array<'rule_based' | 'serenity'>;
   pinned: boolean;
   active_ids: number[];
 }
@@ -103,6 +104,7 @@ interface FilterState {
   tier: string | undefined;
   qiuScore: number | undefined;
   hqRegion: string | undefined;
+  source: 'rule_based' | 'serenity' | undefined;
   pinned: boolean | undefined;
 }
 
@@ -115,8 +117,14 @@ const DEFAULT_FILTER: FilterState = {
   tier: undefined,
   qiuScore: undefined,
   hqRegion: undefined,
+  source: undefined,
   pinned: undefined,
 };
+
+const SOURCE_OPTIONS = [
+  { value: 'rule_based', label: '策略筛选' },
+  { value: 'serenity', label: 'serenity 研究' },
+];
 
 export default function CandidatesPage() {
   const candidatesQ = useCandidatesQuery();
@@ -164,6 +172,7 @@ export default function CandidatesPage() {
       if (filter.qiuScore !== undefined && c.stock_qiu_score !== filter.qiuScore)
         return false;
       if (filter.hqRegion && c.stock_hq_region !== filter.hqRegion) return false;
+      if (filter.source && c.source !== filter.source) return false;
       if (filter.pinned !== undefined && c.pinned !== filter.pinned) return false;
       return true;
     });
@@ -190,6 +199,7 @@ export default function CandidatesPage() {
           status: c.status,
           first_seen_at: c.first_seen_at,
           last_confirmed_at: c.last_confirmed_at,
+          sources: [],
           pinned: c.pinned,
           active_ids: [],
         };
@@ -197,6 +207,9 @@ export default function CandidatesPage() {
       }
       if (c.plan_name && !g.plan_names.includes(c.plan_name)) {
         g.plan_names.push(c.plan_name);
+      }
+      if (c.source && !g.sources.includes(c.source)) {
+        g.sources.push(c.source);
       }
       g.plan_count += 1;
       if (c.status === 'active') {
@@ -227,6 +240,7 @@ export default function CandidatesPage() {
     if (filter.tier) count++;
     if (filter.qiuScore !== undefined) count++;
     if (filter.hqRegion) count++;
+    if (filter.source) count++;
     if (filter.pinned !== undefined) count++;
     return count;
   }, [filter]);
@@ -292,13 +306,24 @@ export default function CandidatesPage() {
     },
     {
       title: '来源',
-      dataIndex: 'source',
-      width: 100,
-      render: (v: string) => (
-        <Tag color={v === 'serenity' ? 'purple' : 'default'}>
-          {v === 'serenity' ? 'serenity' : 'rule'}
-        </Tag>
-      ),
+      dataIndex: 'sources',
+      width: 110,
+      render: (sources: Array<'rule_based' | 'serenity'>) => {
+        if (!sources || sources.length === 0) return '-';
+        return (
+          <>
+            {sources.map((s) => (
+              <Tag
+                key={s}
+                color={s === 'serenity' ? 'purple' : 'default'}
+                style={{ marginRight: 4 }}
+              >
+                {s === 'serenity' ? 'serenity' : 'rule'}
+              </Tag>
+            ))}
+          </>
+        );
+      },
     },
     {
       title: '固定',
@@ -470,6 +495,16 @@ export default function CandidatesPage() {
                       value={filter.hqRegion}
                       onChange={(v) => setFilterField('hqRegion', v)}
                       options={hqRegionOptions}
+                    />
+                  </Col>
+                  <Col span={6}>
+                    <Select
+                      placeholder="来源 (策略 / serenity)"
+                      allowClear
+                      style={{ width: '100%' }}
+                      value={filter.source}
+                      onChange={(v) => setFilterField('source', v)}
+                      options={SOURCE_OPTIONS}
                     />
                   </Col>
                   <Col span={6}>
