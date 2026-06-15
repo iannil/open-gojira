@@ -1,8 +1,16 @@
 import logging
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
+
+# backend/app/config.py → backend/app → backend → repo_root
+# Single source of truth: <repo_root>/.env (gitignored).
+# backend/.env is intentionally NOT used — keeps config centralized for
+# uvicorn (cwd=backend/), pytest, alembic, and docker-compose alike.
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+ENV_FILE = REPO_ROOT / ".env"
 
 
 class Settings(BaseSettings):
@@ -25,7 +33,7 @@ class Settings(BaseSettings):
     SERENITY_TIMEOUT: int = 300
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(ENV_FILE),
         extra="ignore",  # 容忍 .env 里有未声明的字段 (避免 break 现有部署)
     )
 
