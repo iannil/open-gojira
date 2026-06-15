@@ -24,7 +24,7 @@ from app.core.events import (
     ResearchRunFailed,
     bus,
 )
-from app.core.research_config import SERENITY_RUN_CONFIG
+from app.core.research_config import COST_PER_1K_TOKENS_CNY, SERENITY_RUN_CONFIG
 from app.db.session import SessionLocal
 from app.models.research_run import ResearchRun
 from app.models.research_theme import ResearchTheme
@@ -102,13 +102,19 @@ def trigger_run(
     scope_market = market or theme.market
     scope_tw = time_window or "3-12M"
 
+    # llm_provider reflects the model that will actually be called.
+    # settings.ZHIPU_MODEL is the source of truth (overridable via .env),
+    # SERENITY_RUN_CONFIG["default_model"] is the fallback when unset.
+    from app.config import settings
+    actual_model = settings.ZHIPU_MODEL or SERENITY_RUN_CONFIG["default_model"]
+
     run = ResearchRun(
         research_theme_id=theme.id,
         status="running",
         scope_market=scope_market,
         scope_time_window=scope_tw,
         triggered_by=triggered_by,
-        llm_provider=SERENITY_RUN_CONFIG["default_model"],
+        llm_provider=actual_model,
         attempt_count=1,
     )
     db.add(run)
@@ -189,6 +195,7 @@ def _execute_run_with_retry(
                 theme_name=theme_name,
                 scope_market=scope_market,
                 scope_time_window=scope_time_window,
+                started=started,
             )
             return  # success
         except (ZhipuClientError, ResearchPersistenceError) as exc:
@@ -219,6 +226,7 @@ def _execute_single_attempt(
     theme_name: str,
     scope_market: str,
     scope_time_window: str,
+    started: float,
 ) -> None:
     """One LLM call + persist + complete. Raises on any failure."""
     # 1) Build context
@@ -229,6 +237,9 @@ def _execute_single_attempt(
     client = get_zhipu_client()
     result = client.run_serenity_research(user_context=user_context)
     usage = result.pop("_usage", {})
+
+    # 2.5) Persist full LLM interaction log for audit/debugging (ship checklist)
+    _dump_llm_log(run.id, theme_name, scope_market, user_context, result, usage)
 
     # 3) Persist to 6 child tables
     persist_research_result(db, run, result)
@@ -249,7 +260,7 @@ def _execute_single_attempt(
     db.commit()
 
     # 5) Emit completion event (Q17 → NotificationChannel)
-    elapsed = time.monotonic() - getattr(_execute_single_attempt, "_started", time.monotonic())
+    elapsed = time.monotonic() - started
     bus.emit(ResearchRunCompleted(
         run_id=run.id,
         research_theme_id=theme_id,
@@ -306,9 +317,6 @@ def _check_monthly_budget(db: Session, triggered_by_run_id: int) -> None:
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     # Rough cost estimate: tokens × blended price (input+output average)
-    # GLM-4.7: ¥0.005 / 1K tokens (blended). Adjust per model later.
-    COST_PER_1K_TOKENS_CNY = 0.005
-
     row = db.query(
         func.sum(ResearchRun.llm_token_input + ResearchRun.llm_token_output),
     ).filter(
@@ -325,3 +333,47 @@ def _check_monthly_budget(db: Session, triggered_by_run_id: int) -> None:
             budget_cny=budget,
             triggered_by_run_id=triggered_by_run_id,
         ))
+
+
+def _dump_llm_log(
+    run_id: int,
+    theme_name: str,
+    market: str,
+    user_context: str,
+    result: dict,
+    usage: dict,
+) -> None:
+    """Persist full LLM interaction log for audit/debugging.
+
+    Writes to `<DATA_DIR>/llm_logs/{run_id}.json` (absolute path from
+    settings, immune to CWD). Best-effort — failures logged but do not
+    abort the run.
+    """
+    import json
+    from pathlib import Path
+
+    try:
+        from app.config import DATA_DIR
+        log_dir = DATA_DIR / "llm_logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_path = log_dir / f"{run_id}.json"
+        payload = {
+            "run_id": run_id,
+            "theme_name": theme_name,
+            "market": market,
+            "user_context": user_context[:5000],  # cap to keep file size sane
+            "llm_result_summary": {
+                "system_change": result.get("system_change", "")[:500],
+                "company_count": len(result.get("company_universe", [])),
+                "evidence_count": len(result.get("evidence", [])),
+                "ranking_count": len(result.get("company_ranking", [])),
+            },
+            "usage": usage,
+            "dumped_at": datetime.utcnow().isoformat(),
+        }
+        log_path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    except Exception:
+        logger.exception("LLM log dump failed for run_id=%s", run_id)

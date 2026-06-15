@@ -26,9 +26,11 @@ class Candidate(Base):
     __tablename__ = "candidates"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    plan_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("plans.id"), nullable=False, index=True
+    plan_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("plans.id"), nullable=True, index=True
     )
+    """NULL when source='serenity' (LLM-exported, no user Plan).
+    Required for source='rule_based' (enforced in candidate_service)."""
     stock_code: Mapped[str] = mapped_column(
         String, ForeignKey("stocks.code"), nullable=False, index=True
     )
@@ -45,6 +47,10 @@ class Candidate(Base):
     """Per-strategy evaluation details: {strategy_id: {passed, details}}"""
     pinned: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source: Mapped[str] = mapped_column(
+        String, nullable=False, default="rule_based", index=True
+    )
+    """'rule_based' (default, plan_runner created) | 'serenity' (research export)"""
 
     plan: Mapped["Plan"] = relationship(back_populates="candidates")
     stock: Mapped["Stock"] = relationship()

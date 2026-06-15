@@ -11,6 +11,9 @@ logger = logging.getLogger(__name__)
 # uvicorn (cwd=backend/), pytest, alembic, and docker-compose alike.
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 ENV_FILE = REPO_ROOT / ".env"
+# Absolute path to data dir. Resolves to <repo>/backend/data regardless of
+# the CWD uvicorn / pytest / alembic was launched from.
+DATA_DIR = REPO_ROOT / "backend" / "data"
 
 
 class Settings(BaseSettings):

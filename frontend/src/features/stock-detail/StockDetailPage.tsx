@@ -20,6 +20,7 @@ import { defaultPagination } from '../../lib/pagination';
 import KlineChart from '../../components/stock/KlineChart';
 import QiuScorerWizard from '../../components/QiuScorerWizard';
 import { listWatchlistGroups } from '../../api/client';
+import { listResearchAppearances } from '../../api/client';
 import {
   useMarginTradingQuery,
   useNorthFlowQuery,
@@ -348,6 +349,8 @@ export default function StockDetailPage() {
         </PageSection>
       </div>
 
+      <SerenityAppearancePanel stockCode={code} />
+
       <div style={{ marginTop: 'var(--sp-4)' }}>
         <Tabs
           defaultActiveKey="kline"
@@ -480,6 +483,72 @@ export default function StockDetailPage() {
           await stockQ.refetch();
         }}
       />
+    </div>
+  );
+}
+
+
+// ── Serenity Appearance Panel (Q7 D: StockDetail reverse-link entry) ────
+
+function SerenityAppearancePanel({ stockCode }: { stockCode: string }) {
+  const q = useQuery({
+    queryKey: ['research-appearances', stockCode],
+    queryFn: () => listResearchAppearances(stockCode),
+    enabled: !!stockCode,
+  });
+
+  if (!q.data || q.data.length === 0) {
+    return null;  // Q7 D: empty state hidden to avoid noise
+  }
+
+  return (
+    <div style={{ marginTop: 'var(--sp-4)' }}>
+      <PageSection
+        title={`出现在 serenity 研究中 (${q.data.length})`}
+        subtitle="这只股票在以下 serenity 研究中被识别为稀缺层 / 排名公司。"
+      >
+        <Table
+          size="small"
+          rowKey={(r) => `${r.run_id}-${r.research_theme_id}`}
+          dataSource={q.data}
+          pagination={false}
+          columns={[
+            {
+              title: '研究方向',
+              dataIndex: 'research_theme_name',
+              render: (name: string, row) => (
+                <Link to={`/research/${row.research_theme_id}`}>{name}</Link>
+              ),
+            },
+            {
+              title: '排名', dataIndex: 'rank', width: 80,
+              render: (r: number | null) => r ? (
+                <Tag color="gold">#{r}</Tag>
+              ) : <Tag>universe</Tag>,
+            },
+            {
+              title: '分类', dataIndex: 'classification', width: 120,
+              render: (c: string | null) => c ? (
+                <Tag color={
+                  c === 'controls' ? 'red' :
+                  c === 'supplies' ? 'orange' :
+                  c === 'benefits' ? 'blue' : 'default'
+                }>
+                  {{controls: '控制', supplies: '供应', benefits: '受益',
+                    weak: '弱定价', story: '故事'}[c] ?? c}
+                </Tag>
+              ) : '—',
+            },
+            {
+              title: '卡住的环节', dataIndex: 'constrains_what',
+            },
+            {
+              title: '研究时间', dataIndex: 'run_started_at', width: 160,
+              render: (s: string) => new Date(s).toLocaleDateString('zh-CN'),
+            },
+          ]}
+        />
+      </PageSection>
     </div>
   );
 }

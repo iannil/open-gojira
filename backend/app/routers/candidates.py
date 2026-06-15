@@ -40,6 +40,7 @@ def _to_response(c: Candidate) -> CandidateResponse:
         last_eval=last_eval,
         pinned=c.pinned,
         notes=c.notes,
+        source=c.source,
     )
 
 
@@ -47,9 +48,13 @@ def _to_response(c: Candidate) -> CandidateResponse:
 def list_candidates(
     plan_id: int | None = None,
     status: str | None = None,
+    source: str | None = None,
     db: Session = Depends(get_db),
 ):
-    return [_to_response(c) for c in candidate_service.list_all(db, plan_id=plan_id, status=status)]
+    candidates = candidate_service.list_all(db, plan_id=plan_id, status=status)
+    if source is not None:
+        candidates = [c for c in candidates if c.source == source]
+    return [_to_response(c) for c in candidates]
 
 
 @router.get("/{candidate_id}", response_model=CandidateResponse)

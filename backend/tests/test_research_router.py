@@ -118,10 +118,13 @@ def test_get_run_404(client):
     assert res.status_code == 404
 
 
-def test_export_run_phase1_rejects_candidate(client, db_session):
-    """Phase 1: target=candidate returns 409."""
+def test_export_run_phase2_supports_candidate(client, db_session):
+    """Phase 2: target=candidate via plan_id nullable (s2 migration)."""
+    from app.models.candidate import Candidate
+    from app.models.research_company_ranking import ResearchCompanyRanking
     from app.models.research_run import ResearchRun
     from app.models.research_theme import ResearchTheme
+    from app.models.stock import Stock
     theme = ResearchTheme(name="导出", market="A_SHARE")
     db_session.add(theme); db_session.flush()
     run = ResearchRun(
@@ -130,12 +133,33 @@ def test_export_run_phase1_rejects_candidate(client, db_session):
         triggered_by="manual", llm_provider="glm-4.7",
     )
     db_session.add(run); db_session.flush()
+    db_session.add(Stock(code="300001", name="测试"))
+    db_session.flush()
+    db_session.add(ResearchCompanyRanking(
+        research_run_id=run.id, rank=1, stock_code="300001",
+        constrains_what="环节", chain_position="层4",
+        rank_reason_md="原因", evidence_summary_md="证据", main_risk_md="风险",
+    ))
+    db_session.flush()
 
     res = client.post(
         f"/api/research/runs/{run.id}/export",
-        json={"target": "candidate", "rank_max": 3},
+        json={"target": "candidate", "rank_max": 1},
     )
-    assert res.status_code == 409
+    assert res.status_code == 200
+    body = res.json()
+    assert body["exported_count"] == 1
+    assert body["target"] == "candidate"
+    assert body["target_id"] is None  # plan_id nullable, no sentinel
+
+    # Verify candidate was actually written with source='serenity', plan_id=None
+    candidates = (
+        db_session.query(Candidate)
+        .filter(Candidate.source == "serenity")
+        .all()
+    )
+    assert len(candidates) == 1
+    assert candidates[0].plan_id is None
 
 
 def test_appearances_empty_for_unknown_stock(client):

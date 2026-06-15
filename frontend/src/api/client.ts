@@ -159,6 +159,7 @@ export async function runPlan(id: number): Promise<unknown> {
 export async function listCandidates(params?: {
   plan_id?: number;
   status?: string;
+  source?: 'rule_based' | 'serenity';
 }): Promise<CandidateResponse[]> {
   const res = await apiClient.get<CandidateResponse[]>('/candidates', { params });
   return res.data;

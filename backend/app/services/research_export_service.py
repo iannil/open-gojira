@@ -1,11 +1,10 @@
-"""Export ranked companies to Watchlist.
+"""Export ranked companies to Watchlist or Candidate.
 
-Implements Q3 D / Q11: no DisciplineChecklistModal here (it triggers
-later when a Watchlist item flows into a Draft).
+Q3 D: distinct source tagging (rule_based vs serenity).
+Q11: no DisciplineChecklistModal here.
 
-Phase 1 limitation: only `target="watchlist"` supported. Candidate
-export requires schema change (add `source` column, loosen plan_id
-FK), deferred to Phase 2 per Q3 discussion.
+Serenity-exported Candidates have no user Plan, so they are written with
+plan_id=NULL (made nullable by s2_candidate_source_field migration).
 """
 from __future__ import annotations
 
@@ -13,6 +12,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
+from app.models.candidate import Candidate
 from app.models.research_company_ranking import ResearchCompanyRanking
 from app.models.research_run import ResearchRun
 from app.models.watchlist import WatchlistItem
@@ -24,22 +24,19 @@ logger = logging.getLogger(__name__)
 def export_ranking(
     db: Session,
     run_id: int,
-    target: str,  # "watchlist" (Phase 1 only)
+    target: str,  # "watchlist" | "candidate"
     rank_max: int = 3,
     watchlist_group_id: int | None = None,
 ) -> dict:
-    """Export Top N ranked companies from a run to a Watchlist group.
+    """Export Top N ranked companies from a run.
 
     Returns {"exported_count", "skipped_codes", "target", "target_id"}.
     """
-    if target != "watchlist":
-        raise ResearchRunnerError(
-            f"target='{target}' not supported in Phase 1 (only 'watchlist'). "
-            f"Candidate export deferred to Phase 2 (needs Candidate.source column)."
-        )
+    if target not in ("watchlist", "candidate"):
+        raise ResearchRunnerError(f"invalid target: {target}")
     if rank_max < 1 or rank_max > 7:
         raise ResearchRunnerError(f"rank_max must be 1-7, got {rank_max}")
-    if watchlist_group_id is None:
+    if target == "watchlist" and watchlist_group_id is None:
         raise ResearchRunnerError(
             "watchlist_group_id is required when target='watchlist'"
         )
@@ -64,7 +61,10 @@ def export_ranking(
     skipped: list[str] = []
     for r in rankings:
         try:
-            _export_to_watchlist(db, watchlist_group_id, r, run_id)
+            if target == "watchlist":
+                _export_to_watchlist(db, watchlist_group_id, r, run_id)
+            else:
+                _export_to_candidate(db, r, run_id)
             exported += 1
         except _SkipExport as exc:
             skipped.append(f"{r.stock_code} ({exc})")
@@ -74,7 +74,7 @@ def export_ranking(
         "exported_count": exported,
         "skipped_codes": skipped,
         "target": target,
-        "target_id": watchlist_group_id,
+        "target_id": watchlist_group_id if target == "watchlist" else None,
     }
 
 
@@ -104,3 +104,38 @@ def _export_to_watchlist(
         ),
     )
     db.add(item)
+
+
+def _export_to_candidate(
+    db: Session,
+    ranking: ResearchCompanyRanking,
+    run_id: int,
+) -> None:
+    """Write to candidates with source='serenity', plan_id=NULL.
+
+    Q3 D: distinct from rule_based candidates (audit/draft_matcher can filter).
+    Q11: no DisciplineChecklistModal at export time.
+    """
+    existing = (
+        db.query(Candidate)
+        .filter(
+            Candidate.stock_code == ranking.stock_code,
+            Candidate.source == "serenity",
+            Candidate.status == "active",
+        )
+        .first()
+    )
+    if existing:
+        raise _SkipExport("already an active serenity candidate")
+
+    db.add(Candidate(
+        plan_id=None,  # serenity Candidates have no user Plan
+        stock_code=ranking.stock_code,
+        status="active",
+        source="serenity",
+        pinned=False,  # user can pin later if they want to keep
+        notes=(
+            f"serenity run #{run_id} rank={ranking.rank}: "
+            f"{ranking.constrains_what} | risk: {ranking.main_risk_md[:200]}"
+        ),
+    ))

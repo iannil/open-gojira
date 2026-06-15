@@ -418,6 +418,34 @@ export interface CockpitResponse {
   theme_exposure?: ThemeExposure[];
   dividend_projection?: DividendProjection;
   thesis_alerts?: ThesisAlert[];
+  serenity_summary?: SerenityCockpitSummary | null;
+  serenity_monthly_spend_cny?: SerenityMonthlySpend | null;
+}
+
+export interface SerenityMonthlySpend {
+  month: string;
+  spend_cny: number;
+  budget_cny: number;
+  remaining_cny: number;
+  run_count: number;
+  over_budget: boolean;
+}
+
+export interface SerenityCockpitSummary {
+  theme_id: number;
+  theme_name: string;
+  run_id: number;
+  started_at: string;
+  system_change_excerpt: string;
+  token_input: number;
+  token_output: number;
+  search_count: number;
+  top_rankings: Array<{
+    rank: number;
+    stock_code: string;
+    constrains_what: string;
+    main_risk_md: string;
+  }>;
 }
 
 // ── Monthly review ────────────────────────────────────────────────────
@@ -840,9 +868,8 @@ export interface CandidateResponse {
   last_eval: Record<string, { passed: boolean; details: string[] }> | null;
   pinned: boolean;
   notes: string | null;
+  source: 'rule_based' | 'serenity';
 }
-
-// ── Data Management ──────────────────────────────────────────────────────
 
 export interface DataCompleteness {
   has_valuation: boolean;

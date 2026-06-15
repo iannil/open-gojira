@@ -291,6 +291,16 @@ export default function CandidatesPage() {
         v ? <span className="num">{v.slice(0, 10)}</span> : '-',
     },
     {
+      title: '来源',
+      dataIndex: 'source',
+      width: 100,
+      render: (v: string) => (
+        <Tag color={v === 'serenity' ? 'purple' : 'default'}>
+          {v === 'serenity' ? 'serenity' : 'rule'}
+        </Tag>
+      ),
+    },
+    {
       title: '固定',
       dataIndex: 'pinned',
       width: 60,

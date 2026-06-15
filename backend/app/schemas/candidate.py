@@ -25,6 +25,8 @@ class CandidateResponse(BaseModel):
     last_eval: Optional[dict] = None
     pinned: bool
     notes: Optional[str] = None
+    source: str = "rule_based"
+    """'rule_based' (plan_runner output) | 'serenity' (research export)"""
 
 
 class CandidateUpdate(BaseModel):

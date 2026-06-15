@@ -1,11 +1,12 @@
 """Tests for research export service.
 
-Covers Q3 D (export to Watchlist only in Phase 1) + Q11 (no Checklist).
+Covers Q3 D (export to Watchlist + Candidate Phase 2) + Q11 (no Checklist).
 """
 from __future__ import annotations
 
 import pytest
 
+from app.models.candidate import Candidate
 from app.models.research_company_ranking import ResearchCompanyRanking
 from app.models.research_run import ResearchRun
 from app.models.research_theme import ResearchTheme
@@ -64,14 +65,43 @@ def test_export_to_watchlist_success(db_session, completed_run_with_ranking):
     assert all("serenity run #" in (it.note or "") for it in items)
 
 
-def test_export_phase1_rejects_candidate_target(db_session, completed_run_with_ranking):
-    """Phase 1 limitation: only watchlist supported."""
+def test_export_phase2_supports_candidate_target(db_session, completed_run_with_ranking):
+    """Phase 2: candidate target now supported via plan_id nullable (s2 migration).
+
+    Serenity-exported Candidates have plan_id=NULL (no user Plan).
+    """
     _, run = completed_run_with_ranking
-    with pytest.raises(ResearchRunnerError, match=r"Phase 1.*watchlist"):
-        export_ranking(
-            db=db_session, run_id=run.id, target="candidate",
-            rank_max=3, watchlist_group_id=None,
-        )
+    result = export_ranking(
+        db=db_session, run_id=run.id, target="candidate",
+        rank_max=3, watchlist_group_id=None,
+    )
+    assert result["exported_count"] == 3
+    assert result["target"] == "candidate"
+    assert result["target_id"] is None  # no sentinel Plan anymore
+
+    candidates = (
+        db_session.query(Candidate)
+        .filter(Candidate.source == "serenity")
+        .all()
+    )
+    assert len(candidates) == 3
+    assert all(c.plan_id is None for c in candidates)  # Q3 D: serenity has no Plan
+
+
+def test_export_to_candidate_skips_existing_active(db_session, completed_run_with_ranking):
+    """Re-exporting same code is skipped (no duplicate)."""
+    _, run = completed_run_with_ranking
+    # First export
+    r1 = export_ranking(
+        db=db_session, run_id=run.id, target="candidate", rank_max=3,
+    )
+    assert r1["exported_count"] == 3
+    # Second export — all skipped
+    r2 = export_ranking(
+        db=db_session, run_id=run.id, target="candidate", rank_max=3,
+    )
+    assert r2["exported_count"] == 0
+    assert len(r2["skipped_codes"]) == 3
 
 
 def test_export_rejects_running_run(db_session, completed_run_with_ranking):

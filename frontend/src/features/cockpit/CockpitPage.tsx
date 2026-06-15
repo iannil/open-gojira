@@ -62,6 +62,7 @@ import type {
   CockpitQuadrant,
   CockpitResponse,
   RebalanceSuggestion,
+  SerenityCockpitSummary,
   ThemeExposure,
 } from '../../api/types';
 
@@ -1099,6 +1100,10 @@ export default function CockpitPage() {
         </div>
 
         <div className="cockpit-span-full">
+          <SerenitySummaryCard summary={data.serenity_summary ?? null} />
+        </div>
+
+        <div className="cockpit-span-full">
           <RebalancingSuggestionsCard suggestions={data.rebalance_suggestions ?? []} />
         </div>
 
@@ -1206,5 +1211,81 @@ export default function CockpitPage() {
         onCancel={() => setDisciplineTarget(null)}
       />
     </div>
+  );
+}
+
+
+// ── Serenity Summary Card (Q7 D: Cockpit 辅助入口) ──────────────────────
+
+function SerenitySummaryCard({ summary }: { summary: SerenityCockpitSummary | null }) {
+  if (!summary) {
+    return (
+      <Card className="gojira-card" bordered={false} title="今日 serenity" style={{ marginBottom: 0 }}>
+        <Empty
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          description={
+            <span>
+              还没有完成的 serenity 研究。<Link to="/research">前往研究方向</Link> 触发首次研究。
+            </span>
+          }
+        />
+      </Card>
+    );
+  }
+
+  return (
+    <Card
+      className="gojira-card"
+      bordered={false}
+      title={
+        <Space>
+          <span>今日 serenity</span>
+          <Link to={`/research/${summary.theme_id}`}>
+            <Tag color="blue">{summary.theme_name}</Tag>
+          </Link>
+        </Space>
+      }
+      extra={
+        <Link to={`/research/${summary.theme_id}`}>查看完整 →</Link>
+      }
+      style={{ marginBottom: 0 }}
+    >
+      <Space direction="vertical" style={{ width: '100%' }} size="middle">
+        <div>
+          <Text type="secondary" style={{ fontSize: 12 }}>系统变化</Text>
+          <div style={{ marginTop: 4 }}>{summary.system_change_excerpt}</div>
+        </div>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Text type="secondary" style={{ fontSize: 12 }}>Token Input</Text>
+            <div className="num">{summary.token_input.toLocaleString()}</div>
+          </Col>
+          <Col span={8}>
+            <Text type="secondary" style={{ fontSize: 12 }}>Token Output</Text>
+            <div className="num">{summary.token_output.toLocaleString()}</div>
+          </Col>
+          <Col span={8}>
+            <Text type="secondary" style={{ fontSize: 12 }}>Web Search</Text>
+            <div className="num">{summary.search_count}</div>
+          </Col>
+        </Row>
+        <div>
+          <Text type="secondary" style={{ fontSize: 12 }}>Top {summary.top_rankings.length} 公司</Text>
+          <div style={{ marginTop: 8 }}>
+            <Space direction="vertical" style={{ width: '100%' }}>
+              {summary.top_rankings.map((r) => (
+                <div key={r.rank} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Tag color="gold">#{r.rank}</Tag>
+                  <Link to={`/stock/${r.stock_code}`}><code>{r.stock_code}</code></Link>
+                  <span style={{ color: 'var(--stone-600)', fontSize: 13 }}>
+                    {r.constrains_what}
+                  </span>
+                </div>
+              ))}
+            </Space>
+          </div>
+        </div>
+      </Space>
+    </Card>
   );
 }
