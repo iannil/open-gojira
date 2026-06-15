@@ -4,16 +4,17 @@
 >
 > | 字段 | 值 (实测于 2026-06-15) |
 > |---|---|
-> | 最后更新 | 2026-06-15 |
+> | 最后更新 | 2026-06-15 (Phase 2 + 三层审计后) |
 > | 分支 | `master` |
-> | 测试 | **972 passed**, 0 failed (`pytest`) |
-> | 测试函数数 | 972 (含 S0-S5 + serenity-skill 集成 34 个新测试) |
-> | Alembic head | `s1_serenity_research_module` |
-> | Alembic 版本文件数 | 20 |
-> | 后端代码 | ~20,500 行 (app/) + ~7,650 行 (tests/) |
-> | 前端代码 | ~10,900 行 (src/) |
+> | 最新 commit | `e0a915f feat(serenity): Phase 2 — Candidate source + plan_id nullable + 辅助入口` |
+> | 测试 | **976 passed**, 0 failed (`pytest`) |
+> | 测试函数数 | 976 (含 S0-S5 + serenity Phase 1 34 个 + Phase 2 3 e2e + 1 export + Sentinel Plan 移除 -1) |
+> | Alembic head | `s2_candidate_source_field` |
+> | Alembic 版本文件数 | 21 |
+> | 后端代码 | ~20,800 行 (app/) + ~7,750 行 (tests/) |
+> | 前端代码 | ~11,100 行 (src/) |
 > | 远程仓库 | 暂无 (`git remote -v` 为空) |
-> | 真实使用 | **0 trades / 0 holdings / 0 drafts / 0 backtests** (production-readiness ship 但未实盘) |
+> | 真实使用 | **0 holdings / 6 trades / 220 drafts (全 pending) / 264 active candidates / 0 research_runs / 3 backtests (全 0 metrics)** |
 
 ---
 
@@ -32,13 +33,11 @@ Gojira 是一台 **「个人股票自动驾驶舱」**:基于 `docs/reference/in
   ↓ 组合
 预案(Plan) ── 策略组合 + 扫描范围 + 调度 + 可选交易规则
   ↓ 自动产出
-候选池(Candidate) ── 自动进出
-  ↓ 用户提升到自选股
-自选股(Watchlist) ── 确认关注
-  ↓ 预案自动评估交易规则
-草稿(Draft) ── 买卖建议
+候选池(Candidate) ── 自动进出 (source: rule_based | serenity)
+  ↓ (重审 2026-06-13:去 watchlist 闸门)
+草稿(Draft) ── 买卖建议 (220 累积,等用户审阅)
   ↓ 用户执行
-持仓(Holding)
+持仓(Holding) ── 0 当前
   ↓ 自动审计
 审计日志(AuditLog)
 ```
@@ -46,7 +45,7 @@ Gojira 是一台 **「个人股票自动驾驶舱」**:基于 `docs/reference/in
 **统一预案** = 筛选 + 可选交易规则:
 - 预案定义「哪些股票值得关注」(策略组合 + 扫描范围)
 - 预案同时可定义「符合条件的股票怎么买卖」(可选交易规则)
-- 运行时:扫描 → 更新候选池 → 对已在自选股的候选评估交易规则 → 生成草稿
+- 运行时:扫描 → 更新候选池 → 对候选评估交易规则 → 生成草稿 (无 watchlist 闸门,重审 #1+#4)
 
 ---
 
@@ -56,7 +55,7 @@ Gojira 是一台 **「个人股票自动驾驶舱」**:基于 `docs/reference/in
 
 | 路由 | 用途 |
 |---|---|
-| `health` | 基础设施健康检查 (含 DB / Token 深度探针) |
+| `health` | 基础设施健康检查 (含 DB / Lixinger Token / Zhipu API 三层深度探针) |
 | `stocks` | Lixinger 个股数据 (基础/K线/股东/北向/融资融券/营收/论点变量/银行盲盒) |
 | `valuation` | PE/PB 10y 分位 + DYR |
 | `dividend` | 分红同步 + 汇总 |
@@ -128,23 +127,22 @@ Gojira 是一台 **「个人股票自动驾驶舱」**:基于 `docs/reference/in
 **支撑**:
 - `alert_service` / `audit_log_service` / `scheduler_config_service` / `theme_service` / `review_service` / `watchlist_service` / `builtin_seeder` (启动时初始化 6 策略 + 4 预案)
 
-**Serenity 研究模块 (Q1-Q19 决策)**:
-- `research_runner_service` — Q10 异步 ThreadPoolExecutor + Q13 三重硬约束 + Q17 EventBus
+**Serenity 研究模块 (Q1-Q19 决策, Phase 1 + Phase 2 已 ship)**:
+- `research_runner_service` — Q10 异步 ThreadPoolExecutor + Q13 三重硬约束 + Q17 EventBus + LLM log dumping
 - `research_persistence_service` — LLM 输出 → 6 子表 + schema 校验
 - `research_context_builder` — Lixinger 行业成分股装配
-- `research_export_service` — Q11 Phase 1 仅 watchlist 导出
+- `research_export_service` — Q3 D 导出 watchlist + candidate (Phase 2 加 candidate via plan_id nullable)
 - `research_scheduler_service` — Q6 周度自动刷新 + Q12 跳过 failed
 - `llm/zhipu_client` + `llm/prompts` — GLM SDK 封装 + serenity system prompt
+- `cockpit_service` 扩展 — Phase 2 加 `_get_latest_serenity_summary` + `_get_monthly_serenity_spend`
 
-### 3.3 数据库表 (24 个 ORM 模型)
+### 3.3 数据库表 (~41 个 ORM 模型,2026-06-15 实测)
 
-核心表: `stocks` / `valuations` / `holdings` / `dividends` / `financial_statements` / `price_klines` / `watchlist_groups` / `watchlist_items` / `alert_rules` / `alert_events` / `cashflow_goals` / `audit_logs` / `themes` / **`strategies`** / **`plans`** (统一模型) / **`candidates`** / **`drafts`**
+核心表 (S0-S5 ship): `stocks` / `valuations` / `holdings` / `trades` / `dividends` / `financial_statements` / `price_klines` / `historical_klines` / `historical_valuations` / `historical_financials` / `watchlist_groups` / `watchlist_items` / `alert_rules` / `alert_events` / `cashflow_goals` / `audit_logs` / `themes` / **`strategies`** / **`plans`** (统一模型) / **`candidates`** (Phase 2 加 source + plan_id nullable) / **`drafts`** / `backtest_runs` / `corp_actions` / `cash_balance` / `cash_adjustment` / `broker_fee_config` / `holding_risk_rule` / `notification_channels` / `system_alerts` / `data_freshness` / `business_patterns` / `trading_calendar` / `scheduler_jobs` / `pipeline_runs`
 
 Serenity 研究表 (7 个,Q14 stock_code × 3 表 index): `research_themes` / `research_runs` / `value_chain_layers` / `scarce_layers` / `research_company_universe` / `research_evidence` / `research_company_ranking`
 
-辅助表: `scheduler_jobs` (调度配置) / `pipeline_runs` (Pipeline 运行记录)
-
-Alembic 迁移链: 20 个版本文件,head = `s1_serenity_research_module`。
+Alembic 迁移链: 21 个版本文件,head = `s2_candidate_source_field`。
 
 ### 3.4 前端页面 (11 个)
 
@@ -226,13 +224,15 @@ Alembic 迁移链: 20 个版本文件,head = `s1_serenity_research_module`。
 | 第 5 轮 (round5) | 2026-06-09 | 0 | 8 | 14 | 11 | 全部修复 |
 | 第 6 轮 (round6) | 2026-06-11 | **5** | **15** | **12** | 0 | **全部修复 (402 测试)** |
 
-最新审计报告: `docs/reports/completed/full-audit-round6-2026-06-11.md`
+最新审计报告: `docs/reports/completed/full-audit-round6-2026-06-11.md` (历史) + `docs/reports/2026-06-15-completeness-audit.md` (最新三层完成度审计)
 
 ### 5.2 最近里程碑 (按时间倒序)
 
-**2026-06-15**: serenity-skill 集成 Phase 1 完成。grill-me 会话产出 19 项决策 (Q1-Q9 核心架构 + Q10-Q19 实施细节),实施 7 张新表 / 10 个 API endpoint / 4 个 service / 异步 LLM 调用 + EventBus 告警 / Q14 反向链接 index / 34 个新测试 (972 总通过)。GLM 账号余额不足阻塞 spike 真实验证,等充值后跑 2 次真实研究。详见 `docs/reference/specs/2026-06-14-serenity-skill-integration.md` + `docs/progress/2026-06-15-serenity-skill-integration.md`。
+**2026-06-15 (晚)**: 三层完成度审计 + Phase 2 commit。grill-me 会话产出三层审计报告 (Phase 2 未提交批次 / Phase 1 ship 清单 / P0 阻塞链),发现 7 个 bug + Sentinel Plan 是绕路 + STATUS.md 严重过期 + backtest 0-metrics 根因。Phase 2 commit `e0a915f` 落地: schema plan_id nullable + Sentinel Plan 移除 + 7 个 bug 修复 + 976 测试通过。详见 `docs/reports/2026-06-15-completeness-audit.md`。
 
-**2026-06-13**: production-readiness-plan 重审。grill-me 会话产出 7 项决策 (删 PROMOTE / 合并 EXECUTE / 保留 backtest / watchlist 去闸门 / 跳过 S6 / draft 全表现 / 双层闸门)。**实测发现 296 候选股被 watchlist 闸门静默吞掉 → 0 draft**。详见 `docs/reference/specs/2026-06-13-revisit-production-readiness-plan.md`。
+**2026-06-15 (午)**: serenity-skill 集成 Phase 1 完成 + Phase 2 同期 ship。grill-me 会话产出 19 项决策 (Q1-Q9 核心架构 + Q10-Q19 实施细节),实施 7 张新表 / 10 个 API endpoint / 4 个 service / 异步 LLM 调用 + EventBus 告警 / Q14 反向链接 index / 34 个 Phase 1 测试 + 4 个 Phase 2 测试 (976 总通过)。Phase 2 包含: Candidate.source 区分来源 / plan_id nullable / Cockpit "今日 serenity" 卡片 + monthly_token_spend / StockDetail 反向链接 panel / Candidates source badge / `/api/health/zhipu` / LLM log dumping。GLM 账号余额不足阻塞 spike 真实验证,等充值后跑 2 次真实研究 (Phase 1 #9 唯一 external blocker)。详见 `docs/reference/specs/2026-06-14-serenity-skill-integration.md` + `docs/progress/2026-06-15-serenity-skill-integration.md`。
+
+**2026-06-13**: production-readiness-plan 重审。grill-me 会话产出 7 项决策 (删 PROMOTE / 合并 EXECUTE / 保留 backtest / watchlist 去闸门 / 跳过 S6 / draft 全表现 / 双层闸门)。**实测发现 296 候选股被 watchlist 闸门静默吞掉 → 0 draft**。重审决策已全部落地 (`plan_runner.py:10-13` docstring 明示)。详见 `docs/reference/specs/2026-06-13-revisit-production-readiness-plan.md`。
 
 **2026-06-12**: production-readiness S0-S5 全部 ship (trades / cash / T+1 / Lixinger 防御 / 公司行为 / 回测 / 盘中监控 / 通知)。S6 Docker/DR 重审后跳过。完整执行记录见 `docs/active/production-readiness-plan.md`。
 
@@ -244,31 +244,38 @@ Alembic 迁移链: 20 个版本文件,head = `s1_serenity_research_module`。
 
 **2026-06-05**: 业务闭环 (分析→决策→持仓) 自动接力打通。详见 `docs/reports/completed/2026-06-05-business-loop-closure.md`。
 
-### 5.3 待修复项 (从 roadmap.md 摘录)
+### 5.3 待修复项 (从 roadmap.md + 2026-06-15 审计报告 摘录)
 
-完整路线图见 `docs/active/roadmap.md`。优先级排序简摘:
+完整路线图见 `docs/active/roadmap.md`,审计报告见 `docs/reports/2026-06-15-completeness-audit.md`。
 
-**P0 (2026-06-13 重审后新增 — 阻塞真实使用)**:
+**P0 (2026-06-15 审计后重排 — 阻塞真实使用)**:
 
-- **P0-1 [最高]**: **解 Lixinger token** (2026-06-13 实测 expired, 14 critical alerts silent, 一切停摆)
-- **P0-2 [最高]**: **去 watchlist 闸门** (`plan_runner.py:494 if code not in watchlisted: return` 静默吞 296 候选 → 0 draft)。重审决策 #1+#4
-- **P0-3 [高]**: **跑首个 backtest** (回测引擎 ship 但 0 runs。重审 #7B 要求先验证策略再信任 draft)
+- **P0-1 [最高]**: **修 backtest derived fields 限制** — 4/6 内置策略 (高股息安全垫 / 低估值买入信号 / 现金流资产 / 超跌逆向) 依赖 `pe_pct_10y` / `pb_pct_10y` / `dividend_sustainability` / `price_drop_pct`,backtest context 中全 None → 0 trades → 全 0 metrics。需实现 PIT 窗口计算。**这是 #7B「双层闸门」实际单层的根因**。
+- **P0-2 [高]**: **解 GLM 账号余额** — 429 code 1113。充值后跑 Phase 1 #9 真实研究 (spike 1 + ship 后 2 次)。
+- **P0-3 [高]**: **验证 Lixinger token 有效性** — `.env` 有 token,但 2026-06-13 实测 expired。需调用 `/api/health/lixinger` 实测。
 
-**P1 (架构改动 — 重审决策落地)**:
+**已完成项 (从 P0/P1 移除)**:
 
-- **P1-1 [最高]**: 删除 PROMOTE 流程 (重审 #1)
-- **P1-2 [高]**: 合并 EXECUTE + TRADE_ENTRY modal (重审 #2)
-- **P1-3 [高]**: Cockpit draft 按 Qiu 评分排序 (重审 #6)
-- **P1-4 [高]**: 强制 DisciplineChecklistModal 通过才能执行 (重审 #7B)
-- **P1-5 [中]**: 配置 server_chan 通道 (当前仅 in_app, alerts silent)
-- **P1-6 [中]**: 端到端手动验收 (重审改动后回归)
-- **P1-7 [中]**: 远程 Git 仓库 + push
-- **P1-8 [中]**: CI (GitHub Actions)
-- **P1-9 [低]**: cashflow_goal UI 编辑入口
+- ✅ ~~P0-1 (旧) 解 Lixinger token~~ → 状态变化 (token 在 .env,有效性未验证)
+- ✅ ~~P0-2 (旧) 跑首个 backtest~~ → 实测 3 runs 已跑 (但 metrics 全 0,见 P0-1 新)
+- ✅ ~~P0-3 (旧) 去 watchlist 闸门~~ → 已完成 (`plan_runner.py:10-13`)
+- ✅ ~~P1-1 删 PROMOTE 流程~~ → ship
+- ✅ ~~P1-2 合并 EXECUTE+TRADE_ENTRY~~ → ship
+- ✅ ~~P1-3 Cockpit draft 按 Qiu 排序~~ → ship
+- ✅ ~~P1-4 强制 DisciplineChecklistModal~~ → ship
 
-**P2 (体验补全)**: 月度复盘视图增强、预案 diff 视图、StockDetail 新建预案回填、候选池筛选持久化
+**P1 (架构改动 — Phase 2.5 / 下次 grill)**:
 
-**P3 (技术债)**: holding_service 拆纯计算+持久查询两层、datetime.utcnow() → datetime.now(UTC)、前端 bundle 分块
+- **P1-1 [高]**: CandidatesPage source filter UI (backend 已支持,前端未暴露)
+- **P1-2 [高]**: Phase 2 #9 — 失败条件 → 论点变量转译 (Q19 schema 设计需 grill)
+- **P1-3 [中]**: Phase 2 #10 — 历史 Run diff 视图 (Q15 diff 语义需 grill)
+- **P1-4 [中]**: 配置 server_chan 通道 (当前仅 in_app)
+- **P1-5 [低]**: 远程 Git 仓库 + push
+- **P1-6 [低]**: CI (GitHub Actions)
+
+**P2 (体验补全)**: 月度复盘视图增强、预案 diff 视图、StockDetail 新建预案回填、候选池筛选持久化、统一 GLM model 配置 (3 个名浮动)
+
+**P3 (技术债)**: holding_service 拆纯计算+持久查询两层、datetime.utcnow() → datetime.now(UTC)、前端 bundle 分块、STATUS.md 自动化生成
 
 ---
 
@@ -283,6 +290,9 @@ Alembic 迁移链: 20 个版本文件,head = `s1_serenity_research_module`。
 7. **行业模板硬编码**: 内置 6 策略 + 4 预案硬编码在 `builtin_seeder.py`,不读外部 JSON (与早期设计文档不同)。
 8. **个人使用,无认证**: 项目定位为个人投资工具,S-01 (认证) 已排除。CORS / Rate Limit / 文件上传校验等基础防护已就位。
 9. **重审 7 项决策 (2026-06-13)**: production-readiness-plan ship 后实测 0 真实使用,根因是 watchlist 闸门吞 296 候选。重审产出 7 项架构决策: 删 PROMOTE / 合并 EXECUTE+TRADE_ENTRY / 保留 backtest (作 #7B 前置) / watchlist 去闸门留股池 / 跳过 S6 / draft 全表现+Qiu 排序 / 双层闸门 (backtest 验证 + DisciplineChecklistModal)。详见 `docs/reference/specs/2026-06-13-revisit-production-readiness-plan.md`。
+10. **Serenity 集成 19 项决策 (2026-06-14)**: Q1-Q9 核心架构 (B 完整工作流 / A 新 ResearchTheme / D 6 张表 + 手动导出 / D LLM Web Search / GLM-5.2 / D 手动+可选调度 / D 多入口 UI / C 硬约束+软上限 / D spike 先验证) + Q10-Q19 实施细节 (异步 ThreadPoolExecutor / 不查 Checklist / 跳过 failed / 三重硬约束 / index 反向链接 / Phase 1 仅列表 / 不抽 LLMProvider / 复用 NotificationChannel / react-markdown / 失败条件 Phase 2 不做)。详见 `docs/reference/specs/2026-06-14-serenity-skill-integration.md`。
+11. **Candidate.plan_id nullable (2026-06-15 Phase 2)**: Phase 2 临时用 Sentinel Plan 绕开 FK NOT NULL,审计后发现是绕路非 spec。改为 `plan_id nullable` (s2 migration),serenity Candidate 写 NULL,rule_based Candidate 业务层校验必须有 plan_id。删除 `_get_or_create_serenity_export_plan` 全部复杂度。
+12. **Backtest derived fields 是已知限制,不是 bug (2026-06-15 审计)**: `backtest_engine.py:30-35` docstring 明示 derived fields (`pe_pct_10y` / `pb_pct_10y` / `dividend_sustainability` / `price_drop_pct`) 在 PIT context 中 None。但 4/6 内置策略依赖这些字段 → backtest 永远 0 trades → metrics 全 0。意味 #7B「双层闸门」实际单层 (DisciplineChecklistModal 是唯一 gate)。修法是实现 PIT 窗口计算 (P0-1 新)。
 
 ---
 
