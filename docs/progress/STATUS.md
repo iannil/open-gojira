@@ -4,17 +4,17 @@
 >
 > | 字段 | 值 (实测于 2026-06-16) |
 > |---|---|
-> | 最后更新 | 2026-06-16 (serenity Path B 两步法上线后) |
+> | 最后更新 | 2026-06-16 (Phase 2 #9 structured claims 上线后) |
 > | 分支 | `master` |
-> | 最新 commit | `3ec115c chore(spikes): serenity Path B 验证脚本 + artifacts` |
-> | 测试 | **1005 passed**, 0 failed (`pytest`) |
-> | 测试函数数 | 1005 (985 + search_collector_service 20 个) |
-> | Alembic head | `s3_research_search_results` |
-> | Alembic 版本文件数 | 22 |
-> | 后端代码 | ~21,200 行 (app/) + ~8,050 行 (tests/) |
+> | 最新 commit | `75a7017 feat(research): Phase 2 #9 structured claims (Q19)` |
+> | 测试 | **1019 passed**, 0 failed (`pytest`) |
+> | 测试函数数 | 1019 (1005 + research_claims persistence 14 个) |
+> | Alembic head | `s4_research_claims` |
+> | Alembic 版本文件数 | 23 |
+> | 后端代码 | ~21,600 行 (app/) + ~8,400 行 (tests/) |
 > | 前端代码 | ~11,100 行 (src/) |
 > | 远程仓库 | 暂无 (`git remote -v` 为空) |
-> | 真实使用 | **0 holdings / 6 trades / 220 drafts (全 pending) / 264 active candidates / 6 research_runs (run_id=6 跑通 Path B) / 3 backtests (全 0 metrics)** |
+> | 真实使用 | **0 holdings / 6 trades / 220 drafts (全 pending) / 264 active candidates / 8 research_runs (run_id=8 跑通 Phase 2 #9 structured claims) / 3 backtests (全 0 metrics)** |
 
 ---
 
@@ -269,7 +269,7 @@ Alembic 迁移链: 21 个版本文件,head = `s2_candidate_source_field`。
 
 **P1 (架构改动 — Phase 2.5 / 下次 grill)**:
 
-- **P1-1 [高]**: Phase 2 #9 — 失败条件 → 论点变量转译 (Q19 schema 设计需 grill)
+- ~~**P1-1** Phase 2 #9 — 失败条件 → 论点变量转译~~ ✅ **ship** (2026-06-16) — schema 改为 structured claims (subject/predicate/signal/outcome/stock_codes/layer_index),研究新表 research_claims。MD 字段 derive 保留作 backward-compat。实测 run_id=8 LLM 严格按 schema 输出,signal 字段质量极高 (e.g. "净息差<1.3%持续两个季度")。
 - **P1-2 [中]**: Phase 2 #10 — 历史 Run diff 视图 (Q15 diff 语义需 grill)
 - ⏭️ **P1-3** 配置 server_chan 通道 — 跳过 (2026-06-13 用户决策,基础设施类延后)
 - ⏭️ **P1-4** 远程 Git 仓库 + push — 跳过 (2026-06-13 用户决策)
