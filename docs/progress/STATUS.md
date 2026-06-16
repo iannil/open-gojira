@@ -270,7 +270,7 @@ Alembic 迁移链: 21 个版本文件,head = `s2_candidate_source_field`。
 **P1 (架构改动 — Phase 2.5 / 下次 grill)**:
 
 - ~~**P1-1** Phase 2 #9 — 失败条件 → 论点变量转译~~ ✅ **ship** (2026-06-16) — schema 改为 structured claims (subject/predicate/signal/outcome/stock_codes/layer_index),研究新表 research_claims。MD 字段 derive 保留作 backward-compat。实测 run_id=8 LLM 严格按 schema 输出,signal 字段质量极高 (e.g. "净息差<1.3%持续两个季度")。
-- **P1-2 [中]**: Phase 2 #10 — 历史 Run diff 视图 (Q15 diff 语义需 grill)
+- **P1-2 [中]**: Phase 2 #10 — 历史 Run diff 视图 — **spec 已确认** (2026-06-16 grill),代码待实施 (~3-4 小时)。详见 `docs/reference/specs/2026-06-16-phase2-num10-run-diff.md`。
 - ⏭️ **P1-3** 配置 server_chan 通道 — 跳过 (2026-06-13 用户决策,基础设施类延后)
 - ⏭️ **P1-4** 远程 Git 仓库 + push — 跳过 (2026-06-13 用户决策)
 - ⏭️ **P1-5** CI (GitHub Actions) — 跳过 (2026-06-13 用户决策)
