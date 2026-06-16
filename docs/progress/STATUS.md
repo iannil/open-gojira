@@ -275,7 +275,9 @@ Alembic 迁移链: 21 个版本文件,head = `s2_candidate_source_field`。
 - ⏭️ **P1-4** 远程 Git 仓库 + push — 跳过 (2026-06-13 用户决策)
 - ⏭️ **P1-5** CI (GitHub Actions) — 跳过 (2026-06-13 用户决策)
 
-**P2 (体验补全)**: 月度复盘视图增强、预案 diff 视图、StockDetail 新建预案回填、候选池筛选持久化、统一 GLM model 配置 (3 个名浮动)
+**P2 (体验补全)**:
+- **P2-1 [高]**: Phase 2 #9 阶段 B — thesis monitor 接入 (claim.signal → 自动提议 thesis variable → 用户 review → thesis_monitor 告警)。**spec 已确认** (2026-06-16 grill),~7 小时实施。详见 `docs/reference/specs/2026-06-16-phase2-num9-stage-b-thesis-monitor.md`。
+- 月度复盘视图增强、预案 diff 视图、StockDetail 新建预案回填、候选池筛选持久化、统一 GLM model 配置 (3 个名浮动)
 
 **P3 (技术债)**: holding_service 拆纯计算+持久查询两层、datetime.utcnow() → datetime.now(UTC)、前端 bundle 分块、STATUS.md 自动化生成
 
