@@ -20,6 +20,9 @@ backend/data/gojira.db.bak
 **/data/*.db-wal
 **/data/*.db.bak
 
+# Serenity LLM interaction logs (per-run JSON dumps)
+backend/data/llm_logs/
+
 # Environment
 .env
 

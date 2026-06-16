@@ -155,11 +155,11 @@ ResearchRun.llm_provider 字段写入: glm-4.7 (硬编码,不看 .env)
 ### P0 — 阻塞真实使用 (修正后)
 
 1. **解 GLM 账号余额** — 充值后跑 Phase 1 #9 真实研究验证 (spike 1 + ship 后 2 次)。external blocker。
-2. ~~**验证 Lixinger token 有效性**~~ ✅ **已实测有效** (2026-06-15 晚) — Python 直调 `client.get_company_list()` 拉回 500 股成功 (`永大股份 920126` 等)。`.env` 的 token `2b365f7e-...` 工作正常。STATUS.md 之前说 expired 是过期信息,本次同步修正。
+2. ~~**验证 Lixinger token 有效性**~~ ✅ **已实测有效并 artifact 化** (2026-06-16) — `backend/spikes/lixinger_token_verification.py` 重跑留痕,500 股返回,首条 `920126 永大股份`。Artifact: `backend/spikes/output/lixinger_token_verification_2026-06-16T02-33-56Z.json`。
 
 ### P1 — 后续
 
-3. 实现 `dividend_sustainability` PIT 计算 (需历史分红事件表 + 窗口计算,影响 2/6 策略 backtest)
+3. ~~实现 `dividend_sustainability` PIT 计算~~ ✅ **已完成** (2026-06-16) — 3/4 因子实现 (OCF/NI + 分红连击 + DYR 比较,跳过 payout_ratio),max 80 分。生产 DB 实测 600519@2024-03-01 返回 `dividend_sustainability=50.0`。9 个新测试通过,全套 985 测试通过。Artifact: `backend/spikes/output/pit_dividend_sust_2026-06-16T02-37-14Z.json`。
 4. Phase 2 #9 (失败条件 → 论点变量转译, Q19)
 5. Phase 2 #10 (历史 Run diff 视图, Q15)
 

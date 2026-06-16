@@ -2,13 +2,13 @@
 
 > **此文档是项目当前状态的真实来源。AI 代理应首先阅读此文件。**
 >
-> | 字段 | 值 (实测于 2026-06-15) |
+> | 字段 | 值 (实测于 2026-06-16) |
 > |---|---|
-> | 最后更新 | 2026-06-15 (Phase 2 + 三层审计后) |
+> | 最后更新 | 2026-06-16 (PIT dividend_sustainability + Lixinger token artifact 验证后) |
 > | 分支 | `master` |
-> | 最新 commit | `e0a915f feat(serenity): Phase 2 — Candidate source + plan_id nullable + 辅助入口` |
-> | 测试 | **976 passed**, 0 failed (`pytest`) |
-> | 测试函数数 | 976 (含 S0-S5 + serenity Phase 1 34 个 + Phase 2 3 e2e + 1 export + Sentinel Plan 移除 -1) |
+> | 最新 commit | (本次会话待提交) |
+> | 测试 | **985 passed**, 0 failed (`pytest`) |
+> | 测试函数数 | 985 (含 S0-S5 + serenity Phase 1 34 个 + Phase 2 3 e2e + 1 export + Sentinel Plan 移除 -1 + PIT dividend_sust 9 个) |
 > | Alembic head | `s2_candidate_source_field` |
 > | Alembic 版本文件数 | 21 |
 > | 后端代码 | ~20,800 行 (app/) + ~7,750 行 (tests/) |
@@ -248,11 +248,11 @@ Alembic 迁移链: 21 个版本文件,head = `s2_candidate_source_field`。
 
 完整路线图见 `docs/active/roadmap.md`,审计报告见 `docs/reports/2026-06-15-completeness-audit.md`。
 
-**P0 (2026-06-15 审计后重排 — 阻塞真实使用)**:
+**P0 (2026-06-16 重排 — 阻塞真实使用)**:
 
 - **P0-1 [最高]**: **解 GLM 账号余额** — 429 code 1113。充值后跑 Phase 1 #9 真实研究 (spike 1 + ship 后 2 次)。external blocker。
-- ~~**P0-2** 验证 Lixinger token~~ ✅ **已实测有效** (2026-06-15 晚) — `client.get_company_list()` 直接拉 500 股成功。STATUS.md 之前说 expired 是过期信息。
-- ~~**原 P0-1** 修 backtest derived fields~~ ✅ **审计错误** (2026-06-15 晚) — `build_stock_context_at` 已计算 3/4 derived fields。600519 (茅台) 0 trades 是因为标的不匹配保守策略,**正确行为**。只有 `dividend_sustainability` 缺失 (影响 2/6 策略),降为 P1。详见 `docs/reports/2026-06-15-completeness-audit.md` 文末"审计错误更正记录"。
+- ~~**P0-2** 验证 Lixinger token~~ ✅ **已实测有效并 artifact 化** (2026-06-16) — `spikes/lixinger_token_verification.py` 跑通,500 股返回,首条 `920126 永大股份`。Artifact: `backend/spikes/output/lixinger_token_verification_2026-06-16T02-33-56Z.json`。
+- ~~**原 P0-1** 修 backtest derived fields~~ ✅ **审计错误** (2026-06-15 晚) — `build_stock_context_at` 已计算 3/4 derived fields。600519 (茅台) 0 trades 是因为标的不匹配保守策略,**正确行为**。`dividend_sustainability` PIT 版本 2026-06-16 已实现 (3/4 因子,详见 P1)。
 
 **已完成项 (从 P0/P1 移除)**:
 
@@ -263,15 +263,16 @@ Alembic 迁移链: 21 个版本文件,head = `s2_candidate_source_field`。
 - ✅ ~~P1-2 合并 EXECUTE+TRADE_ENTRY~~ → ship
 - ✅ ~~P1-3 Cockpit draft 按 Qiu 排序~~ → ship
 - ✅ ~~P1-4 强制 DisciplineChecklistModal~~ → ship
+- ✅ ~~P1-5 CandidatesPage source filter UI~~ → ship (commit `e6e2518`)
+- ✅ ~~P1-6 PIT `dividend_sustainability`~~ → ship (2026-06-16, 3/4 factor, max 80 分)
 
 **P1 (架构改动 — Phase 2.5 / 下次 grill)**:
 
-- **P1-1 [高]**: CandidatesPage source filter UI (backend 已支持,前端未暴露)
-- **P1-2 [高]**: Phase 2 #9 — 失败条件 → 论点变量转译 (Q19 schema 设计需 grill)
-- **P1-3 [中]**: Phase 2 #10 — 历史 Run diff 视图 (Q15 diff 语义需 grill)
-- **P1-4 [中]**: 配置 server_chan 通道 (当前仅 in_app)
-- **P1-5 [低]**: 远程 Git 仓库 + push
-- **P1-6 [低]**: CI (GitHub Actions)
+- **P1-1 [高]**: Phase 2 #9 — 失败条件 → 论点变量转译 (Q19 schema 设计需 grill)
+- **P1-2 [中]**: Phase 2 #10 — 历史 Run diff 视图 (Q15 diff 语义需 grill)
+- ⏭️ **P1-3** 配置 server_chan 通道 — 跳过 (2026-06-13 用户决策,基础设施类延后)
+- ⏭️ **P1-4** 远程 Git 仓库 + push — 跳过 (2026-06-13 用户决策)
+- ⏭️ **P1-5** CI (GitHub Actions) — 跳过 (2026-06-13 用户决策)
 
 **P2 (体验补全)**: 月度复盘视图增强、预案 diff 视图、StockDetail 新建预案回填、候选池筛选持久化、统一 GLM model 配置 (3 个名浮动)
 
