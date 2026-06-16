@@ -1,0 +1,26 @@
+{
+  "ok": true,
+  "timestamp": "2026-06-16T02-37-14Z",
+  "description": "PIT dividend_sustainability verification on production DB",
+  "results": [
+    {
+      "stock_code": "600519",
+      "day": "2023-03-01",
+      "raw_sustainability_score": 40.0,
+      "context_dividend_sustainability": 40.0
+    },
+    {
+      "stock_code": "600519",
+      "day": "2024-03-01",
+      "raw_sustainability_score": 50.0,
+      "context_dividend_sustainability": 50.0
+    },
+    {
+      "stock_code": "600519",
+      "day": "2025-03-01",
+      "raw_sustainability_score": 50.0,
+      "context_dividend_sustainability": 50.0
+    }
+  ],
+  "strategy_threshold_note": "高股息安全垫 strategy requires 分红可持续>=60. PIT max is 80 (skips payout ratio). 600519 (茅台) typically scores <60 due to low DYR vs historical — even with sustainability computed, DYR check fails first."
+}
