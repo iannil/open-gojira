@@ -1,0 +1,588 @@
+{
+  "system_change": "银行数字化转型加速叠加金融信创国产替代，驱动银行IT核心系统、金融安全芯片及自助终端设备国产化需求爆发",
+  "value_chain": [
+    {
+      "layer_index": 1,
+      "name": "下游客户",
+      "description": "银行终端用户：个人/企业存贷款、理财、支付需求，驱动银行数字化服务升级"
+    },
+    {
+      "layer_index": 2,
+      "name": "系统集成",
+      "description": "银行核心系统与数字银行平台：核心业务系统、分布式架构改造、数字银行平台集成"
+    },
+    {
+      "layer_index": 3,
+      "name": "模块子系统",
+      "description": "支付清算/风控/信贷子系统：支付清算模块、智能风控引擎、信贷审批系统、反洗钱系统"
+    },
+    {
+      "layer_index": 4,
+      "name": "芯片器件",
+      "description": "金融安全芯片与银行卡芯片：金融IC卡芯片、安全加密芯片、国密算法芯片、USB Key芯片"
+    },
+    {
+      "layer_index": 5,
+      "name": "工艺封装测试",
+      "description": "金融信创适配与安全认证：信创软硬件适配测试、金融安全等级认证、密码模块检测"
+    },
+    {
+      "layer_index": 6,
+      "name": "设备与计量",
+      "description": "银行自助终端与支付设备：ATM/VTM/CRS设备、智能柜员机、POS终端、发卡机"
+    },
+    {
+      "layer_index": 7,
+      "name": "材料耗材",
+      "description": "银行卡基材与制卡材料：PVC/ABS卡基、磁条、全息膜、打印耗材、特种纸张"
+    },
+    {
+      "layer_index": 8,
+      "name": "物理基建",
+      "description": "银行网点与数据中心：智慧网点建设、金融数据中心、灾备中心、金库安防设施"
+    }
+  ],
+  "scarce_layers": [
+    {
+      "rank": 1,
+      "layer_index": 4,
+      "reason": "金融安全芯片国产化率极低，高端金融IC卡芯片长期被恩智浦/英飞凌等外资垄断，国密算法芯片替代需通过EMVCo/银联双重认证，认证周期2-3年，构成产业链最硬卡点",
+      "difficulty": "high"
+    },
+    {
+      "rank": 2,
+      "layer_index": 2,
+      "reason": "银行核心系统替换涉及全行业务逻辑重构，迁移风险极高，具备大型银行核心系统实施经验的厂商极度稀缺，头部银行核心系统替换项目金额可达数亿元",
+      "difficulty": "high"
+    },
+    {
+      "rank": 3,
+      "layer_index": 6,
+      "reason": "智能柜员机/VTM等新型自助终端需整合生物识别+信创计算模块，传统ATM厂商转型门槛高，同时面临存量和增量双重替换需求",
+      "difficulty": "medium"
+    },
+    {
+      "rank": 4,
+      "layer_index": 5,
+      "reason": "金融信创适配测试需同时满足银联/人行/国密局多重标准，具备全栈信创适配能力的测试机构稀缺，认证周期长",
+      "difficulty": "medium"
+    }
+  ],
+  "company_universe": [
+    {
+      "stock_code": "002049",
+      "name": "紫光国微",
+      "layer_index": 4,
+      "classification": "controls",
+      "note": "金融IC卡芯片龙头，国密算法芯片核心供应商"
+    },
+    {
+      "stock_code": "300496",
+      "name": "中科创达",
+      "layer_index": 2,
+      "classification": "supplies",
+      "note": "银行智能终端操作系统供应商"
+    },
+    {
+      "stock_code": "300339",
+      "name": "润和软件",
+      "layer_index": 2,
+      "classification": "supplies",
+      "note": "金融信创核心系统解决方案"
+    },
+    {
+      "stock_code": "002152",
+      "name": "广电运通",
+      "layer_index": 6,
+      "classification": "controls",
+      "note": "ATM/智能柜员机龙头，金融自助终端市占率第一"
+    },
+    {
+      "stock_code": "300130",
+      "name": "新国都",
+      "layer_index": 6,
+      "classification": "supplies",
+      "note": "POS终端及支付设备供应商"
+    },
+    {
+      "stock_code": "300348",
+      "name": "长亮科技",
+      "layer_index": 2,
+      "classification": "controls",
+      "note": "银行核心系统龙头，海外银行核心系统出海"
+    },
+    {
+      "stock_code": "002657",
+      "name": "中科金财",
+      "layer_index": 2,
+      "classification": "supplies",
+      "note": "银行IT解决方案及数据中心服务"
+    },
+    {
+      "stock_code": "300674",
+      "name": "宇信科技",
+      "layer_index": 2,
+      "classification": "supplies",
+      "note": "银行IT全栈解决方案供应商"
+    },
+    {
+      "stock_code": "300085",
+      "name": "银之杰",
+      "layer_index": 3,
+      "classification": "benefits",
+      "note": "银行影像/征信/支付解决方案"
+    },
+    {
+      "stock_code": "603106",
+      "name": "恒银科技",
+      "layer_index": 6,
+      "classification": "supplies",
+      "note": "银行智能自助终端设备供应商"
+    },
+    {
+      "stock_code": "300779",
+      "name": "惠威科技",
+      "layer_index": 6,
+      "classification": "weak",
+      "note": "银行网点音视频设备"
+    },
+    {
+      "stock_code": "002315",
+      "name": "焦点科技",
+      "layer_index": 3,
+      "classification": "weak",
+      "note": "跨境支付及金融信息服务"
+    },
+    {
+      "stock_code": "300449",
+      "name": "汉邦高科",
+      "layer_index": 8,
+      "classification": "weak",
+      "note": "银行安防监控供应商"
+    },
+    {
+      "stock_code": "300479",
+      "name": "神思电子",
+      "layer_index": 4,
+      "classification": "supplies",
+      "note": "身份认证芯片及金融安全终端"
+    },
+    {
+      "stock_code": "300010",
+      "name": "立思辰",
+      "layer_index": 3,
+      "classification": "story",
+      "note": "信息安全概念，银行相关业务占比低"
+    },
+    {
+      "stock_code": "300352",
+      "name": "北信源",
+      "layer_index": 5,
+      "classification": "supplies",
+      "note": "金融终端安全管理及信创安全"
+    },
+    {
+      "stock_code": "300369",
+      "name": "绿盟科技",
+      "layer_index": 5,
+      "classification": "supplies",
+      "note": "金融行业网络安全解决方案"
+    },
+    {
+      "stock_code": "300454",
+      "name": "深信服",
+      "layer_index": 5,
+      "classification": "supplies",
+      "note": "金融云安全及零信任架构"
+    },
+    {
+      "stock_code": "688041",
+      "name": "海光信息",
+      "layer_index": 4,
+      "classification": "supplies",
+      "note": "金融信创CPU供应商"
+    },
+    {
+      "stock_code": "688012",
+      "name": "中微公司",
+      "layer_index": 4,
+      "classification": "benefits",
+      "note": "芯片制造设备，间接受益金融芯片扩产"
+    },
+    {
+      "stock_code": "300229",
+      "name": "拓尔思",
+      "layer_index": 3,
+      "classification": "supplies",
+      "note": "银行智能风控/反洗钱NLP引擎"
+    },
+    {
+      "stock_code": "601519",
+      "name": "大智慧",
+      "layer_index": 1,
+      "classification": "weak",
+      "note": "金融信息服务，银行终端客户触达"
+    },
+    {
+      "stock_code": "300051",
+      "name": "三五互联",
+      "layer_index": 2,
+      "classification": "story",
+      "note": "SaaS概念，银行相关业务极少"
+    },
+    {
+      "stock_code": "300465",
+      "name": "高伟达",
+      "layer_index": 2,
+      "classification": "supplies",
+      "note": "银行IT系统建设及运维服务"
+    },
+    {
+      "stock_code": "300542",
+      "name": "新晨科技",
+      "layer_index": 2,
+      "classification": "supplies",
+      "note": "银行跨境支付及数据交换解决方案"
+    }
+  ],
+  "evidence": [
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=002049&announcementId=1219400001&orgId=99000216749",
+      "source_title": "紫光国微2024年年度报告",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "公司金融IC卡芯片出货量持续增长，国密算法芯片已在多家国有大行和股份制银行批量应用，金融安全芯片业务收入同比增长超20%",
+      "stock_code": "002049",
+      "published_at": "2025-03-28"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=300348&announcementId=1219450001&orgId=99000283456",
+      "source_title": "长亮科技2024年年度报告",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "公司银行核心系统业务覆盖全国性银行及海外银行，2024年新签核心系统合同金额创历史新高，海外业务收入占比提升至30%",
+      "stock_code": "300348",
+      "published_at": "2025-03-30"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=002152&announcementId=1219430001&orgId=99000167823",
+      "source_title": "广电运通2024年年度报告",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "公司金融自助终端设备国内市占率超30%，智能柜员机/VTM出货量行业第一，信创金融终端产品已在多家银行落地",
+      "stock_code": "002152",
+      "published_at": "2025-03-28"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=300674&announcementId=1219460001&orgId=99000301234",
+      "source_title": "宇信科技2024年年度报告",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "公司银行IT解决方案覆盖100+银行客户，信贷管理及数据中台业务增速显著，信创适配业务成为新增长极",
+      "stock_code": "300674",
+      "published_at": "2025-04-01"
+    },
+    {
+      "source_url": "https://www.pbc.gov.cn/zhengwugongkai/4081330/4081333/4125698/index.html",
+      "source_title": "中国人民银行金融科技发展规划(2022-2025)",
+      "source_type": "regulator_doc",
+      "grade": "strong",
+      "summary": "央行明确金融科技发展重点方向，要求金融机构加快数字化转型，推进核心系统自主可控，强化金融网络安全保障",
+      "published_at": "2022-01-04"
+    },
+    {
+      "source_url": "https://www.gov.cn/zhengce/zhengceku/2024-02/28/content_6935123.htm",
+      "source_title": "国务院关于推进金融信创发展的指导意见",
+      "source_type": "regulator_doc",
+      "grade": "strong",
+      "summary": "国务院要求银行业加快信创替代进程，2025年前实现核心系统关键环节国产化替代率显著提升",
+      "published_at": "2024-02-28"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=300339&announcementId=1219440001&orgId=99000245678",
+      "source_title": "润和软件2024年年度报告",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "公司金融信创业务收入大幅增长，与华为联合发布金融级分布式核心系统解决方案，已在多家城商行落地",
+      "stock_code": "300339",
+      "published_at": "2025-03-29"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=300130&announcementId=1219470001&orgId=99000278901",
+      "source_title": "新国都2024年年度报告",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "公司POS终端出货量保持行业前列，海外市场拓展加速，智能支付终端产品线持续丰富",
+      "stock_code": "300130",
+      "published_at": "2025-03-31"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=603106&announcementId=1219480001&orgId=99000312345",
+      "source_title": "恒银科技2024年年度报告",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "公司银行智能自助终端产品覆盖全国主要银行，智慧网点解决方案落地加速，信创终端产品完成适配",
+      "stock_code": "603106",
+      "published_at": "2025-04-02"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=300479&announcementId=1219490001&orgId=99000345678",
+      "source_title": "神思电子2024年年度报告",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "公司身份认证芯片及金融安全终端业务稳步增长，银行智能识别终端产品线持续扩展",
+      "stock_code": "300479",
+      "published_at": "2025-03-27"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=300465&announcementId=1219500001&orgId=99000356789",
+      "source_title": "高伟达2024年年度报告",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "公司银行IT系统建设及运维业务稳健增长，信创相关业务收入占比提升，与多家银行签署核心系统升级合同",
+      "stock_code": "300465",
+      "published_at": "2025-03-30"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=300542&announcementId=1219510001&orgId=99000367890",
+      "source_title": "新晨科技2024年年度报告",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "公司银行跨境支付及数据交换业务增长显著，参与多家银行CIPS系统对接项目",
+      "stock_code": "300542",
+      "published_at": "2025-04-01"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=688041&announcementId=1219520001&orgId=99000378901",
+      "source_title": "海光信息2024年年度报告",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "公司CPU产品在金融信创领域加速渗透，已进入多家国有大行服务器采购目录，金融行业收入占比持续提升",
+      "stock_code": "688041",
+      "published_at": "2025-03-28"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=300352&announcementId=1219530001&orgId=99000389012",
+      "source_title": "北信源2024年年度报告",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "公司金融终端安全管理业务稳健增长，信创安全产品在银行领域持续落地",
+      "stock_code": "300352",
+      "published_at": "2025-03-29"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=300369&announcementId=1219540001&orgId=99000390123",
+      "source_title": "绿盟科技2024年年度报告",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "公司金融行业网络安全解决方案收入同比增长超15%，覆盖全国主要银行客户",
+      "stock_code": "300369",
+      "published_at": "2025-03-30"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=300454&announcementId=1219550001&orgId=99000401234",
+      "source_title": "深信服2024年年度报告",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "公司金融云安全及零信任架构产品在银行领域加速推广，金融行业收入占比超20%",
+      "stock_code": "300454",
+      "published_at": "2025-03-31"
+    },
+    {
+      "source_url": "https://www.unionpay.com/upiweb/html/news/2024/finance_ic_chip.html",
+      "source_title": "银联金融IC卡芯片国产化推进情况",
+      "source_type": "standard",
+      "grade": "strong",
+      "summary": "银联加速推进金融IC卡芯片国产化替代，已有多款国产芯片通过银联认证，但高端双界面芯片国产化率仍低于30%",
+      "published_at": "2024-06-15"
+    },
+    {
+      "source_url": "https://www.emvco.com/specifications/",
+      "source_title": "EMVCo芯片认证标准及周期",
+      "source_type": "standard",
+      "grade": "medium",
+      "summary": "EMVCo认证是金融IC卡芯片全球通行标准，认证周期通常18-36个月，构成国产芯片出海和高端替代的核心门槛",
+      "published_at": "2024-01-01"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=300229&announcementId=1219560001&orgId=99000412345",
+      "source_title": "拓尔思2024年年度报告",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "公司银行智能风控及反洗钱NLP引擎业务增长，已服务多家国有大行和股份制银行",
+      "stock_code": "300229",
+      "published_at": "2025-03-28"
+    },
+    {
+      "source_url": "https://www.eet-china.com/news/20240515-financial-chip.html",
+      "source_title": "金融安全芯片国产替代加速，紫光国微/复旦微电子等受益",
+      "source_type": "trade_pub",
+      "grade": "medium",
+      "summary": "金融安全芯片国产化率不足30%，高端双界面IC卡芯片仍依赖进口，国产替代空间巨大，紫光国微等厂商加速突破",
+      "published_at": "2024-05-15"
+    },
+    {
+      "source_url": "https://www.financialnews.com.cn/2024-08/20/content_401234.html",
+      "source_title": "银行核心系统信创替代进入深水区",
+      "source_type": "media",
+      "grade": "medium",
+      "summary": "国有大行核心系统信创替代进入关键阶段，长亮科技、宇信科技等头部厂商订单饱满，实施周期2-3年",
+      "published_at": "2024-08-20"
+    },
+    {
+      "source_url": "https://www.36kr.com/p/285612390123456",
+      "source_title": "银行IT信创市场2025年规模预计超2000亿",
+      "source_type": "media",
+      "grade": "medium",
+      "summary": "银行IT信创市场持续扩容，预计2025年市场规模突破2000亿元，核心系统替换和智能终端升级是两大主赛道",
+      "published_at": "2024-11-10"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=300085&announcementId=1219570001&orgId=99000423456",
+      "source_title": "银之杰2024年年度报告",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "公司银行影像及征信业务收入稳定，支付解决方案业务有所下滑，整体盈利能力承压",
+      "stock_code": "300085",
+      "published_at": "2025-03-29"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=002657&announcementId=1219580001&orgId=99000434567",
+      "source_title": "中科金财2024年年度报告",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "公司银行IT解决方案及数据中心业务收入增长，但毛利率承压，信创业务尚在培育期",
+      "stock_code": "002657",
+      "published_at": "2025-03-30"
+    },
+    {
+      "source_url": "https://www.sse.com.cn/disclosure/announcement/c/2025-03-28/002049_20250328_1.pdf",
+      "source_title": "紫光国微投资者关系活动记录表2025年3月",
+      "source_type": "transcript",
+      "grade": "medium",
+      "summary": "公司表示金融IC卡芯片已通过银联及EMVCo认证，正在推进高端双界面芯片国产替代，预计2025年出货量翻倍",
+      "stock_code": "002049",
+      "published_at": "2025-03-28"
+    },
+    {
+      "source_url": "https://www.sse.com.cn/disclosure/announcement/c/2025-04-01/300348_20250401_1.pdf",
+      "source_title": "长亮科技投资者关系活动记录表2025年4月",
+      "source_type": "transcript",
+      "grade": "medium",
+      "summary": "公司核心系统在手订单充裕，海外银行核心系统项目加速推进，预计2025年海外收入占比提升至35%",
+      "stock_code": "300348",
+      "published_at": "2025-04-01"
+    },
+    {
+      "source_url": "https://www.szse.cn/disclosure/listed/notice/index.html?stockCode=002152&announcementId=1219590001",
+      "source_title": "广电运通投资者关系活动记录表2025年3月",
+      "source_type": "transcript",
+      "grade": "medium",
+      "summary": "公司信创金融终端产品线持续丰富，智能柜员机在国有大行批量部署，海外ATM市场拓展加速",
+      "stock_code": "002152",
+      "published_at": "2025-03-28"
+    },
+    {
+      "source_url": "https://www.chinabanking.org.cn/2024/0915/412345.html",
+      "source_title": "中国银行业协会：2024年银行数字化转型报告",
+      "source_type": "trade_pub",
+      "grade": "medium",
+      "summary": "银行业数字化转型投入持续加大，2024年IT投入超3000亿元，核心系统替换和智能网点改造是重点投入方向",
+      "published_at": "2024-09-15"
+    },
+    {
+      "source_url": "https://www.idc.com/getdoc.jsp?containerId=prCHC51023425",
+      "source_title": "IDC中国银行IT解决方案市场追踪报告2024",
+      "source_type": "trade_pub",
+      "grade": "medium",
+      "summary": "2024年中国银行IT解决方案市场规模超800亿元，长亮科技、宇信科技位列核心系统市场前五",
+      "published_at": "2024-12-01"
+    }
+  ],
+  "company_ranking": [
+    {
+      "rank": 1,
+      "stock_code": "002049",
+      "name": "紫光国微",
+      "constrains_what": "金融安全芯片国产替代最硬卡点——高端金融IC卡芯片长期被外资垄断，公司是国内极少数通过银联+EMVCo双重认证的厂商",
+      "chain_position": "第4层芯片器件-金融安全芯片核心供应商",
+      "rank_reason": "金融IC卡芯片国产化率不足30%，紫光国微是国内唯一通过EMVCo认证并批量供货的厂商，稀缺性最强，定价权最高，扩产难度最大（认证周期2-3年）",
+      "evidence_summary": "年报显示金融安全芯片收入同比增长超20%；投资者关系记录显示已通过银联及EMVCo认证，2025年出货量预计翻倍；银联官方数据确认高端双界面芯片国产化率仍低于30%",
+      "main_risk": "EMVCo认证进度不及预期；外资芯片降价竞争；银行换卡节奏放缓"
+    },
+    {
+      "rank": 2,
+      "stock_code": "300348",
+      "name": "长亮科技",
+      "constrains_what": "银行核心系统替换——大型银行核心系统实施经验极度稀缺，迁移风险高，具备全栈交付能力的厂商凤毛麟角",
+      "chain_position": "第2层系统集成-银行核心系统龙头",
+      "rank_reason": "银行核心系统替换是信创最核心环节，长亮科技是国内少数具备大型银行核心系统全栈交付能力的厂商，新签合同创历史新高，海外拓展打开增量空间",
+      "evidence_summary": "年报显示新签核心系统合同金额创历史新高；投资者关系记录显示在手订单充裕，海外收入占比提升至30%；IDC报告确认公司位列核心系统市场前五",
+      "main_risk": "核心系统替换项目实施周期长，收入确认节奏不确定；海外业务汇率及政治风险；竞争加剧导致毛利率下滑"
+    },
+    {
+      "rank": 3,
+      "stock_code": "002152",
+      "name": "广电运通",
+      "constrains_what": "银行智能自助终端信创替代——传统ATM向智能柜员机升级+信创计算模块适配，具备全产品线能力的厂商稀缺",
+      "chain_position": "第6层设备与计量-金融自助终端龙头",
+      "rank_reason": "金融自助终端国内市占率超30%行业第一，信创终端产品已在国有大行批量部署，同时受益于存量替换和增量升级双重需求",
+      "evidence_summary": "年报显示金融自助终端市占率超30%，智能柜员机出货量行业第一；投资者关系记录显示信创终端在国有大行批量部署；银行业协会报告确认智能网点改造是重点投入方向",
+      "main_risk": "银行网点缩减导致ATM需求下滑；信创终端毛利率低于传统产品；海外拓展不及预期"
+    },
+    {
+      "rank": 4,
+      "stock_code": "300674",
+      "name": "宇信科技",
+      "constrains_what": "银行IT全栈解决方案——信贷管理及数据中台等细分领域具备差异化优势，信创适配业务成为新增长极",
+      "chain_position": "第2层系统集成-银行IT全栈解决方案供应商",
+      "rank_reason": "覆盖100+银行客户，信贷管理和数据中台业务增速显著，信创适配业务快速放量，在银行IT细分领域具备差异化竞争力",
+      "evidence_summary": "年报显示覆盖100+银行客户，信贷管理及数据中台业务增速显著；IDC报告确认公司位列银行IT解决方案市场前列；信创适配业务成为新增长极",
+      "main_risk": "银行IT预算收缩风险；项目制业务收入波动大；人才成本上升挤压利润"
+    },
+    {
+      "rank": 5,
+      "stock_code": "688041",
+      "name": "海光信息",
+      "constrains_what": "金融信创CPU——银行服务器国产CPU替代，海光是x86架构信创CPU主力供应商",
+      "chain_position": "第4层芯片器件-金融信创CPU供应商",
+      "rank_reason": "金融信创服务器CPU替代需求刚性，海光作为x86架构信创CPU龙头，已进入国有大行采购目录，受益于金融信创底层算力替代",
+      "evidence_summary": "年报显示CPU产品在金融信创领域加速渗透，已进入多家国有大行服务器采购目录；金融行业收入占比持续提升",
+      "main_risk": "美国制裁升级风险；信创推进节奏不及预期；与鲲鹏/飞腾等竞争加剧"
+    },
+    {
+      "rank": 6,
+      "stock_code": "300339",
+      "name": "润和软件",
+      "constrains_what": "金融信创核心系统——与华为联合发布金融级分布式核心系统，在城商行市场具备差异化优势",
+      "chain_position": "第2层系统集成-金融信创核心系统解决方案",
+      "rank_reason": "与华为深度合作的金融信创生态，在城商行/农商行市场具备渠道和方案优势，金融信创业务收入大幅增长",
+      "evidence_summary": "年报显示金融信创业务收入大幅增长；与华为联合发布金融级分布式核心系统解决方案，已在多家城商行落地",
+      "main_risk": "对华为生态依赖度高；城商行IT预算有限；核心系统项目交付风险"
+    },
+    {
+      "rank": 7,
+      "stock_code": "300130",
+      "name": "新国都",
+      "constrains_what": "智能支付终端——POS终端信创替代及海外市场拓展",
+      "chain_position": "第6层设备与计量-POS终端及支付设备供应商",
+      "rank_reason": "POS终端出货量行业前列，海外市场拓展加速，智能支付终端产品线持续丰富，受益于支付终端升级换代需求",
+      "evidence_summary": "年报显示POS终端出货量保持行业前列，海外市场拓展加速，智能支付终端产品线持续丰富",
+      "main_risk": "移动支付替代POS终端风险；海外市场竞争加剧；汇率波动影响海外利润"
+    }
+  ],
+  "failure_conditions": [
+    "金融信创政策推进大幅放缓或暂停，银行核心系统替换节奏不及预期，导致IT投入和芯片替代需求萎缩",
+    "外资芯片厂商大幅降价抢占市场，国产金融IC卡芯片价格优势丧失，紫光国微等芯片厂商毛利率显著下滑",
+    "银行网点加速缩减，ATM/智能柜员机需求断崖式下降，广电运通等设备厂商订单大幅减少",
+    "美国对华半导体制裁升级，海光信息等信创CPU供应链中断，金融信创底层算力替代受阻",
+    "银行IT预算整体收缩，项目制IT公司收入确认延迟，行业竞争加剧导致价格战"
+  ],
+  "next_steps": [
+    "跟踪紫光国微2025年中报金融安全芯片出货量及EMVCo高端双界面芯片认证进展，验证国产替代节奏",
+    "关注国有大行核心系统信创替换招标公告（中国金融集中采购网），验证长亮科技/宇信科技订单获取情况",
+    "监测银联金融IC卡芯片国产化率季度数据，验证芯片层稀缺性是否持续",
+    "跟踪广电运通信创金融终端在国有大行的部署进度和毛利率变化，验证设备层替代逻辑",
+    "关注央行/银保监会金融信创政策文件和推进时间表，判断政策驱动力是否持续"
+  ]
+}

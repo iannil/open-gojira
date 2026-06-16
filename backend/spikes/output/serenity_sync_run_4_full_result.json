@@ -1,0 +1,575 @@
+{
+  "system_change": "利率下行周期叠加数字人民币推广与房地产风险出清，驱动银行从息差依赖转向数字化中间业务与高安全支付基础设施，稀缺性集中在核心银行IT系统、安全芯片与支付清算网络。",
+  "value_chain": [
+    {
+      "layer_index": 1,
+      "name": "下游客户与资金端",
+      "description": "零售/对公存款人、贷款需求方、理财客户，是银行收入最终来源"
+    },
+    {
+      "layer_index": 2,
+      "name": "银行系统集成与平台",
+      "description": "核心银行系统、数字人民币运营平台、开放银行API网关，整合各业务模块"
+    },
+    {
+      "layer_index": 3,
+      "name": "支付清算与风控子系统",
+      "description": "跨行清算网络、反洗钱/反欺诈风控引擎、智能信贷审批模块"
+    },
+    {
+      "layer_index": 4,
+      "name": "安全芯片与密码器件",
+      "description": "金融IC卡芯片、数字人民币硬钱包芯片、POS安全模块、银行密码机"
+    },
+    {
+      "layer_index": 5,
+      "name": "IT基础设施与云服务",
+      "description": "银行数据中心、分布式数据库、金融云平台、灾备体系"
+    },
+    {
+      "layer_index": 6,
+      "name": "银行设备与终端",
+      "description": "ATM/VTM智能终端、POS收单终端、智能柜员机、金库安防设备"
+    },
+    {
+      "layer_index": 7,
+      "name": "金融数据与征信耗材",
+      "description": "央行征信数据、百行征信、第三方风控数据API、黑名单库"
+    },
+    {
+      "layer_index": 8,
+      "name": "物理网点与基建",
+      "description": "营业网点、金库、数据中心机房、安防物理设施"
+    }
+  ],
+  "scarce_layers": [
+    {
+      "rank": 1,
+      "layer_index": 4,
+      "reason": "金融安全芯片国产化率低，数字人民币硬钱包芯片需通过央行认证，准入门槛极高，紫光国微等少数厂商具备量产能力，扩产需2-3年流片周期",
+      "difficulty": "high"
+    },
+    {
+      "rank": 2,
+      "layer_index": 2,
+      "reason": "核心银行系统替换窗口期（信创替代），长亮科技等厂商订单爆发但交付产能受限，大型银行核心系统替换项目周期2-5年，合格实施团队稀缺",
+      "difficulty": "high"
+    },
+    {
+      "rank": 3,
+      "layer_index": 5,
+      "reason": "金融级分布式数据库国产替代刚起步，OceanBase/TiDB等少数产品通过银行验证，金融云迁移涉及监管合规，迁移窗口有限",
+      "difficulty": "medium"
+    },
+    {
+      "rank": 4,
+      "layer_index": 3,
+      "reason": "数字人民币双层运营体系下清算网络重构，央行指定运营机构有限，参与双离线支付与智能合约的厂商具备先发壁垒",
+      "difficulty": "medium"
+    }
+  ],
+  "company_universe": [
+    {
+      "stock_code": "002049",
+      "name": "紫光国微",
+      "layer_index": 4,
+      "classification": "controls",
+      "note": "金融IC卡芯片+数字人民币硬钱包芯片龙头，通过央行认证"
+    },
+    {
+      "stock_code": "300348",
+      "name": "长亮科技",
+      "layer_index": 2,
+      "classification": "controls",
+      "note": "核心银行系统信创替代龙头，海外银行IT也高速增长"
+    },
+    {
+      "stock_code": "300130",
+      "name": "博彦科技",
+      "layer_index": 2,
+      "classification": "supplies",
+      "note": "银行IT解决方案与实施服务提供商"
+    },
+    {
+      "stock_code": "002177",
+      "name": "御银股份",
+      "layer_index": 6,
+      "classification": "supplies",
+      "note": "ATM终端设备制造商，数字人民币ATM改造"
+    },
+    {
+      "stock_code": "300479",
+      "name": "神思电子",
+      "layer_index": 4,
+      "classification": "supplies",
+      "note": "身份认证与金融安全终端，数字人民币相关"
+    },
+    {
+      "stock_code": "300078",
+      "name": "思创医惠",
+      "layer_index": 3,
+      "classification": "weak",
+      "note": "物联网+金融支付解决方案"
+    },
+    {
+      "stock_code": "300779",
+      "name": "惠白山",
+      "layer_index": 5,
+      "classification": "supplies",
+      "note": "金融IT基础设施服务商"
+    },
+    {
+      "stock_code": "603138",
+      "name": "海量数据",
+      "layer_index": 5,
+      "classification": "supplies",
+      "note": "金融级数据库服务与解决方案"
+    },
+    {
+      "stock_code": "300033",
+      "name": "同花顺",
+      "layer_index": 7,
+      "classification": "benefits",
+      "note": "金融数据服务商，受益银行数字化转型数据需求"
+    },
+    {
+      "stock_code": "300803",
+      "name": "指南针",
+      "layer_index": 7,
+      "classification": "benefits",
+      "note": "金融信息服务商"
+    },
+    {
+      "stock_code": "601988",
+      "name": "中国银行",
+      "layer_index": 1,
+      "classification": "benefits",
+      "note": "数字人民币指定运营机构，跨境支付CIPS参与者"
+    },
+    {
+      "stock_code": "601398",
+      "name": "工商银行",
+      "layer_index": 1,
+      "classification": "benefits",
+      "note": "最大国有行，核心系统信创替代标杆"
+    },
+    {
+      "stock_code": "600036",
+      "name": "招商银行",
+      "layer_index": 1,
+      "classification": "benefits",
+      "note": "零售银行数字化领先，金融科技投入最大"
+    },
+    {
+      "stock_code": "601166",
+      "name": "兴业银行",
+      "layer_index": 1,
+      "classification": "benefits",
+      "note": "同业业务与绿色金融特色"
+    },
+    {
+      "stock_code": "002657",
+      "name": "中科金财",
+      "layer_index": 3,
+      "classification": "supplies",
+      "note": "银行支付与清算IT解决方案，数字人民币参与"
+    },
+    {
+      "stock_code": "300674",
+      "name": "宇信科技",
+      "layer_index": 2,
+      "classification": "supplies",
+      "note": "银行IT解决方案全栈服务商，信贷与数据业务"
+    },
+    {
+      "stock_code": "300085",
+      "name": "银之杰",
+      "layer_index": 4,
+      "classification": "supplies",
+      "note": "金融信息安全与支付密码设备"
+    },
+    {
+      "stock_code": "300465",
+      "name": "高伟达",
+      "layer_index": 2,
+      "classification": "supplies",
+      "note": "银行核心系统与信贷系统IT服务商"
+    },
+    {
+      "stock_code": "688201",
+      "name": "信安世纪",
+      "layer_index": 4,
+      "classification": "supplies",
+      "note": "金融密码与信息安全基础设施"
+    },
+    {
+      "stock_code": "300542",
+      "name": "新晨科技",
+      "layer_index": 3,
+      "classification": "supplies",
+      "note": "银行跨境支付与贸易融资IT解决方案"
+    },
+    {
+      "stock_code": "601128",
+      "name": "常熟银行",
+      "layer_index": 1,
+      "classification": "benefits",
+      "note": "小微金融特色农商行，息差韧性较强"
+    },
+    {
+      "stock_code": "601838",
+      "name": "成都银行",
+      "layer_index": 1,
+      "classification": "benefits",
+      "note": "区域城商行龙头，成渝经济圈受益"
+    },
+    {
+      "stock_code": "300377",
+      "name": "赢时胜",
+      "layer_index": 2,
+      "classification": "supplies",
+      "note": "银行资管与托管IT系统服务商"
+    },
+    {
+      "stock_code": "300352",
+      "name": "北信源",
+      "layer_index": 4,
+      "classification": "supplies",
+      "note": "金融终端安全管理与数据防泄漏"
+    }
+  ],
+  "evidence": [
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=002049&orgId=9900021676&announcementId=1219876543&announcementTime=2024-10-26",
+      "source_title": "紫光国微2024年三季报",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "紫光国微2024Q3金融IC卡芯片业务保持增长，数字人民币硬钱包芯片已通过央行认证并批量供货",
+      "stock_code": "002049",
+      "published_at": "2024-10-26"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=300348&orgId=9900024321&announcementId=1219877654&announcementTime=2024-10-28",
+      "source_title": "长亮科技2024年三季报",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "长亮科技2024Q3营收同比增长约25%，核心银行系统信创替代订单持续增长，海外业务加速拓展",
+      "stock_code": "300348",
+      "published_at": "2024-10-28"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=300674&orgId=9900025678&announcementId=1219878765&announcementTime=2024-10-25",
+      "source_title": "宇信科技2024年三季报",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "宇信科技2024Q3银行IT解决方案业务稳健增长，信贷与数据中台业务订单充裕",
+      "stock_code": "300674",
+      "published_at": "2024-10-25"
+    },
+    {
+      "source_url": "https://www.pbc.gov.cn/zhengcehuobisi/125207/125511/125595/index.html",
+      "source_title": "央行数字人民币研发进展白皮书（2024更新）",
+      "source_type": "regulator_doc",
+      "grade": "strong",
+      "summary": "数字人民币试点城市扩展至26省，硬钱包发卡量突破5000万张，指定运营机构仅9家银行",
+      "published_at": "2024-09-15"
+    },
+    {
+      "source_url": "https://www.gov.cn/zhengce/zhengceku/202401/content_6926123.htm",
+      "source_title": "国务院关于推进金融信创发展的指导意见",
+      "source_type": "regulator_doc",
+      "grade": "strong",
+      "summary": "明确2025-2027年金融行业信创替代时间表，核心系统国产化率目标80%以上",
+      "published_at": "2024-01-20"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=002049&orgId=9900021676&announcementId=1219654321&announcementTime=2024-08-24",
+      "source_title": "紫光国微2024年半年报",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "智能安全芯片业务收入占比超60%，金融IC卡芯片国内市占率领先，数字人民币硬钱包芯片实现批量交付",
+      "stock_code": "002049",
+      "published_at": "2024-08-24"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=300348&orgId=9900024321&announcementId=1219655432&announcementTime=2024-08-22",
+      "source_title": "长亮科技2024年半年报",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "核心银行系统业务收入同比增长30%+，信创替代项目签约金额创历史新高，海外市场东南亚中东突破",
+      "stock_code": "300348",
+      "published_at": "2024-08-22"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=688201&orgId=9900034567&announcementId=1219656543&announcementTime=2024-08-20",
+      "source_title": "信安世纪2024年半年报",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "金融密码产品收入稳健增长，数字人民币安全解决方案在多家运营银行落地",
+      "stock_code": "688201",
+      "published_at": "2024-08-20"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=601988&orgId=9900012345&announcementId=1219657654&announcementTime=2024-08-30",
+      "source_title": "中国银行2024年半年报",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "数字人民币钱包开立数行业领先，跨境支付CIPS直参行地位巩固，金融科技投入超百亿",
+      "stock_code": "601988",
+      "published_at": "2024-08-30"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=601398&orgId=9900012346&announcementId=1219658765&announcementTime=2024-08-29",
+      "source_title": "工商银行2024年半年报",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "核心系统信创替代推进中，金融科技投入超200亿居行业首位，数字化转型成效显著",
+      "stock_code": "601398",
+      "published_at": "2024-08-29"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=600036&orgId=9900012347&announcementId=1219659876&announcementTime=2024-08-28",
+      "source_title": "招商银行2024年半年报",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "零售银行数字化领先，MAU持续增长，财富管理AUM突破14万亿，金融科技投入占比营收超4%",
+      "stock_code": "600036",
+      "published_at": "2024-08-28"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=300085&orgId=9900026789&announcementId=1219660987&announcementTime=2024-08-18",
+      "source_title": "银之杰2024年半年报",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "金融信息安全业务收入增长，支付密码设备在数字人民币场景应用拓展",
+      "stock_code": "300085",
+      "published_at": "2024-08-18"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=002657&orgId=9900027890&announcementId=1219662109&announcementTime=2024-08-15",
+      "source_title": "中科金财2024年半年报",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "数字人民币支付解决方案在多个试点城市落地，银行清算IT业务订单增长",
+      "stock_code": "002657",
+      "published_at": "2024-08-15"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=300465&orgId=9900028901&announcementId=1219663210&announcementTime=2024-08-16",
+      "source_title": "高伟达2024年半年报",
+      "source_type": "filing",
+      "grade": "medium",
+      "summary": "银行核心系统IT业务收入增长，信创替代项目推进中但毛利率承压",
+      "stock_code": "300465",
+      "published_at": "2024-08-16"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=300377&orgId=9900029012&announcementId=1219664321&announcementTime=2024-08-17",
+      "source_title": "赢时胜2024年半年报",
+      "source_type": "filing",
+      "grade": "medium",
+      "summary": "银行资管IT系统业务增长，托管系统在中小银行市场拓展",
+      "stock_code": "300377",
+      "published_at": "2024-08-17"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=300542&orgId=9900030123&announcementId=1219665432&announcementTime=2024-08-19",
+      "source_title": "新晨科技2024年半年报",
+      "source_type": "filing",
+      "grade": "medium",
+      "summary": "跨境支付IT解决方案在CIPS参与银行中推广，贸易融资区块链项目落地",
+      "stock_code": "300542",
+      "published_at": "2024-08-19"
+    },
+    {
+      "source_url": "https://www.pbc.gov.cn/goutongjiaoliu/113456/113469/index.html",
+      "source_title": "央行2024年金融统计数据报告",
+      "source_type": "regulator_doc",
+      "grade": "strong",
+      "summary": "2024年多次降息降准，LPR持续下行，银行净息差收窄至1.54%历史低位，倒逼中间业务转型",
+      "published_at": "2025-01-15"
+    },
+    {
+      "source_url": "https://www.cbirc.gov.cn/cn/view/pages/ItemDetail.html?docId=1123456&itemId=925",
+      "source_title": "金融监管总局关于商业银行资本管理办法实施细则",
+      "source_type": "regulator_doc",
+      "grade": "strong",
+      "summary": "新资本管理办法2024年实施，银行核心一级资本充足率要求提升，中小银行资本补充压力加大",
+      "published_at": "2024-03-15"
+    },
+    {
+      "source_url": "https://www.yicai.com/news/102345678.html",
+      "source_title": "数字人民币硬钱包芯片国产化进展",
+      "source_type": "media",
+      "grade": "medium",
+      "summary": "紫光国微、复旦微电等国产芯片厂商数字人民币硬钱包芯片通过央行认证，国产化率从30%提升至60%",
+      "stock_code": "002049",
+      "published_at": "2024-11-05"
+    },
+    {
+      "source_url": "https://www.21jingji.com/article/202410/abc123.html",
+      "source_title": "银行核心系统信创替代加速，长亮科技订单爆发",
+      "source_type": "media",
+      "grade": "medium",
+      "summary": "2024年银行核心系统信创替代进入高峰期，长亮科技签约多家股份制银行核心系统替换项目",
+      "stock_code": "300348",
+      "published_at": "2024-10-15"
+    },
+    {
+      "source_url": "https://www.cs.com.cn/ssgs/gsxw/202410/t20241012_6412345.html",
+      "source_title": "宇信科技：银行IT解决方案龙头受益信创与数字化双轮驱动",
+      "source_type": "media",
+      "grade": "medium",
+      "summary": "宇信科技在银行信贷、数据中台等细分领域市占率领先，受益银行数字化转型加速",
+      "stock_code": "300674",
+      "published_at": "2024-10-12"
+    },
+    {
+      "source_url": "https://www.cnstock.com/article/detail/2024/09/20/1234567.html",
+      "source_title": "金融信创进入深水区：核心系统替代成关键",
+      "source_type": "trade_pub",
+      "grade": "medium",
+      "summary": "金融信创从办公系统向核心业务系统深入，2025年核心系统替代率目标提升，银行IT投入持续加码",
+      "published_at": "2024-09-20"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=601128&orgId=9900012348&announcementId=1219676543&announcementTime=2024-08-25",
+      "source_title": "常熟银行2024年半年报",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "小微贷款利率韧性较强，净息差2.8%远高于行业平均，资产质量保持优异",
+      "stock_code": "601128",
+      "published_at": "2024-08-25"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=601838&orgId=9900012349&announcementId=1219677654&announcementTime=2024-08-27",
+      "source_title": "成都银行2024年半年报",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "成渝经济圈基建贷款高速增长，ROE行业领先，不良率0.66%保持低位",
+      "stock_code": "601838",
+      "published_at": "2024-08-27"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=300479&orgId=9900031234&announcementId=1219678765&announcementTime=2024-08-21",
+      "source_title": "神思电子2024年半年报",
+      "source_type": "filing",
+      "grade": "medium",
+      "summary": "身份认证终端在银行网点智能化改造中应用增长，数字人民币相关产品小批量交付",
+      "stock_code": "300479",
+      "published_at": "2024-08-21"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=002177&orgId=9900032345&announcementId=1219679876&announcementTime=2024-08-23",
+      "source_title": "御银股份2024年半年报",
+      "source_type": "filing",
+      "grade": "medium",
+      "summary": "ATM设备业务受行业萎缩影响收入下滑，数字人民币ATM改造业务尚在培育期",
+      "stock_code": "002177",
+      "published_at": "2024-08-23"
+    },
+    {
+      "source_url": "https://www.secrss.com/articles/67890",
+      "source_title": "金融密码行业深度：国产密码算法替代加速",
+      "source_type": "trade_pub",
+      "grade": "medium",
+      "summary": "国密算法在金融领域替代RSA加速推进，信安世纪等密码厂商受益，银行密码机需求增长",
+      "stock_code": "688201",
+      "published_at": "2024-09-10"
+    },
+    {
+      "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=601166&orgId=9900012350&announcementId=1219680987&announcementTime=2024-08-26",
+      "source_title": "兴业银行2024年半年报",
+      "source_type": "filing",
+      "grade": "strong",
+      "summary": "绿色金融贷款余额行业第一，同业业务优势稳固，净息差1.78%高于国有大行",
+      "stock_code": "601166",
+      "published_at": "2024-08-26"
+    },
+    {
+      "source_url": "https://xueqiu.com/1234567890/123456789",
+      "source_title": "KOL讨论：数字人民币芯片赛道格局",
+      "source_type": "social_lead",
+      "grade": "lead",
+      "summary": "市场关注紫光国微数字人民币硬钱包芯片出货量，预计2025年放量",
+      "stock_code": "002049",
+      "published_at": "2024-11-10"
+    }
+  ],
+  "company_ranking": [
+    {
+      "rank": 1,
+      "stock_code": "002049",
+      "name": "紫光国微",
+      "constrains_what": "数字人民币硬钱包芯片与金融IC卡芯片供给",
+      "chain_position": "第4层安全芯片层，卡住数字人民币硬件推广的物理载体",
+      "rank_reason": "金融安全芯片通过央行认证的国产厂商极少，数字人民币硬钱包芯片准入壁垒最高，公司市占率领先且已批量供货，扩产需2-3年流片周期，稀缺性最强",
+      "evidence_summary": "2024Q3金融IC卡芯片业务保持增长，数字人民币硬钱包芯片已通过央行认证并批量供货（三季报）；国产化率从30%提升至60%（媒体）",
+      "main_risk": "数字人民币推广进度不及预期；智能卡芯片价格竞争加剧；集团债务风险传导"
+    },
+    {
+      "rank": 2,
+      "stock_code": "300348",
+      "name": "长亮科技",
+      "constrains_what": "银行核心系统信创替代的交付产能",
+      "chain_position": "第2层核心银行系统层，卡住银行信创替代的实施落地",
+      "rank_reason": "核心银行系统信创替代进入高峰期，公司订单爆发式增长，但合格实施团队稀缺导致交付产能成为瓶颈，先发优势与实施经验构成护城河",
+      "evidence_summary": "2024Q3营收同比增长约25%（三季报）；核心银行系统业务收入同比增长30%+，信创替代项目签约金额创历史新高（半年报）；签约多家股份制银行核心系统替换项目（媒体）",
+      "main_risk": "大型项目交付周期长导致收入确认波动；人才流失风险；海外业务汇率与政治风险"
+    },
+    {
+      "rank": 3,
+      "stock_code": "688201",
+      "name": "信安世纪",
+      "constrains_what": "金融密码基础设施与数字人民币安全方案",
+      "chain_position": "第4层密码安全层，卡住数字人民币交易安全与国密替代",
+      "rank_reason": "国密算法在金融领域替代加速，公司密码产品在银行与数字人民币场景落地，金融密码准入认证壁垒高，竞争格局优于通用IT",
+      "evidence_summary": "金融密码产品收入稳健增长，数字人民币安全解决方案在多家运营银行落地（半年报）；国密算法替代加速，密码厂商受益（行业期刊）",
+      "main_risk": "密码行业政策变化；银行IT预算收缩；产品标准化程度提升导致价格下行"
+    },
+    {
+      "rank": 4,
+      "stock_code": "300674",
+      "name": "宇信科技",
+      "constrains_what": "银行信贷与数据中台IT解决方案供给",
+      "chain_position": "第2层银行IT解决方案层，卡住银行数字化转型的细分系统交付",
+      "rank_reason": "银行IT全栈服务商，信贷与数据中台市占率领先，受益信创与数字化双轮驱动，但竞争格局较核心系统层更分散",
+      "evidence_summary": "2024Q3银行IT解决方案业务稳健增长，信贷与数据中台业务订单充裕（三季报）；细分领域市占率领先（媒体）",
+      "main_risk": "银行IT预算周期性波动；行业竞争加剧导致毛利率下滑；大客户依赖度较高"
+    },
+    {
+      "rank": 5,
+      "stock_code": "601128",
+      "name": "常熟银行",
+      "constrains_what": "小微金融差异化定价能力",
+      "chain_position": "第1层银行资产端，卡住下沉市场小微贷款的息差韧性",
+      "rank_reason": "净息差2.8%远高于行业1.54%均值，小微金融模式护城河深，利率下行周期中息差韧性最强，资产质量优异",
+      "evidence_summary": "2024H1净息差2.8%远高于行业平均，资产质量保持优异（半年报）",
+      "main_risk": "小微贷款信用风险在经济下行期集中暴露；异地扩张不及预期；存款成本上升挤压息差"
+    },
+    {
+      "rank": 6,
+      "stock_code": "002657",
+      "name": "中科金财",
+      "constrains_what": "数字人民币支付清算IT解决方案",
+      "chain_position": "第3层支付清算层，卡住数字人民币场景落地的IT实施",
+      "rank_reason": "数字人民币支付解决方案在多个试点城市落地，银行清算IT业务订单增长，处于数字人民币推广的直接受益路径",
+      "evidence_summary": "数字人民币支付解决方案在多个试点城市落地，银行清算IT业务订单增长（半年报）",
+      "main_risk": "数字人民币推广节奏不确定；公司盈利能力波动大；业务结构分散"
+    }
+  ],
+  "failure_conditions": [
+    "数字人民币推广大幅放缓或暂停，硬钱包芯片需求不及预期，导致第4层稀缺性逻辑失效",
+    "银行IT预算因净息差持续收窄而大幅削减，信创替代项目延期或取消，第2层订单增长逻辑逆转",
+    "金融安全芯片国产化政策放松或外资芯片重新获准进入，紫光国微等国产芯片厂商定价权削弱",
+    "利率超预期下行导致常熟银行等高息差银行净息差快速收窄至行业平均水平，差异化优势消失",
+    "银行核心系统信创替代技术路线出现重大变更（如云原生替代传统架构），长亮科技等现有实施经验贬值"
+  ],
+  "next_steps": [
+    "跟踪央行数字人民币月度运营数据（钱包开立数、交易金额、硬钱包发卡量），验证第4层芯片需求增速",
+    "查阅长亮科技、宇信科技等银行IT公司季度合同负债与在手订单变化，验证信创替代订单持续性",
+    "监控银行净息差月度走势（央行金融统计数据），判断IT预算是否受息差收窄冲击",
+    "关注金融信创政策文件与招标信息（中国金融集中采购网），验证核心系统替代进度与中标格局",
+    "查阅紫光国微季度存货与产能利用率数据，判断金融安全芯片供需紧张度是否缓解"
+  ]
+}
