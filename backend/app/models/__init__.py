@@ -24,6 +24,7 @@ from app.models.research_company_ranking import ResearchCompanyRanking
 from app.models.research_company_universe import ResearchCompanyUniverse
 from app.models.research_evidence import ResearchEvidence
 from app.models.research_run import ResearchRun
+from app.models.research_search_result import ResearchSearchResult
 from app.models.research_theme import ResearchTheme
 from app.models.scheduler_config import JobExecution, SchedulerJob
 from app.models.scarce_layer import ScarceLayer
@@ -80,4 +81,5 @@ __all__ = [
     "ResearchCompanyUniverse",
     "ResearchEvidence",
     "ResearchCompanyRanking",
+    "ResearchSearchResult",
 ]
