@@ -37,6 +37,7 @@ from app.schemas.research import (
     ResearchThemeUpdate,
     StockResearchAppearance,
 )
+from app.services.research_diff_service import RunDiffResponse
 from app.services.research_export_service import export_ranking
 from app.services.research_runner_service import (
     ResearchRunnerError,
@@ -249,6 +250,59 @@ def get_run(run_id: int, db: Session = Depends(get_db)):
         ResearchCompanyRankingResponse.model_validate(r) for r in ranking
     ]
     return resp
+
+
+@router.get("/runs/diff", response_model=RunDiffResponse)
+def diff_runs(
+    run_a: int,
+    run_b: int,
+    db: Session = Depends(get_db),
+):
+    """Phase 2 #10: Compute diff between two completed runs of the same theme.
+
+    Query params: ?run_a=X&run_b=Y (any order; service normalizes by started_at).
+
+    Returns 422 on:
+    - run_a or run_b not found (404 if both missing)
+    - run_a == run_b
+    - runs are different themes
+    - either run is not completed
+
+    Per-dimension failures degrade gracefully (dimension set to null +
+    flag in `degradations`).
+    """
+    from app.services.research_diff_service import DiffError, compute_diff
+
+    if run_a == run_b:
+        raise HTTPException(422, "pick two different runs")
+
+    a = db.query(ResearchRun).filter(ResearchRun.id == run_a).first()
+    b = db.query(ResearchRun).filter(ResearchRun.id == run_b).first()
+    if not a and not b:
+        raise HTTPException(404, f"runs {run_a} and {run_b} not found")
+    if not a:
+        raise HTTPException(404, f"run {run_a} not found")
+    if not b:
+        raise HTTPException(404, f"run {run_b} not found")
+
+    if a.research_theme_id != b.research_theme_id:
+        raise HTTPException(
+            422,
+            f"runs must be same theme (run {run_a} theme={a.research_theme_id}, "
+            f"run {run_b} theme={b.research_theme_id})",
+        )
+
+    if a.status != "completed" or b.status != "completed":
+        raise HTTPException(
+            422,
+            f"both runs must be completed (run {run_a} status={a.status}, "
+            f"run {run_b} status={b.status})",
+        )
+
+    try:
+        return compute_diff(db, run_a, run_b)
+    except DiffError as exc:
+        raise HTTPException(422, str(exc)) from exc
 
 
 @router.post("/runs/{run_id}/export", response_model=ResearchExportResponse)
