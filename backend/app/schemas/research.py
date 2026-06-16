@@ -211,3 +211,82 @@ class StockResearchAppearance(BaseModel):
     classification: str | None  # null if only in ranking
     constrains_what: str | None
     main_risk_md: str | None
+
+
+# ── Phase 2 #9 阶段 B v2 — ResearchClaimVariable schemas ──────────────────
+
+BreachWhen = Literal["lt", "gt"]
+ClaimVariableStatus = Literal["proposed", "active", "rejected"]
+
+
+class ResearchClaimVariableOut(BaseModel):
+    """Response schema for one claim variable row."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    research_claim_id: int
+    stock_code: str
+    variable_name: str
+    threshold_critical: float
+    breach_when: BreachWhen
+    unit: str | None = None
+    source: str
+    window_periods: int | None = None
+    status: ClaimVariableStatus
+    proposed_at: datetime
+    reviewed_at: datetime | None = None
+    reviewed_by: str | None = None
+    review_note: str | None = None
+    last_alerted_at: datetime | None = None
+
+
+class ClaimVariablesByStatus(BaseModel):
+    """Grouped response for GET /api/stocks/{code}/claim-variables."""
+    proposed: list[ResearchClaimVariableOut]
+    active: list[ResearchClaimVariableOut]
+    rejected: list[ResearchClaimVariableOut]
+
+
+class ClaimVariableApproveRequest(BaseModel):
+    """Body for POST /api/research/claim-variables/{id}/approve.
+
+    All fields optional — omit to accept LLM-proposed values verbatim.
+    """
+    threshold_critical: float | None = None
+    breach_when: BreachWhen | None = None
+    unit: str | None = None
+    window_periods: int | None = None
+    note: str | None = None
+
+
+class ClaimVariableRejectRequest(BaseModel):
+    note: str | None = None
+
+
+class ClaimVariablePatchRequest(BaseModel):
+    """Body for PATCH /api/research/claim-variables/{id}.
+
+    Active vars only. At least one field required.
+    """
+    threshold_critical: float | None = None
+    breach_when: BreachWhen | None = None
+    unit: str | None = None
+    window_periods: int | None = None
+    note: str | None = None
+
+
+class ClaimVariablePatchResponse(BaseModel):
+    id: int
+    status: ClaimVariableStatus
+    updated_fields: list[str]
+    before: dict
+    after: ResearchClaimVariableOut
+
+
+class CockpitClaimVariablesPending(BaseModel):
+    """Response for GET /api/cockpit/claim-variables-pending (v2 Q-new)."""
+    count: int
+    by_stock: list[dict]  # [{stock_code, count}]
+    last_proposal: dict | None = None
+    # {status: "ok"|"failed"|"partial"|null, run_id, at, failed_count?}
+

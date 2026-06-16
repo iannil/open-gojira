@@ -258,6 +258,34 @@ def alert_evaluation_job() -> dict:
         return result
 
 
+def thesis_evaluation_job() -> dict:
+    """v2 Phase 2 #9 阶段 B: run both thesis monitor checks.
+
+    Independent from alert_evaluation_job (which is for AlertRule-based
+    price/financial alerts). This job handles:
+      - check_held_stocks: thesis_variables_json breaches (sync'd vars)
+      - check_claim_variables: research_claim_variables breaches (LLM-proposed)
+    """
+    from app.services.thesis_monitor_service import (
+        check_claim_variables, check_held_stocks,
+    )
+    with SessionLocal() as db:
+        # Existing thesis_variables_json checks (silent — just returns alerts)
+        legacy_alerts = check_held_stocks(db)
+        # New claim_variables checks (emit ThesisAlertTriggered per breach)
+        summary = check_claim_variables(db)
+        result = {
+            "legacy_alerts": len(legacy_alerts),
+            "checked": summary.checked,
+            "breached": summary.breached,
+            "suppressed": summary.suppressed,
+            "skipped_no_data": summary.skipped_no_data,
+            "failed": summary.failed,
+        }
+        logger.info("thesis_evaluation_job: %s", result)
+        return result
+
+
 # ── Phase F: extended sync jobs ───────────────────────────────────────────
 
 
@@ -712,6 +740,7 @@ JOB_REGISTRY = {
     "daily_snapshot": daily_snapshot_job,
     "daily_cycle_assessment": daily_cycle_assessment_job,
     "alert_evaluation": alert_evaluation_job,
+    "thesis_evaluation": thesis_evaluation_job,
     "daily_kline_sync": daily_kline_sync_job,
     "daily_prev_close_sync": daily_prev_close_sync_job,
     "monthly_dividend_sync": monthly_dividend_sync_job,

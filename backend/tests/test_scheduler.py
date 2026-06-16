@@ -13,6 +13,7 @@ def test_job_registry_has_expected_jobs():
         "daily_snapshot",
         "daily_cycle_assessment",
         "alert_evaluation",
+        "thesis_evaluation",
         "daily_kline_sync",
         "daily_prev_close_sync",
         "monthly_dividend_sync",

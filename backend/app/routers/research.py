@@ -37,6 +37,16 @@ from app.schemas.research import (
     ResearchThemeUpdate,
     StockResearchAppearance,
 )
+from app.models.research_claim_variable import ResearchClaimVariable
+from app.schemas.research import (
+    ClaimVariableApproveRequest,
+    ClaimVariablePatchRequest,
+    ClaimVariablePatchResponse,
+    ClaimVariableRejectRequest,
+    ClaimVariablesByStatus,
+    ResearchClaimVariableOut,
+)
+from app.services import audit_log_service
 from app.services.research_diff_service import RunDiffResponse
 from app.services.research_export_service import export_ranking
 from app.services.research_runner_service import (
@@ -415,4 +425,233 @@ def _summarize_run(run: ResearchRun) -> ResearchRunSummaryResponse:
         company_count=0,  # populated by router-level query if needed
         evidence_count=0,
         ranking_count=0,
+    )
+
+
+# ── Phase 2 #9 阶段 B v2 — claim variable endpoints ──────────────────────
+
+
+def _serialize_cv(cv: ResearchClaimVariable) -> ResearchClaimVariableOut:
+    return ResearchClaimVariableOut(
+        id=cv.id,
+        research_claim_id=cv.research_claim_id,
+        stock_code=cv.stock_code,
+        variable_name=cv.variable_name,
+        threshold_critical=cv.threshold_critical,
+        breach_when=cv.breach_when,
+        unit=cv.unit,
+        source=cv.source,
+        window_periods=cv.window_periods,
+        status=cv.status,
+        proposed_at=cv.proposed_at,
+        reviewed_at=cv.reviewed_at,
+        reviewed_by=cv.reviewed_by,
+        review_note=cv.review_note,
+        last_alerted_at=cv.last_alerted_at,
+    )
+
+
+@router.get(
+    "/claim-variables",
+    response_model=ClaimVariablesByStatus,
+)
+def list_claim_variables(
+    stock_code: str | None = None,
+    db: Session = Depends(get_db),
+):
+    """List claim variables, optionally filtered by stock_code.
+
+    Returns grouped by status: {proposed, active, rejected}.
+    """
+    q = db.query(ResearchClaimVariable)
+    if stock_code:
+        q = q.filter(ResearchClaimVariable.stock_code == stock_code)
+    rows = q.order_by(
+        ResearchClaimVariable.status,
+        ResearchClaimVariable.proposed_at.desc(),
+    ).all()
+
+    grouped = {"proposed": [], "active": [], "rejected": []}
+    for cv in rows:
+        grouped.setdefault(cv.status, []).append(_serialize_cv(cv))
+
+    return ClaimVariablesByStatus(**grouped)
+
+
+@router.post(
+    "/claim-variables/{cv_id}/approve",
+    response_model=ResearchClaimVariableOut,
+)
+def approve_claim_variable(
+    cv_id: int,
+    body: ClaimVariableApproveRequest,
+    db: Session = Depends(get_db),
+):
+    """Approve a proposed claim variable (status → active).
+
+    Optional fields override LLM-proposed values. v2 Q4'-C: does NOT
+    copy to thesis_variables_json — research_claim_variables is the
+    sole source of truth.
+    """
+    from datetime import datetime, timezone
+
+    cv = db.get(ResearchClaimVariable, cv_id)
+    if cv is None:
+        raise HTTPException(404, f"claim variable {cv_id} not found")
+    if cv.status == "rejected":
+        raise HTTPException(409, "cannot approve a rejected variable (re-propose first)")
+    if cv.status == "active":
+        raise HTTPException(409, "variable already active — use PATCH to edit")
+
+    before = {
+        "threshold_critical": cv.threshold_critical,
+        "breach_when": cv.breach_when,
+        "unit": cv.unit,
+        "window_periods": cv.window_periods,
+    }
+
+    if body.threshold_critical is not None:
+        cv.threshold_critical = body.threshold_critical
+    if body.breach_when is not None:
+        cv.breach_when = body.breach_when
+    if body.unit is not None:
+        cv.unit = body.unit
+    if body.window_periods is not None:
+        cv.window_periods = body.window_periods
+
+    cv.status = "active"
+    cv.reviewed_at = datetime.now(timezone.utc)
+    cv.reviewed_by = "user"
+    if body.note:
+        cv.review_note = body.note
+    db.commit()
+    db.refresh(cv)
+
+    audit_log_service.write(
+        db,
+        entity_type="research_claim_variable",
+        entity_id=str(cv.id),
+        event="claim_variable_approved",
+        actor="user",
+        stock_code=cv.stock_code,
+        summary=f"approved {cv.variable_name} {cv.breach_when} {cv.threshold_critical}",
+        payload={"before": before, "after": _serialize_cv(cv).model_dump(mode="json")},
+    )
+    db.commit()
+
+    return _serialize_cv(cv)
+
+
+@router.post(
+    "/claim-variables/{cv_id}/reject",
+    response_model=ResearchClaimVariableOut,
+)
+def reject_claim_variable(
+    cv_id: int,
+    body: ClaimVariableRejectRequest,
+    db: Session = Depends(get_db),
+):
+    """Reject a proposed/active claim variable (status → rejected)."""
+    from datetime import datetime, timezone
+
+    cv = db.get(ResearchClaimVariable, cv_id)
+    if cv is None:
+        raise HTTPException(404, f"claim variable {cv_id} not found")
+    if cv.status == "rejected":
+        raise HTTPException(409, "variable already rejected")
+
+    cv.status = "rejected"
+    cv.reviewed_at = datetime.now(timezone.utc)
+    cv.reviewed_by = "user"
+    if body.note:
+        cv.review_note = body.note
+    db.commit()
+    db.refresh(cv)
+
+    audit_log_service.write(
+        db,
+        entity_type="research_claim_variable",
+        entity_id=str(cv.id),
+        event="claim_variable_rejected",
+        actor="user",
+        stock_code=cv.stock_code,
+        summary=f"rejected {cv.variable_name}",
+        payload={"note": body.note},
+    )
+    db.commit()
+
+    return _serialize_cv(cv)
+
+
+@router.patch(
+    "/claim-variables/{cv_id}",
+    response_model=ClaimVariablePatchResponse,
+)
+def patch_claim_variable(
+    cv_id: int,
+    body: ClaimVariablePatchRequest,
+    db: Session = Depends(get_db),
+):
+    """Edit threshold/breach_when/window/unit of an active variable (v2 Q-new)."""
+    from datetime import datetime, timezone
+
+    cv = db.get(ResearchClaimVariable, cv_id)
+    if cv is None:
+        raise HTTPException(404, f"claim variable {cv_id} not found")
+    if cv.status != "active":
+        raise HTTPException(409, f"PATCH only allowed on active vars (current={cv.status})")
+
+    updated: list[str] = []
+    before = {
+        "threshold_critical": cv.threshold_critical,
+        "breach_when": cv.breach_when,
+        "unit": cv.unit,
+        "window_periods": cv.window_periods,
+    }
+
+    if body.threshold_critical is not None:
+        cv.threshold_critical = body.threshold_critical
+        updated.append("threshold_critical")
+    if body.breach_when is not None:
+        cv.breach_when = body.breach_when
+        updated.append("breach_when")
+    if body.unit is not None:
+        cv.unit = body.unit
+        updated.append("unit")
+    if body.window_periods is not None:
+        cv.window_periods = body.window_periods
+        updated.append("window_periods")
+
+    if not updated:
+        raise HTTPException(400, "no fields to update (at least one required)")
+
+    if body.note:
+        cv.review_note = body.note
+    cv.reviewed_at = datetime.now(timezone.utc)
+    cv.reviewed_by = "user"
+    # Editing resets dedup stamp so new threshold takes effect immediately.
+    cv.last_alerted_at = None
+
+    db.commit()
+    db.refresh(cv)
+
+    audit_log_service.write(
+        db,
+        entity_type="research_claim_variable",
+        entity_id=str(cv.id),
+        event="claim_variable_edited",
+        actor="user",
+        stock_code=cv.stock_code,
+        summary=f"edited {cv.variable_name}: {','.join(updated)}",
+        payload={"before": before, "after": _serialize_cv(cv).model_dump(mode="json"),
+                 "updated_fields": updated, "note": body.note},
+    )
+    db.commit()
+
+    return ClaimVariablePatchResponse(
+        id=cv.id,
+        status=cv.status,
+        updated_fields=updated,
+        before=before,
+        after=_serialize_cv(cv),
     )

@@ -127,6 +127,37 @@ class MonthlyBudgetExceeded(BaseEvent):
     triggered_by_run_id: int | None = None
 
 
+# ── Thesis monitor events (Phase 2 #9 阶段 B v2, 2026-06-16) ────────────────
+
+
+class ClaimVariablesProposed(BaseEvent):
+    """Emitted after propose_for_run completes (success or partial).
+
+    UI Cockpit badge picks this up via polling GET /api/cockpit/claim-variables-pending.
+    """
+    run_id: int
+    proposed_count: int
+    skipped_count: int = 0
+    failed_count: int = 0  # claims that errored during parse/persist
+
+
+class ThesisAlertTriggered(BaseEvent):
+    """Emitted when check_claim_variables detects a breach.
+
+    Handler routes to notification_service.send() via NotificationChannel.
+    Dedup is enforced upstream via last_alerted_at (7-day window).
+    """
+    claim_var_id: int
+    code: str
+    stock_name: str
+    variable_name: str
+    current_value: float | None
+    threshold_value: float
+    breach_when: str  # "lt" | "gt"
+    window_periods: int | None
+    message: str
+
+
 # ── EventBus ────────────────────────────────────────────────────────────────
 
 Handler = Callable[[BaseEvent], None]

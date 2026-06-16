@@ -18,6 +18,7 @@ from app.core.events import (
     PlanEvaluationCompleted,
     ResearchRunCompleted,
     ResearchRunFailed,
+    ThesisAlertTriggered,
     bus,
 )
 
@@ -276,6 +277,144 @@ def on_monthly_budget_exceeded(event: MonthlyBudgetExceeded) -> None:
         dispatch_alert(db, alert)
 
 
+# ── Phase 2 #9 阶段 B v2 handlers (2026-06-16) ────────────────────────────
+
+
+def on_research_run_propose_claim_variables(event: ResearchRunCompleted) -> None:
+    """serenity Run completed → propose claim variables via LLM (async).
+
+    v2 Q5-C: half-automatic flow — LLM proposes, user reviews.
+    v2 Q-new: failure / partial-failure are audit-logged so the Cockpit
+    badge can surface them (red state).
+    """
+    from app.db.session import SessionLocal
+    from app.services import audit_log_service
+    from app.services.thesis_variable_proposal_service import propose_for_run
+    from app.services.llm.zhipu_client import ZhipuClientError
+
+    with SessionLocal() as db:
+        try:
+            result = propose_for_run(db, event.run_id)
+        except ZhipuClientError as exc:
+            logger.exception(
+                "Claim variable proposal LLM call failed for run %s", event.run_id,
+            )
+            audit_log_service.write(
+                db,
+                entity_type="research_run",
+                entity_id=str(event.run_id),
+                event="claim_variable_proposal_failed",
+                actor="system",
+                summary=f"LLM error: {type(exc).__name__}: {str(exc)[:200]}",
+                payload={"run_id": event.run_id, "error_type": type(exc).__name__},
+            )
+            db.commit()
+            return
+        except Exception:
+            logger.exception(
+                "Claim variable proposal crashed for run %s", event.run_id,
+            )
+            audit_log_service.write(
+                db,
+                entity_type="research_run",
+                entity_id=str(event.run_id),
+                event="claim_variable_proposal_failed",
+                actor="system",
+                summary="unexpected crash (see logs)",
+                payload={"run_id": event.run_id},
+            )
+            db.commit()
+            return
+
+        if result.failed_count > 0:
+            event_name = "claim_variable_proposal_partial"
+        else:
+            event_name = "claim_variable_proposed"
+        audit_log_service.write(
+            db,
+            entity_type="research_run",
+            entity_id=str(event.run_id),
+            event=event_name,
+            actor="system",
+            summary=(
+                f"proposed {result.proposed_count}/{result.total_claims}"
+                f" (skipped: {result.skipped_count}, deduped: {result.deduped_count},"
+                f" failed: {result.failed_count})"
+            ),
+            payload={
+                "run_id": event.run_id,
+                "proposed": result.proposed_count,
+                "skipped": result.skipped_count,
+                "deduped": result.deduped_count,
+                "failed": result.failed_count,
+                "failed_claim_ids": result.failed_claim_ids,
+                "tokens_in": result.token_input,
+                "tokens_out": result.token_output,
+            },
+        )
+        db.commit()
+
+
+def on_thesis_alert_triggered(event: ThesisAlertTriggered) -> None:
+    """Thesis monitor breach → audit_log + notification dispatch.
+
+    v2: dedup is enforced upstream via last_alerted_at. This handler
+    always fires for fresh breaches only.
+    """
+    from app.db.session import SessionLocal
+    from app.services import audit_log_service
+    from app.services.notification_service import dispatch_alert
+
+    with SessionLocal() as db:
+        audit_log_service.write(
+            db,
+            entity_type="research_claim_variable",
+            entity_id=str(event.claim_var_id),
+            event="thesis_alert_triggered",
+            actor="system",
+            stock_code=event.code,
+            summary=event.message,
+            payload={
+                "claim_var_id": event.claim_var_id,
+                "stock_code": event.code,
+                "variable_name": event.variable_name,
+                "current_value": event.current_value,
+                "threshold": event.threshold_value,
+                "breach_when": event.breach_when,
+                "window_periods": event.window_periods,
+            },
+        )
+        db.commit()
+
+        # Best-effort notification dispatch. Failure here is logged only —
+        # the audit_log above is the authoritative record.
+        try:
+            from app.models.system_alert import SystemAlert
+            from datetime import datetime, timezone
+            sa = SystemAlert(
+                severity="alert",
+                category="thesis",
+                title=f"论点告警: {event.variable_name} ({event.code})",
+                message=event.message,
+                source="thesis_monitor",
+                payload={
+                    "claim_var_id": event.claim_var_id,
+                    "stock_code": event.code,
+                    "breach_when": event.breach_when,
+                },
+                triggered_at=datetime.now(timezone.utc).replace(tzinfo=None),
+            )
+            db.add(sa)
+            db.commit()
+            db.refresh(sa)
+            dispatch_alert(db, sa)
+        except Exception:
+            logger.exception(
+                "thesis alert notification dispatch failed cv_id=%s",
+                event.claim_var_id,
+            )
+
+
 # Register handlers with the event bus
 bus.subscribe(DataSyncCompleted, on_valuation_sync_reassess_strategies)
 bus.subscribe(DataSyncCompleted, on_financials_sync_thesis_variables)
@@ -285,3 +424,5 @@ bus.subscribe(DraftCreated, on_draft_audit_log)
 bus.subscribe(PlanEvaluationCompleted, on_plan_completed_check_alerts)
 bus.subscribe(ResearchRunFailed, on_research_run_failed)
 bus.subscribe(MonthlyBudgetExceeded, on_monthly_budget_exceeded)
+bus.subscribe(ResearchRunCompleted, on_research_run_propose_claim_variables)
+bus.subscribe(ThesisAlertTriggered, on_thesis_alert_triggered)

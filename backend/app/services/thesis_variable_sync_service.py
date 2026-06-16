@@ -156,16 +156,27 @@ def sync_stock(
             continue
 
         existing = current_by_name.get(var_name, {})
-        changed = existing.get("current_value") != value
+        changed = existing.get("value") != value
 
-        current_by_name[var_name] = {
+        # v2 Q1' schema unification: write `value` (not `current_value`).
+        # Preserve any existing threshold_*/direction/unit fields so that
+        # user-entered thresholds survive sync re-runs. Other fields that
+        # belong to the template are refreshed from tpl.
+        merged: dict = {
             "name": var_name,
-            "current_value": value,
-            "target_condition": existing.get("target_condition"),
-            "unit": tpl.get("unit"),
+            "value": value,
+            "unit": tpl.get("unit") or existing.get("unit"),
             "source": "lixinger",
             "synced_at": datetime.now(timezone.utc).isoformat()[:10],
         }
+        # Preserve previously-set monitor fields (from manual edits or
+        # legacy data). These are NOT managed by sync.
+        for k in ("threshold_low", "threshold_high", "threshold_critical",
+                  "direction", "target_condition"):
+            if k in existing:
+                merged[k] = existing[k]
+
+        current_by_name[var_name] = merged
         synced += 1
         if changed:
             updated_keys.append(f"{var_name}={value}")
@@ -178,8 +189,7 @@ def sync_stock(
         if tpl.get("source") == "manual" and tpl["name"] not in current_by_name:
             current_by_name[tpl["name"]] = {
                 "name": tpl["name"],
-                "current_value": None,
-                "target_condition": None,
+                "value": None,
                 "unit": tpl.get("unit"),
                 "source": "manual",
             }

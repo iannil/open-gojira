@@ -40,6 +40,11 @@ DEFAULT_JOBS: dict[str, dict] = {
         "cron_expr": "30 17 * * 1-5",
         "description": "警报规则评估",
     },
+    "thesis_evaluation": {
+        # v2 Q6'-A2: independent job at 17:32 (after alert_evaluation at 17:30)
+        "cron_expr": "32 17 * * 1-5",
+        "description": "论点变量监控（check_held_stocks + check_claim_variables）",
+    },
     "daily_plan_evaluation": {
         "cron_expr": "45 17 * * 1-5",
         "description": "预案自动评估（筛选+评分）",

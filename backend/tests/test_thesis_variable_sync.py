@@ -125,17 +125,18 @@ class TestSyncStock:
 
         variables = json.loads(stock.thesis_variables_json)
         by_name = {v["name"]: v for v in variables}
-        assert by_name["不良贷款率"]["current_value"] == 1.5
-        assert by_name["拨备覆盖率"]["current_value"] == 200.0
-        assert by_name["净息差"]["current_value"] == 2.1
-        assert by_name["核心一级资本充足率"]["current_value"] == 10.5
+        # v2 Q1': unified schema uses `value` (not `current_value`)
+        assert by_name["不良贷款率"]["value"] == 1.5
+        assert by_name["拨备覆盖率"]["value"] == 200.0
+        assert by_name["净息差"]["value"] == 2.1
+        assert by_name["核心一级资本充足率"]["value"] == 10.5
 
     def test_sync_preserves_manual_vars(self, db):
         pattern = _make_chemical_pattern(db)
         stock = _make_stock(db, industry="煤化工")
         stock.business_pattern_id = pattern.id
         stock.thesis_variables_json = json.dumps(
-            [{"name": "煤油比", "current_value": 0.5, "source": "manual", "unit": ""}]
+            [{"name": "煤油比", "value": 0.5, "source": "manual", "unit": ""}]
         )
         db.flush()
 
