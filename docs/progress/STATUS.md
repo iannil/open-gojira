@@ -4,17 +4,17 @@
 >
 > | 字段 | 值 (实测于 2026-06-16) |
 > |---|---|
-> | 最后更新 | 2026-06-16 (PIT dividend_sustainability + Lixinger token artifact 验证后) |
+> | 最后更新 | 2026-06-16 (serenity Path B 两步法上线后) |
 > | 分支 | `master` |
-> | 最新 commit | `04d3c50 docs(status): 同步 P0-2 / 新 P1 dividend_sustainability 已完成` |
-> | 测试 | **985 passed**, 0 failed (`pytest`) |
-> | 测试函数数 | 985 (含 S0-S5 + serenity Phase 1 34 个 + Phase 2 3 e2e + 1 export + Sentinel Plan 移除 -1 + PIT dividend_sust 9 个) |
-> | Alembic head | `s2_candidate_source_field` |
-> | Alembic 版本文件数 | 21 |
-> | 后端代码 | ~20,800 行 (app/) + ~7,750 行 (tests/) |
+> | 最新 commit | `3ec115c chore(spikes): serenity Path B 验证脚本 + artifacts` |
+> | 测试 | **1005 passed**, 0 failed (`pytest`) |
+> | 测试函数数 | 1005 (985 + search_collector_service 20 个) |
+> | Alembic head | `s3_research_search_results` |
+> | Alembic 版本文件数 | 22 |
+> | 后端代码 | ~21,200 行 (app/) + ~8,050 行 (tests/) |
 > | 前端代码 | ~11,100 行 (src/) |
 > | 远程仓库 | 暂无 (`git remote -v` 为空) |
-> | 真实使用 | **0 holdings / 6 trades / 220 drafts (全 pending) / 264 active candidates / 0 research_runs / 3 backtests (全 0 metrics)** |
+> | 真实使用 | **0 holdings / 6 trades / 220 drafts (全 pending) / 264 active candidates / 6 research_runs (run_id=6 跑通 Path B) / 3 backtests (全 0 metrics)** |
 
 ---
 
@@ -250,9 +250,10 @@ Alembic 迁移链: 21 个版本文件,head = `s2_candidate_source_field`。
 
 **P0 (2026-06-16 重排 — 阻塞真实使用)**:
 
-- **P0-1 [最高]**: **解 GLM 账号余额** — 429 code 1113。充值后跑 Phase 1 #9 真实研究 (spike 1 + ship 后 2 次)。external blocker。
+- ~~**P0-1** 解 GLM 账号余额~~ ✅ **已充值并实测** (2026-06-16) — `spikes/glm_token_verification.py` 跑通 ping + structured 双 stage。Artifact: `backend/spikes/output/glm_token_verification_2026-06-16T05-55-01Z.json`。
 - ~~**P0-2** 验证 Lixinger token~~ ✅ **已实测有效并 artifact 化** (2026-06-16) — `spikes/lixinger_token_verification.py` 跑通,500 股返回,首条 `920126 永大股份`。Artifact: `backend/spikes/output/lixinger_token_verification_2026-06-16T02-33-56Z.json`。
 - ~~**原 P0-1** 修 backtest derived fields~~ ✅ **审计错误** (2026-06-15 晚) — `build_stock_context_at` 已计算 3/4 derived fields。600519 (茅台) 0 trades 是因为标的不匹配保守策略,**正确行为**。`dividend_sustainability` PIT 版本 2026-06-16 已实现 (3/4 因子,详见 P1)。
+- ~~**Phase 1 spec ship 标准 #9** 真实研究 ≥ 3 次~~ 🟡 **部分完成** (2026-06-16) — Path B 两步法跑通 1 次 (run_id=6),15 真实 search_results / 86% evidence URL 来自 search / failure_conditions_md 基于真实证据。剩 2 次等用户主动触发或周度调度。
 
 **已完成项 (从 P0/P1 移除)**:
 
