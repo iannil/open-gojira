@@ -1505,3 +1505,83 @@ export interface StockResearchAppearance {
   constrains_what: string | null;
   main_risk_md: string | null;
 }
+
+// ── Phase 2 #10: Run diff ───────────────────────────────────────────────
+
+export interface ResearchRunDiffRef {
+  id: number;
+  started_at: string;
+  status: ResearchRunStatus;
+}
+
+export interface ResearchClaimSnapshot {
+  predicate: string;
+  signal: string | null;
+  outcome: string;
+  stock_codes: string[];
+  layer_index: number | null;
+}
+
+export interface ResearchRankingDiffItem {
+  stock_code: string;
+  name: string;
+  rank_from: number | null;
+  rank_to: number | null;
+  delta: number | null;
+  category: 'promoted' | 'demoted' | 'new_in' | 'dropped' | 'unchanged';
+}
+
+export interface ResearchRankingDiff {
+  promoted: ResearchRankingDiffItem[];
+  demoted: ResearchRankingDiffItem[];
+  new_in: ResearchRankingDiffItem[];
+  dropped: ResearchRankingDiffItem[];
+  unchanged: ResearchRankingDiffItem[];
+}
+
+export interface ResearchClaimDiffItem {
+  subject: string;
+  claim_from: ResearchClaimSnapshot | null;
+  claim_to: ResearchClaimSnapshot | null;
+  signal_changed: boolean;
+  category: 'new_risk' | 'resolved' | 'tightened' | 'loosened' | 'unchanged';
+}
+
+export interface ResearchClaimsDiff {
+  new_risks: ResearchClaimDiffItem[];
+  resolved: ResearchClaimDiffItem[];
+  tightened: ResearchClaimDiffItem[];
+  loosened: ResearchClaimDiffItem[];
+  unchanged: ResearchClaimDiffItem[];
+}
+
+export interface ResearchScarceLayerDiffItem {
+  layer_index: number;
+  layer_name: string;
+  rank_from: number | null;
+  rank_to: number | null;
+  category: 'entered' | 'exited' | 'reranked' | 'unchanged';
+}
+
+export interface ResearchScarceLayerDiff {
+  entered: ResearchScarceLayerDiffItem[];
+  exited: ResearchScarceLayerDiffItem[];
+  reranked: ResearchScarceLayerDiffItem[];
+  unchanged: ResearchScarceLayerDiffItem[];
+}
+
+export interface ResearchRunDiffSummary {
+  ranking: { promoted: number; demoted: number; new_in: number; dropped: number; unchanged: number };
+  claims: { new_risks: number; resolved: number; tightened: number; loosened: number; unchanged: number };
+  scarce_layers: { entered: number; exited: number; reranked: number; unchanged: number };
+}
+
+export interface ResearchRunDiff {
+  run_a: ResearchRunDiffRef;
+  run_b: ResearchRunDiffRef;
+  summary: ResearchRunDiffSummary;
+  ranking_diff: ResearchRankingDiff;
+  claims_diff: ResearchClaimsDiff | null;
+  scarce_layers_diff: ResearchScarceLayerDiff;
+  degradations: string[];
+}

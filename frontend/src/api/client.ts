@@ -887,6 +887,7 @@ export async function deleteRiskRule(id: number): Promise<void> {
 import type {
   ResearchExportResponse,
   ResearchRun,
+  ResearchRunDiff,
   ResearchRunSummary,
   ResearchTheme,
   ResearchThemeCreate,
@@ -953,6 +954,17 @@ export async function exportResearchRun(
   const res = await apiClient.post<ResearchExportResponse>(
     `/research/runs/${runId}/export`,
     payload,
+  );
+  return res.data;
+}
+
+export async function getResearchRunDiff(
+  runA: number,
+  runB: number,
+): Promise<ResearchRunDiff> {
+  const res = await apiClient.get<ResearchRunDiff>(
+    `/research/runs/diff`,
+    { params: { run_a: runA, run_b: runB } },
   );
   return res.data;
 }

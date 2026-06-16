@@ -14,6 +14,8 @@ import {
   Modal,
   Select,
   InputNumber,
+  Tooltip,
+  Typography,
   message,
   Alert,
 } from 'antd';
@@ -31,6 +33,7 @@ import {
   listResearchRuns,
   triggerResearchRun,
 } from '../../api/client';
+import { RunDiffDrawer } from './RunDiffDrawer';
 import type {
   ResearchCompanyRankingRow,
   ResearchCompanyUniverseRow,
@@ -514,38 +517,98 @@ function RunFailureTab({ latestRunId }: { latestRunId: number }) {
 }
 
 function RunHistoryTab({ runs }: { runs: ResearchRunSummary[] }) {
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [diffOpen, setDiffOpen] = useState(false);
+
   if (runs.length === 0) {
     return <EmptyRunNotice />;
   }
+
+  const completedCount = runs.filter(r => r.status === 'completed').length;
+  const selectedRuns = runs.filter(r => selectedIds.includes(r.id));
+  const canCompare = selectedIds.length === 2
+    && selectedRuns.every(r => r.status === 'completed');
+
+  const tooltip = selectedIds.length === 0
+    ? '选择 2 个 Run'
+    : selectedIds.length === 1
+    ? '再选 1 个 Run'
+    : selectedIds.length === 2
+    ? selectedRuns.every(r => r.status === 'completed')
+      ? '点击对比'
+      : '两个 Run 都必须 completed'
+    : '只能选 2 个 Run';
+
+  const rowSelection = {
+    selectedRowKeys: selectedIds,
+    onChange: (keys: React.Key[]) => {
+      // Allow max 2 selections; if user picks a 3rd, replace oldest
+      const next = keys as number[];
+      if (next.length > 2) {
+        setSelectedIds(next.slice(-2));
+      } else {
+        setSelectedIds(next);
+      }
+    },
+    getCheckboxProps: () => ({
+      // Disable selection entirely if <2 completed runs available
+      disabled: completedCount < 2,
+    }),
+  };
+
   return (
-    <Table
-      rowKey="id"
-      dataSource={runs}
-      pagination={false}
-      size="small"
-      columns={[
-        { title: 'Run', dataIndex: 'id', width: 80 },
-        {
-          title: '状态', dataIndex: 'status', width: 120,
-          render: (s: string) => (
-            <Tag color={
-              s === 'completed' ? 'green' :
-              s === 'failed' ? 'red' : 'blue'
-            }>{s}</Tag>
-          ),
-        },
-        { title: '触发', dataIndex: 'triggered_by', width: 100 },
-        { title: 'Input Tokens', dataIndex: 'llm_token_input', width: 130,
-          render: (v: number) => v.toLocaleString() },
-        { title: 'Output Tokens', dataIndex: 'llm_token_output', width: 130,
-          render: (v: number) => v.toLocaleString() },
-        { title: 'Search', dataIndex: 'llm_search_count', width: 80 },
-        { title: 'Started', dataIndex: 'started_at',
-          render: (s: string) => new Date(s).toLocaleString('zh-CN') },
-        { title: 'Completed', dataIndex: 'completed_at',
-          render: (s: string | null) => s ? new Date(s).toLocaleString('zh-CN') : '—' },
-      ]}
-    />
+    <>
+      <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography.Text type="secondary">
+          勾选 2 个 completed Run 对比差异 (Phase 2 #10)
+        </Typography.Text>
+        <Tooltip title={canCompare ? '' : tooltip}>
+          <Button
+            type="primary"
+            disabled={!canCompare}
+            onClick={() => setDiffOpen(true)}
+          >
+            对比选中 ({selectedIds.length}/2)
+          </Button>
+        </Tooltip>
+      </div>
+      <Table
+        rowKey="id"
+        dataSource={runs}
+        pagination={false}
+        size="small"
+        rowSelection={rowSelection}
+        columns={[
+          { title: 'Run', dataIndex: 'id', width: 80 },
+          {
+            title: '状态', dataIndex: 'status', width: 120,
+            render: (s: string) => (
+              <Tag color={
+                s === 'completed' ? 'green' :
+                s === 'failed' ? 'red' : 'blue'
+              }>{s}</Tag>
+            ),
+          },
+          { title: '触发', dataIndex: 'triggered_by', width: 100 },
+          { title: 'Input Tokens', dataIndex: 'llm_token_input', width: 130,
+            render: (v: number) => v.toLocaleString() },
+          { title: 'Output Tokens', dataIndex: 'llm_token_output', width: 130,
+            render: (v: number) => v.toLocaleString() },
+          { title: 'Search', dataIndex: 'llm_search_count', width: 80 },
+          { title: 'Started', dataIndex: 'started_at',
+            render: (s: string) => new Date(s).toLocaleString('zh-CN') },
+          { title: 'Completed', dataIndex: 'completed_at',
+            render: (s: string | null) => s ? new Date(s).toLocaleString('zh-CN') : '—' },
+        ]}
+      />
+      {diffOpen && selectedIds.length === 2 && (
+        <RunDiffDrawer
+          runAId={selectedIds[0]}
+          runBId={selectedIds[1]}
+          onClose={() => setDiffOpen(false)}
+        />
+      )}
+    </>
   );
 }
 
