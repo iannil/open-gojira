@@ -37,6 +37,7 @@ import {
 import ThesisVariablesModal from './components/ThesisVariablesModal';
 import IndustryContextPanel from './components/IndustryContextPanel';
 import ResourceFlagsPanel from './components/ResourceFlagsPanel';
+import ClaimVariablesCard from './components/ClaimVariablesCard';
 
 const { Text } = Typography;
 
@@ -348,6 +349,8 @@ export default function StockDetailPage() {
           )}
         </PageSection>
       </div>
+
+      <ClaimVariablesCard stockCode={code} />
 
       <SerenityAppearancePanel stockCode={code} />
 

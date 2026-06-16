@@ -1585,3 +1585,67 @@ export interface ResearchRunDiff {
   scarce_layers_diff: ResearchScarceLayerDiff;
   degradations: string[];
 }
+
+// ── Phase 2 #9 阶段 B v2: Research claim variables ─────────────────────
+
+export type BreachWhen = 'lt' | 'gt';
+export type ClaimVariableStatus = 'proposed' | 'active' | 'rejected';
+
+export interface ResearchClaimVariable {
+  id: number;
+  research_claim_id: number;
+  stock_code: string;
+  variable_name: string;
+  threshold_critical: number;
+  breach_when: BreachWhen;
+  unit: string | null;
+  source: string;
+  window_periods: number | null;
+  status: ClaimVariableStatus;
+  proposed_at: string;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  review_note: string | null;
+  last_alerted_at: string | null;
+}
+
+export interface ClaimVariablesByStatus {
+  proposed: ResearchClaimVariable[];
+  active: ResearchClaimVariable[];
+  rejected: ResearchClaimVariable[];
+}
+
+export interface ClaimVariableApproveRequest {
+  threshold_critical?: number;
+  breach_when?: BreachWhen;
+  unit?: string;
+  window_periods?: number;
+  note?: string;
+}
+
+export interface ClaimVariablePatchRequest {
+  threshold_critical?: number;
+  breach_when?: BreachWhen;
+  unit?: string;
+  window_periods?: number;
+  note?: string;
+}
+
+export interface ClaimVariablePatchResponse {
+  id: number;
+  status: ClaimVariableStatus;
+  updated_fields: string[];
+  before: Record<string, unknown>;
+  after: ResearchClaimVariable;
+}
+
+export interface CockpitClaimVariablesPending {
+  count: number;
+  by_stock: { stock_code: string; count: number }[];
+  last_proposal: {
+    status: 'ok' | 'partial' | 'failed';
+    run_id: number | null;
+    at: string | null;
+    summary: string;
+  } | null;
+}

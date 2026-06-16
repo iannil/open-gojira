@@ -48,6 +48,7 @@ import echarts from '../../lib/echarts';
 import DisciplineChecklistModal from '../../components/DisciplineChecklistModal';
 import DraftAvailableCell from '../../components/DraftAvailableCell';
 import { PendingCorpActionsCard } from '../../components/PendingCorpActionsCard';
+import PendingClaimVariablesBadge from './PendingClaimVariablesBadge';
 import { PageHeader } from '../../components/primitives';
 import {
   useCancelDraftMutation,
@@ -1101,6 +1102,10 @@ export default function CockpitPage() {
 
         <div className="cockpit-span-full">
           <SerenitySummaryCard summary={data.serenity_summary ?? null} />
+        </div>
+
+        <div className="cockpit-span-full">
+          <PendingClaimVariablesBadge />
         </div>
 
         <div className="cockpit-span-full">

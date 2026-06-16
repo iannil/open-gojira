@@ -885,6 +885,12 @@ export async function deleteRiskRule(id: number): Promise<void> {
 // ── Serenity Research ──────────────────────────────────────────────────
 
 import type {
+  ClaimVariableApproveRequest,
+  ClaimVariablePatchRequest,
+  ClaimVariablePatchResponse,
+  ClaimVariablesByStatus,
+  CockpitClaimVariablesPending,
+  ResearchClaimVariable,
   ResearchExportResponse,
   ResearchRun,
   ResearchRunDiff,
@@ -972,6 +978,58 @@ export async function getResearchRunDiff(
 export async function listResearchAppearances(stockCode: string): Promise<StockResearchAppearance[]> {
   const res = await apiClient.get<StockResearchAppearance[]>(
     `/research/appearances/${stockCode}`,
+  );
+  return res.data;
+}
+
+// ── Phase 2 #9 阶段 B v2: Claim variables ──────────────────────────────
+
+export async function listClaimVariables(
+  stockCode?: string,
+): Promise<ClaimVariablesByStatus> {
+  const res = await apiClient.get<ClaimVariablesByStatus>(
+    `/research/claim-variables`,
+    { params: stockCode ? { stock_code: stockCode } : {} },
+  );
+  return res.data;
+}
+
+export async function approveClaimVariable(
+  id: number,
+  payload: ClaimVariableApproveRequest,
+): Promise<ResearchClaimVariable> {
+  const res = await apiClient.post<ResearchClaimVariable>(
+    `/research/claim-variables/${id}/approve`,
+    payload,
+  );
+  return res.data;
+}
+
+export async function rejectClaimVariable(
+  id: number,
+  note?: string,
+): Promise<ResearchClaimVariable> {
+  const res = await apiClient.post<ResearchClaimVariable>(
+    `/research/claim-variables/${id}/reject`,
+    { note },
+  );
+  return res.data;
+}
+
+export async function patchClaimVariable(
+  id: number,
+  payload: ClaimVariablePatchRequest,
+): Promise<ClaimVariablePatchResponse> {
+  const res = await apiClient.patch<ClaimVariablePatchResponse>(
+    `/research/claim-variables/${id}`,
+    payload,
+  );
+  return res.data;
+}
+
+export async function getCockpitClaimVariablesPending(): Promise<CockpitClaimVariablesPending> {
+  const res = await apiClient.get<CockpitClaimVariablesPending>(
+    `/cockpit/claim-variables-pending`,
   );
   return res.data;
 }
