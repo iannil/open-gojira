@@ -34,6 +34,12 @@ from app.services.research_persistence_service import (
     ResearchPersistenceError,
     persist_research_result,
 )
+from app.services.search_collector_service import (
+    CollectedResult,
+    collect_results,
+    generate_queries,
+    persist_search_results,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -228,23 +234,43 @@ def _execute_single_attempt(
     scope_time_window: str,
     started: float,
 ) -> None:
-    """One LLM call + persist + complete. Raises on any failure."""
-    # 1) Build context
+    """One full pipeline: search → LLM synthesis → persist. Raises on failure.
+
+    Path B (2026-06-16): two-step pipeline replaces single chat.completions
+    with embedded web_search. Search happens first via standalone API,
+    results are persisted + passed to LLM as constrained context.
+    """
+    # 1) Build context (Lixinger candidates hint)
     user_context = build_user_context(theme_name, scope_market, scope_time_window)
 
-    # 2) Call LLM (Q13 triple hard constraint inside ZhipuClient)
+    # 2) Path B step 1: collect real search results
+    candidates = _extract_candidates_hint(user_context)
+    queries = generate_queries(theme_name, candidates)
+    collected = collect_results(queries)
+    search_rows_inserted = persist_search_results(db, run.id, collected)
+    db.flush()
+    logger.info(
+        "Serenity run_id=%s collected %d search results from %d queries",
+        run.id, search_rows_inserted, len(queries),
+    )
+
+    # 3) Path B step 2: LLM synthesis with constrained evidence URLs
     from app.services.llm.zhipu_client import get_zhipu_client
     client = get_zhipu_client()
-    result = client.run_serenity_research(user_context=user_context)
+    search_dicts = [r.model_dump() for r in collected]
+    result = client.run_serenity_research(
+        user_context=user_context,
+        search_results=search_dicts,
+    )
     usage = result.pop("_usage", {})
 
-    # 2.5) Persist full LLM interaction log for audit/debugging (ship checklist)
+    # 3.5) Persist full LLM interaction log for audit/debugging
     _dump_llm_log(run.id, theme_name, scope_market, user_context, result, usage)
 
-    # 3) Persist to 6 child tables
+    # 4) Persist structured research to 6 child tables
     persist_research_result(db, run, result)
 
-    # 4) Update run + theme
+    # 5) Update run + theme
     run.status = "completed"
     run.llm_token_input = usage.get("token_input", 0)
     run.llm_token_output = usage.get("token_output", 0)
@@ -307,6 +333,32 @@ def _mark_failed(
         error=error or "unknown error",
         attempt_count=run.attempt_count,
     ))
+
+
+def _extract_candidates_hint(user_context: str) -> list[dict]:
+    """Parse candidates_hint from build_user_context() output.
+
+    user_context is JSON. candidates_hint is a list of {code, name, industry}.
+    Returns [] on parse failure — search_collector will use fallback queries.
+    """
+    import json
+    try:
+        data = json.loads(user_context)
+        hint = data.get("candidates_hint") if isinstance(data, dict) else None
+        if isinstance(hint, list):
+            # Normalize keys: research_context_builder emits {code, name, industry}
+            return [
+                {
+                    "code": c.get("code") or c.get("stock_code") or "",
+                    "name": c.get("name") or "",
+                    "industry": c.get("industry") or "",
+                }
+                for c in hint
+                if isinstance(c, dict)
+            ]
+    except (json.JSONDecodeError, TypeError):
+        pass
+    return []
 
 
 def _check_monthly_budget(db: Session, triggered_by_run_id: int) -> None:

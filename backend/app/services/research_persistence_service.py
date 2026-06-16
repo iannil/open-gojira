@@ -11,6 +11,7 @@ Maps JSON output from submit_research tool call to ORM rows:
 from __future__ import annotations
 
 import logging
+from datetime import date
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -127,7 +128,7 @@ def persist_research_result(
             source_type=ev["source_type"],
             source_url=ev["source_url"],
             source_title=ev["source_title"],
-            published_at=ev.get("published_at"),
+            published_at=_parse_date(ev.get("published_at")),
             grade=ev["grade"],
             summary_md=ev["summary"],
         ))
@@ -165,3 +166,34 @@ def _require_fields(d: dict[str, Any], required: list[str]) -> None:
     for k in required:
         if k not in d or d[k] in (None, ""):
             raise ResearchPersistenceError(f"missing required field: {k}")
+
+
+def _parse_date(value: Any) -> date | None:
+    """Parse LLM-returned date string (YYYY-MM-DD or similar) to date.
+
+    LLMs typically return ISO date strings, but may also return:
+    - None (no published_at)
+    - Already a date object (defensive)
+    - Strings like "2025-03-28" / "2025/3/28" / "2025年3月28日"
+
+    Returns None on unparseable input — evidence row keeps published_at=None.
+    """
+    if value is None or value == "":
+        return None
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        s = value.strip()
+        for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d", "%Y年%m月%d日"):
+            try:
+                return date.strptime(s, fmt)
+            except ValueError:
+                continue
+        # ISO 8601 may have time component — try fromisoformat with fallback
+        try:
+            return date.fromisoformat(s[:10])
+        except ValueError:
+            logger.warning("Could not parse published_at=%r — storing None", value)
+            return None
+    logger.warning("Unexpected published_at type %s — storing None", type(value).__name__)
+    return None

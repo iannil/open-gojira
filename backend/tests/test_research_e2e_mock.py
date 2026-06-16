@@ -138,6 +138,16 @@ def test_trigger_run_full_flow_persists_6_tables(
         lambda: _SyncExecutor(),
     )
 
+    # Bypass search_collector (Path B tests live in test_search_collector_service.py)
+    monkeypatch.setattr(
+        "app.services.research_runner_service.generate_queries",
+        lambda *a, **k: [],
+    )
+    monkeypatch.setattr(
+        "app.services.research_runner_service.collect_results",
+        lambda *a, **k: [],
+    )
+
     completed_events: list[ResearchRunCompleted] = []
     bus.subscribe(ResearchRunCompleted, completed_events.append)
 
@@ -188,6 +198,15 @@ def test_trigger_run_failure_marks_failed_and_emits_event(
         "app.services.research_runner_service._get_runner_executor",
         lambda: _SyncExecutor(),
     )
+    # Bypass search_collector
+    monkeypatch.setattr(
+        "app.services.research_runner_service.generate_queries",
+        lambda *a, **k: [],
+    )
+    monkeypatch.setattr(
+        "app.services.research_runner_service.collect_results",
+        lambda *a, **k: [],
+    )
     # Reduce retry to 0 to fail fast
     from app.core import research_config
     no_retry_cfg = {**research_config.SERENITY_RUN_CONFIG, "retry_on_failure": 0}
@@ -235,6 +254,15 @@ def test_monthly_budget_check_emits_event_when_exceeded(
     monkeypatch.setattr(
         "app.services.research_runner_service._get_runner_executor",
         lambda: _SyncExecutor(),
+    )
+    # Bypass search_collector
+    monkeypatch.setattr(
+        "app.services.research_runner_service.generate_queries",
+        lambda *a, **k: [],
+    )
+    monkeypatch.setattr(
+        "app.services.research_runner_service.collect_results",
+        lambda *a, **k: [],
     )
     # Force budget very low so any token spend triggers
     from app.core import research_config
