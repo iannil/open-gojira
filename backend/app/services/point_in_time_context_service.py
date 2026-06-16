@@ -156,9 +156,14 @@ def build_stock_context_at(
     - forward_dyr: proxy from trailing dyr (forward forecasts not stored).
       This is a documented approximation — trailing dyr = forward dyr when
       dividend is stable; differs when dividends change.
+    - dividend_sustainability: PIT version of the production
+      `dividend_sustainability_service.compute_sustainability_score` algorithm.
+      Computes 3/4 factors (payout trend unavailable — `historical_financials`
+      has no `dividend_payout_ratio` column). Max achievable score in PIT is
+      80 instead of 100 — strategies with high thresholds (e.g. `>= 60`) are
+      proportionally harder to satisfy.
 
-    Not populated (require additional data sources):
-    - dividend_sustainability: needs historical dividend events table.
+    Not populated:
     - power_tier: from BusinessPattern, not loaded here.
     """
     pit = build_context_at(db, stock_code, day)
@@ -173,6 +178,9 @@ def build_stock_context_at(
         db, stock_code, day, "pb", years=10,
     )
     price_drop_pct = _compute_price_drop_pct_at(db, stock_code, day)
+    dividend_sustainability = _compute_dividend_sustainability_at(
+        db, stock_code, day
+    )
 
     return StockContext(
         code=stock_code,
@@ -195,12 +203,197 @@ def build_stock_context_at(
 
         # Financial
         ocf_to_ni=pit.financial.ocf_to_np_ratio if pit.financial else None,
-        # dividend_sustainability needs dividend history — None here
+        dividend_sustainability=dividend_sustainability,
 
         # Price + windowed price_drop_pct
         price=pit.kline.close if pit.kline else None,
         price_drop_pct=price_drop_pct,
     )
+
+
+def _compute_dividend_sustainability_at(
+    db: Session,
+    stock_code: str,
+    day: date,
+) -> Optional[float]:
+    """PIT version of dividend sustainability score (0-80 in PIT).
+
+    Mirrors `dividend_sustainability_service.compute_sustainability_score`
+    but queries only data PUBLISHED or OCCURRED on or before `day`.
+
+    Factors computed (3/4):
+    - OCF/NI ratio (max 40): HistoricalFinancial with report_date <= day
+    - Dividend growth streak (max 30): DividendRecord with ex_date <= day
+    - DYR vs historical median (max 10): HistoricalValuation with date <= day
+
+    Skipped (1/4):
+    - Payout ratio trend (max 20): HistoricalFinancial has no
+      dividend_payout_ratio column. Returns 0 (not None) so total still sums.
+
+    Returns None when both OCF/NI and dividend streak are unavailable
+    (insufficient data to score).
+    """
+    ocf_ni_score = _score_ocf_ni_at(db, stock_code, day)
+    growth_streak_score = _score_dividend_growth_streak_at(db, stock_code, day)
+    payout_score = 0.0  # Skipped — HistoricalFinancial has no payout ratio
+    dyr_score = _score_dyr_comparison_at(db, stock_code, day)
+
+    if ocf_ni_score is None and growth_streak_score is None:
+        return None
+
+    total = (
+        (ocf_ni_score or 0)
+        + (growth_streak_score or 0)
+        + payout_score
+        + (dyr_score or 0)
+    )
+    return float(total)
+
+
+def _score_ocf_ni_at(
+    db: Session, stock_code: str, day: date
+) -> Optional[float]:
+    """Score OCF/NI ratio (max 40) using HistoricalFinancial published by `day`."""
+    rows = db.execute(
+        select(HistoricalFinancial)
+        .where(
+            HistoricalFinancial.stock_code == stock_code,
+            HistoricalFinancial.report_date <= day,
+        )
+        .order_by(desc(HistoricalFinancial.period))
+        .limit(4)
+    ).scalars().all()
+
+    if not rows:
+        return None
+
+    total_ocf = sum((r.operating_cash_flow or 0.0) for r in rows)
+    total_ni = sum((r.net_profit or 0.0) for r in rows)
+
+    if total_ni <= 0:
+        return None
+
+    ratio = total_ocf / total_ni
+    if ratio >= 1.2:
+        return 40.0
+    elif ratio >= 1.0:
+        return 30.0
+    elif ratio >= 0.8:
+        return 20.0
+    elif ratio >= 0.5:
+        return 10.0
+    else:
+        return 0.0
+
+
+def _score_dividend_growth_streak_at(
+    db: Session, stock_code: str, day: date
+) -> Optional[float]:
+    """Score dividend growth streak (max 30) using DividendRecord with ex_date <= day."""
+    from app.models.dividend import DividendRecord
+
+    try:
+        window_start = date(day.year - 5, day.month, day.day)
+    except ValueError:  # Feb 29 edge case
+        window_start = date(day.year - 5, 3, 1)
+
+    rows = db.execute(
+        select(DividendRecord)
+        .where(
+            DividendRecord.stock_code == stock_code,
+            DividendRecord.ex_date <= day,
+            DividendRecord.ex_date >= window_start,
+        )
+        .order_by(desc(DividendRecord.ex_date))
+    ).scalars().all()
+
+    if not rows:
+        return None
+
+    yearly_totals: dict[int, float] = {}
+    for r in rows:
+        year = r.ex_date.year
+        yearly_totals[year] = yearly_totals.get(year, 0.0) + r.amount_per_share
+
+    if not yearly_totals:
+        return None
+
+    sorted_years = sorted(yearly_totals.keys(), reverse=True)
+
+    streak = 0
+    for i in range(len(sorted_years) - 1):
+        current_year = sorted_years[i]
+        next_year = sorted_years[i + 1]
+        if yearly_totals[current_year] >= yearly_totals[next_year]:
+            streak += 1
+        else:
+            break
+
+    if streak >= 4:
+        return 30.0
+    elif streak == 3:
+        return 24.0
+    elif streak == 2:
+        return 18.0
+    elif streak == 1:
+        return 12.0
+    else:
+        if len(sorted_years) >= 2:
+            return 6.0
+        else:
+            return 0.0
+
+
+def _score_dyr_comparison_at(
+    db: Session, stock_code: str, day: date
+) -> Optional[float]:
+    """Score expected DYR vs historical 3y median (max 10)."""
+    latest_val = db.execute(
+        select(HistoricalValuation)
+        .where(
+            HistoricalValuation.stock_code == stock_code,
+            HistoricalValuation.date <= day,
+            HistoricalValuation.dyr.is_not(None),
+        )
+        .order_by(desc(HistoricalValuation.date))
+        .limit(1)
+    ).scalar_one_or_none()
+
+    if latest_val is None or latest_val.dyr is None:
+        return None
+
+    expected_dyr = latest_val.dyr
+
+    try:
+        window_start = date(day.year - 3, day.month, day.day)
+    except ValueError:
+        window_start = date(day.year - 3, 3, 1)
+
+    historical_dyrs = db.execute(
+        select(HistoricalValuation.dyr)
+        .where(
+            HistoricalValuation.stock_code == stock_code,
+            HistoricalValuation.date >= window_start,
+            HistoricalValuation.date <= day,
+            HistoricalValuation.dyr.is_not(None),
+        )
+    ).scalars().all()
+
+    if not historical_dyrs:
+        return None
+
+    sorted_dyrs = sorted(historical_dyrs)
+    median_dyr = sorted_dyrs[len(sorted_dyrs) // 2]
+    if median_dyr == 0:
+        return None
+
+    ratio = expected_dyr / median_dyr
+    if ratio >= 1.0:
+        return 10.0
+    elif ratio >= 0.8:
+        return 5.0
+    else:
+        return 0.0
 
 
 def _compute_percentile_at(

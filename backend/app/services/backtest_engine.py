@@ -33,10 +33,9 @@ Derived field availability in `build_stock_context_at` (point_in_time_context_se
 - price_drop_pct: ✅ computed from 52w high in historical_klines
 - ocf_to_ni: ✅ from latest historical_financials PUBLISHED ≤ day
   (point-in-time correct; None before first financial report)
-- dividend_sustainability: ❌ None (no historical dividend events table).
-  Strategies 1 (高股息安全垫) and 6 (超跌逆向) depend on this — they will
-  report "data unavailable" → not passed. Implementing this requires a
-  historical dividend sustainability table + windowed computation.
+- dividend_sustainability: ✅ PIT version (3/4 factors of production algo).
+  OCF/NI + 分红连击 + DYR 比较 派息率趋势跳过 (HistoricalFinancial 无 payout_ratio 列)。
+  Max 80 分而非 100 — strategies with high thresholds proportionally harder.
 
 A 0-trade backtest is therefore usually CORRECT behavior (the stock didn't
 match the strategy), not a bug. Verify by inspecting `build_stock_context_at`
