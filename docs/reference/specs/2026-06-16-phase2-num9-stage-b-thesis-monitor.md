@@ -1,8 +1,29 @@
 # Phase 2 #9 阶段 B — Thesis Monitor 接入 设计规格
 
 > **日期**: 2026-06-16
-> **状态**: 已确认 (grill-me 会话产出,代码下次实施)
+> **状态**: v2 已确认 (二次 grill-me 会话更新,代码下次实施)
 > **关联**: `docs/reference/specs/2026-06-14-serenity-skill-integration.md` Q19 | Phase 2 #9 阶段 A (`docs/progress/STATUS.md` P1-1 已 ship)
+
+## v2 更新摘要 (2026-06-16 二次 grill)
+
+二次 grill-me 会话发现 14 项修正(详见下方各 Q 章节内的"v2 更新"块),主要是:
+
+1. **Q1 — schema 统一**: `thesis_variables_json` 当前 3 套不兼容 schema,标准化为 monitor schema + 修 `sync_stock` 字段名
+2. **Q4(翻转)— 双源不复制**: `research_claim_variables` 表与 `thesis_variables_json` 各为真相源,monitor 跑两个 check 函数;原 Q4-A"approve 时复制"作废
+3. **Q3 数据源 — 加 NIM 列**: `FinancialStatement` 加 `net_interest_margin` 列 + pipeline 持久化(`financial_pipeline.py` 已在拉)
+4. **新字段 `breach_when`**: 机械对齐 signal 文本比较符(`<` → `lt`),消除 direction 语义翻转错误
+5. **window_periods 多期检查**: v1 实现真多期检查,非"单点延后"
+6. **propose 业务级 dedup + DB 唯一约束**: 跨 run 同 signal 不重复提议
+7. **过滤 open holdings**: `check_claim_variables` 跟 `check_held_stocks` 对称,卖出即静默
+8. **per-var try/except 隔离**: 单 fetch 失败不影响其它 var
+9. **独立 thesis_evaluation_job + last_alerted_at dedup**: 不寄生 `alert_evaluation_job`,7 天窗口
+10. **audit + EventBus + notification 三处落地**: 跟 CLAUDE.md 一致
+11. **LLM 失败 audit + Cockpit red badge**: 失败可见
+12. **PATCH endpoint**: active var 可编辑
+13. **TanStack 30s polling**: 不引入 SSE
+14. **migration 命名 s5_3_**: 接现有 s5_1 / s5_2 链
+
+工作量从 ~7 小时调到 **~10 小时**。Q4 翻转 + Q3 加列 + 多期检查 + 独立 job + 新 endpoint 是主要增量。
 
 ## 背景
 
@@ -10,20 +31,39 @@ Phase 2 #9 阶段 A (2026-06-16 ship) 让 serenity LLM 输出 structured claims,
 
 阶段 B 把 signal 字段接入 `thesis_monitor_service`,实现"失败条件真实告警"—— 这是 serenity 模块的核心用户价值,invest3 "失败预警" 闭环。
 
-本规格定义 8 个核心决策,实施工作量 ~7 小时。
+本规格定义 14 个核心决策(v2),实施工作量 ~10 小时。
 
 ## 决策汇总
+
+### v1 决策 (一轮 grill)
 
 | # | 决策 | 选择 | 关键约束 |
 |---|---|---|---|
 | Q1 | monitor 范围 | B 仅 stock-level (持仓交集) | 数据源可控 (Lixinger),告警精准 |
 | Q2 | claim → variable 转换路径 | B 半自动 LLM 提议 + 人工 review | 误报风险低,跟阶段 A 一致 |
 | Q3 | 数据源映射策略 | A LLM 强制从 Lixinger shortlist 选 | 避免无数据源 claim 提议,UI 不过载 |
-| Q4 | 持久化结构 | A 新表 research_claim_variables + 复制到 thesis_variables_json | thesis_monitor 不动 |
 | Q5 | 触发流程 | C 半自动 (EventBus 自动提议 + 人工 review) | 跟 Q2 一致 |
-| Q6 | schedule + alert 通道 | A 跟现有 alert 共用 (mon-fri 17:30) + 复用 NotificationChannel | 零新 cron,零新通道 |
 | Q7 | UI 入口 | A StockDetail 提议区 + Cockpit 计数 badge | 持仓 context 完整,IA 不动 |
 | Q8 | 本轮范围 | A spec-only,代码下次实施 | 跟 Phase 2 #10 模式一致 |
+
+### v2 决策 (二轮 grill,2026-06-16)
+
+| # | 决策 | 选择 | 关键约束 |
+|---|---|---|---|
+| Q1' | `thesis_variables_json` schema 统一 | A 标准化为 monitor schema + 修 sync | 3 套 schema 并存导致 monitor 哑火 |
+| Q3' | `financial:NIM` 数据源 | A FinancialStatement 加 net_interest_margin 列 + pipeline 持久化 | 列不存在但 pipeline 已在拉数据 |
+| Q4' | 持久化结构 (翻转 Q4-A) | C 双源不复制:research_claim_variables 与 thesis_variables_json 各为真相源 | 避免两 writer 写同一 JSON 的混乱 |
+| Q-new | direction 语义防错 | 加 `breach_when: "lt" \| "gt"` 机械字段,字面对齐 signal 文本比较符 | LLM 易把 `<` 翻转成 direction=below 导致反向告警 |
+| Q-new | window_periods 多期检查 | A v1 即实现真多期 (拉过去 N 期连续 breach) | signal 文本"持续两季"是 invest3 高频句式 |
+| Q-new | propose 去重 | 业务级 dedup (stock+variable+source, status IN proposed/active) + DB 唯一约束 (research_claim_id, stock_code, variable_name) | 跨 run / 同 claim 重复触发都覆盖 |
+| Q-new | 持仓过滤 | check_claim_variables INNER JOIN holdings WHERE sell_date IS NULL | 卖出即静默,跟 check_held_stocks 对称 |
+| Q-new | fetch 失败隔离 | per-var try/except + 结构化日志 + summary 报 checked/breached/failed | 单 source 失败不影响整批 |
+| Q6' | schedule + alert 通道 | A2 独立 `thesis_evaluation_job` (17:30) + B1 last_alerted_at 7 天 dedup | scheduler 当前不调 check_held_stocks,需新 wiring;复用 NotificationChannel |
+| Q-new | 告警落地 | A 三处:audit_log (同步) + EventBus ThesisAlertTriggered + notification_service.send | 跟 CLAUDE.md audit / EventBus 约定一致 |
+| Q-new | LLM 失败 UX | A audit_log (proposed/failed) + Cockpit red/yellow badge | 失败必须可见,GLM 偶发 hang |
+| Q-new | active var 编辑 | A PATCH /api/research/claim-variables/{id} + audit_log before/after | reject 重 propose 被 dedup 阻塞,需直接编辑路径 |
+| Q-new | Cockpit badge 刷新 | A TanStack useQuery refetchInterval=30s | 项目已用 TanStack,无 SSE 基础设施 |
+| Q-new | migration 命名 | `s5_3_research_claim_variables.py` + `s5_4_net_interest_margin.py` (或合并) | 接 s5_1 / s5_2 链 |
 
 ## 数据流
 
@@ -36,34 +76,63 @@ LLM 二次调用:
   - 拿 research_claims (claim.signal + claim.stock_codes)
   - prompt 含 Lixinger 数据源 shortlist (强制选)
   - 输出 list[{claim_id, stock_code, variable_name, threshold_critical,
-              direction, source, window_periods}]
+              breach_when, source, window_periods, unit}]
+                ↑↑↑
+              v2: breach_when ("lt"|"gt") 替代 direction,字面对齐 signal 文本比较符
+  ↓
+propose 前业务级 dedup:
+  SELECT WHERE stock_code=? AND variable_name=? AND source=? AND status IN ('proposed','active')
+  → 已存在则 skip (Q-new v2)
   ↓
 落 research_claim_variables (status='proposed')
   ↓
-EventBus: ClaimVariablesProposed (UI 刷新提示)
+audit_log: event="claim_variable_proposed" (count, run_id, failed_claims?)
+  ↓
+EventBus: ClaimVariablesProposed (UI polling 刷新提示, backend 内部用)
+─────────────────────────────────────────────────────────
+LLM 失败时 (Q-new v2):
+  audit_log: event="claim_variable_proposal_failed" (run_id, error)
+  Cockpit red badge 显示 "上次 propose 失败"
 ─────────────────────────────────────────────────────────
 用户在 StockDetail 看到"提议待 review"卡片:
   ↓
-Approve → status='active' + 复制到 Stock.thesis_variables_json
+Approve → status='active' (v2: 不复制到 thesis_variables_json,Q4'-C)
 Edit    → modal 改字段后 Approve
 Reject  → status='rejected' (monitor 永不再看)
+Edit active → PATCH endpoint 改 threshold/breach_when/window (Q-new v2)
 ─────────────────────────────────────────────────────────
-scheduler cron mon-fri 17:30:
-  thesis_monitor_service.check_held_stocks()  (现有)
-  thesis_monitor_service.check_claim_variables()  (新)
-    ↓
-  对每条 status='active' 的 research_claim_variable:
-    按 source 路由 fetch current_value
-    若 breached → emit ThesisAlertTriggered → notification_service.send()
+scheduler cron mon-fri 17:30 (Q6'-A2 v2 独立 job):
+  thesis_evaluation_job:
+    thesis_monitor_service.check_held_stocks()    # 现有,thesis_variables_json
+    thesis_monitor_service.check_claim_variables()  # 新,research_claim_variables
+      ↓
+    INNER JOIN holdings WHERE sell_date IS NULL   # Q-new v2 持仓过滤
+    对每条 status='active' 的 research_claim_variable:
+      try:
+        按 source 路由 fetch current_value (单点 or 过去 N 期, Q-window_periods v2)
+        if window_periods > 1: 检查连续 N 期 breach
+        else: 单点检查 breach_when (=lt→value<threshold / =gt→value>threshold)
+        若 breached AND last_alerted_at IS NULL OR >7d ago:
+          audit_log (sync): event="thesis_alert_triggered" (Q-new v2)
+          emit ThesisAlertTriggered
+          handler: notification_service.send() via NotificationChannel
+          UPDATE last_alerted_at = now()
+      except Exception:
+        logger.warning(...) 带 claim_var_id/source/stock_code (Q-new v2 per-var 隔离)
 ```
 
 ## Schema
 
-### 新表 `research_claim_variables`
+### 新表 `research_claim_variables` (v2)
 
 ```python
 class ResearchClaimVariable(Base):
     __tablename__ = "research_claim_variables"
+    __table_args__ = (
+        # v2 Q-new: DB 兜底,防同 claim 重复 propose
+        UniqueConstraint("research_claim_id", "stock_code", "variable_name",
+                         name="uq_claim_var_claim_stock_name"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     research_claim_id: Mapped[int] = mapped_column(
@@ -77,14 +146,17 @@ class ResearchClaimVariable(Base):
     variable_name: Mapped[str] = mapped_column(Text, nullable=False)
     # e.g. "净息差" / "毛利率" / "PE 分位"
     threshold_critical: Mapped[float] = mapped_column(Float, nullable=False)
-    direction: Mapped[str] = mapped_column(String, nullable=False)
-    # "above" (希望值高于阈值) | "below" (希望值低于阈值)
+    breach_when: Mapped[str] = mapped_column(String, nullable=False)
+    # v2 Q-new: "lt" | "gt" — 字面对齐 signal 文本比较符
+    #   signal "净息差<1.3%" → breach_when="lt", threshold_critical=1.3
+    #   monitor 检查: if breach_when=="lt" and value < threshold → breach
+    # 老字段 `direction` 废弃,monitor 内部 lt→above / gt→below 推导
     unit: Mapped[str | None] = mapped_column(String, nullable=True)
     # "%" / "倍" / null
     source: Mapped[str] = mapped_column(String, nullable=False)
     # 见下方数据源 shortlist
     window_periods: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    # 持续 N 期才告警,null=单点
+    # 持续 N 期才告警,null=单点。v2 Q-new: monitor 真实现多期检查
 
     # 状态机
     status: Mapped[str] = mapped_column(String, nullable=False, default="proposed", index=True)
@@ -95,25 +167,83 @@ class ResearchClaimVariable(Base):
     # 个人工具,固定 "user"
     review_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     # 用户 reject/edit 时的备注
+
+    # v2 Q6'-B1: 7 天告警 dedup
+    last_alerted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 ```
 
-Indexes: `(research_claim_id)` / `(stock_code)` / `(status)` (活跃查询过滤用)
+Indexes: `(research_claim_id)` / `(stock_code)` / `(status)` / `(stock_code, variable_name, source)` (业务级 dedup 用)
 
-### 数据源 shortlist (Q3-A)
+### `thesis_variables_json` 标准化 (v2 Q1')
+
+monitor 跟 sync_service 共用此 JSON,标准化 schema (字段名 + 必填 threshold):
+
+```json
+{
+  "variables": [
+    {
+      "name": "净息差",
+      "value": 1.45,
+      "unit": "%",
+      "threshold_low": 1.5,
+      "threshold_critical": 1.3,
+      "direction": "above",
+      "source": "lixinger",
+      "synced_at": "2026-06-15"
+    }
+  ]
+}
+```
+
+**改动**:
+1. `thesis_variable_sync_service.sync_stock` (line 161-168): `"current_value"` → `"value"`;保留 existing 的 threshold_*/direction/unit 字段(已存在)
+2. `thesis_monitor_service.check_variable` (line 56-83): 不变,本就读 `value`
+3. v2 Q4'-C: `approve` / `reject` / `PATCH` **不再** 读写此 JSON,claim var 真相源是 `research_claim_variables` 表
+
+### 数据源 shortlist (Q3-A,v2 加 NIM 列)
 
 LLM prompt 强制 source 必须从以下列表选:
 
 | source key | 描述 | fetch 路径 |
 |---|---|---|
-| `financial:NIM` | 净息差 (银行) | `FinancialStatement.net_interest_margin` |
+| `financial:NIM` | 净息差 (银行) | `FinancialStatement.net_interest_margin` (**v2 Q3' 需加列**) |
 | `financial:NPL` | 不良贷款率 (银行) | `FinancialStatement.npl_ratio` |
-| `financial:revenue_growth` | 营收同比 (通用) | 计算 `FinancialStatement.revenue` 连续两期 |
-| `financial:margin` | 毛利率 (制造业) | `FinancialStatement.gross_margin` (若 schema 有) |
+| `financial:revenue_growth` | 营收同比 (通用) | `FinancialStatement.revenue_growth` (列已存在) |
+| `financial:margin` | 毛利率 (制造业) | `FinancialStatement.gross_margin` (列已存在) |
 | `valuation:PE_percentile` | PE 10y 分位 | `ValuationSnapshot.pe_percentile_10y` |
 | `valuation:PB_percentile` | PB 10y 分位 | `ValuationSnapshot.pb_percentile_10y` |
 | `kline:price_drop_52w` | 52 周跌幅 | 计算 `PriceKline` 高点跌幅 |
 
-实施时 `_fetch_current_value(db, source, stock_code)` 按 source 路由分发。每个 source 一个 `_fetch_<source>` 函数,签名 `(db, stock_code) -> float | None`。`None` 表示数据缺失,monitor 跳过。
+实施时 `_fetch_current_value(db, source, stock_code, window_periods=1)` 按 source 路由分发,签名 `(db, stock_code, n) -> list[float] | None`(返回最近 N 期值,单点时 list 长度 1)。每个 source 一个 `_fetch_<source>` 函数。`None` 或空 list 表示数据缺失,monitor 跳过。
+
+### 多期检查 (v2 Q-window_periods)
+
+```python
+def _check_breach(values: list[float], threshold: float, breach_when: str,
+                  window_periods: int | None) -> bool:
+    """v2: 真多期检查。window_periods=None 或 1 = 单点。"""
+    n = window_periods or 1
+    if len(values) < n:
+        return False  # 数据不足,不告警
+    recent = values[:n]
+    for v in recent:
+        if breach_when == "lt" and v >= threshold: return False
+        if breach_when == "gt" and v <= threshold: return False
+    return True  # 连续 N 期都 breach
+```
+
+### FinancialStatement 加 `net_interest_margin` 列 (v2 Q3')
+
+```python
+# backend/app/models/financial.py — 加列
+net_interest_margin: Mapped[float | None] = mapped_column(Float, nullable=True)
+# 净息差 (银行),来自 Lixinger `nim.t`
+
+# backend/app/services/pipelines/financial_pipeline.py — 已经 _get_nested(m, "nim.t"),
+# 改为 column_map["net_interest_margin"] = "nim.t" 持久化
+
+# backend/alembic/versions/s5_3_*.py — 加列 migration (老数据 NULL)
+```
 
 ## API 契约
 
@@ -121,13 +251,14 @@ LLM prompt 强制 source 必须从以下列表选:
 
 approve 用户已 review 的 proposed variable。
 
-**请求**: `{ threshold_critical?, direction?, unit?, window_periods?, note? }` (可选字段 = 用户 edit 后覆盖 LLM 提议值)
+**请求**: `{ threshold_critical?, breach_when?, unit?, window_periods?, note? }` (可选字段 = 用户 edit 后覆盖 LLM 提议值)
 
 **响应 200**: `{ id, status: "active", stock_code, variable_name, ... }`
 
 **副作用**: 
-1. 更新 research_claim_variable.status='active' + reviewed_at
-2. 复制到 Stock.thesis_variables_json.variables[] (按 variable_name 去重)
+1. 更新 research_claim_variable.status='active' + reviewed_at + reviewed_by='user'
+2. audit_log: `event="claim_variable_approved"` (before/after)
+3. **v2 Q4'-C**: 不复制到 thesis_variables_json
 
 ### `POST /api/research/claim-variables/{id}/reject`
 
@@ -137,7 +268,20 @@ approve 用户已 review 的 proposed variable。
 
 **副作用**: 
 1. status='rejected' + reviewed_at
-2. 若该 variable_name 已在 thesis_variables_json (历史 approve 过),从中删除
+2. audit_log: `event="claim_variable_rejected"`
+3. **v2 Q4'-C**: 不动 thesis_variables_json (没复制过)
+
+### `PATCH /api/research/claim-variables/{id}` (v2 Q-new)
+
+编辑 active var 的 threshold / breach_when / window_periods / unit。status 必须是 'active'。
+
+**请求**: `{ threshold_critical?, breach_when?, window_periods?, unit?, note? }` (至少一个字段)
+
+**响应 200**: `{ id, status: "active", updated_fields: [...], before: {...}, after: {...} }`
+
+**副作用**: 
+1. 更新对应字段
+2. audit_log: `event="claim_variable_edited"` (before/after, updated_fields)
 
 ### `GET /api/stocks/{code}/claim-variables`
 
@@ -154,9 +298,21 @@ approve 用户已 review 的 proposed variable。
 
 ### `GET /api/cockpit/claim-variables-pending`
 
-Cockpit badge 用,返回 proposed 计数。
+Cockpit badge 用,返回 proposed 计数 + 最近 propose 失败状态 (v2 Q-new LLM 失败 UX)。
 
-**响应 200**: `{ "count": 5, "by_stock": [{"stock_code": "002049", "count": 2}, ...] }`
+**响应 200**:
+```json
+{
+  "count": 5,
+  "by_stock": [{"stock_code": "002049", "count": 2}, ...],
+  "last_proposal": {
+    "status": "ok" | "failed" | null,
+    "run_id": 8,
+    "at": "2026-06-16T14:30:00Z",
+    "failed_claims": [12, 15]
+  }
+}
+```
 
 ## EventBus 接入
 
@@ -167,20 +323,65 @@ Cockpit badge 用,返回 proposed 计数。
 ```python
 @bus.on(ResearchRunCompleted)
 def _on_run_completed_propose_claim_variables(event: ResearchRunCompleted):
-    """Q5-C 自动提议 thesis variables (status='proposed')。"""
+    """v2 Q5-C 自动提议 thesis variables (status='proposed')。"""
     from app.services.thesis_variable_proposal_service import propose_for_run
     db = SessionLocal()
     try:
-        propose_for_run(db, event.run_id)
-    except Exception:
+        result = propose_for_run(db, event.run_id)
+        # v2 Q-new: propose 结果 audit (成功带 count, 部分成功带 failed_claims)
+        audit_log_service.write(
+            db, entity_type="research_run", entity_id=str(event.run_id),
+            event="claim_variable_proposed" if not result.failed_claims
+                  else "claim_variable_proposal_partial",
+            actor="system",
+            summary=f"proposed {result.count}/{result.total} (failed: {result.failed_claims})",
+        )
+        bus.emit(ClaimVariablesProposed(run_id=event.run_id, count=result.count))
+    except Exception as e:
         logger.exception("Claim variable proposal failed for run %s", event.run_id)
+        # v2 Q-new: 失败也 audit (Cockpit red badge 用)
+        audit_log_service.write(
+            db, entity_type="research_run", entity_id=str(event.run_id),
+            event="claim_variable_proposal_failed",
+            actor="system",
+            summary=f"error: {type(e).__name__}: {str(e)[:200]}",
+        )
+    finally:
+        db.close()
+
+
+@bus.on(ThesisAlertTriggered)  # v2 Q-new
+def _on_thesis_alert_triggered(event: ThesisAlertTriggered):
+    """breach 后发 notification (last_alerted_at dedup 已在 check 时跑过)。"""
+    from app.services.notification_service import send
+    db = SessionLocal()
+    try:
+        send(db, channels="all", title=f"论点告警: {event.variable_name}",
+             message=event.message, severity="alert",
+             metadata={"stock_code": event.code, "claim_var_id": event.claim_var_id})
     finally:
         db.close()
 ```
 
-### 新事件
+### 新事件 (v2 加 ThesisAlertTriggered)
 
-`ClaimVariablesProposed(run_id, count)` — 提议完成后发出,前端可 polling 或 SSE 刷新。
+`app/core/events.py`:
+
+```python
+class ClaimVariablesProposed(BaseEvent):
+    run_id: int
+    count: int
+
+class ThesisAlertTriggered(BaseEvent):  # v2 Q-new
+    claim_var_id: int
+    code: str
+    stock_name: str
+    variable_name: str
+    current_value: float | None
+    threshold_value: float
+    breach_when: str  # "lt" | "gt"
+    message: str
+```
 
 ## UI 设计 (Q7-A)
 
@@ -206,33 +407,46 @@ def _on_run_completed_propose_claim_variables(event: ResearchRunCompleted):
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### Edit Modal
+### Edit Modal (v2: 支持 proposed 与 active 两态)
 
 ```
-┌─ 编辑 thesis variable 提议 ──────────────────────────────┐
+┌─ 编辑 thesis variable (proposed 或 active) ──────────────┐
 │                                                            │
-│  variable_name: [净息差          ]                         │
+│  variable_name: [净息差          ] (只读)                  │
 │  threshold_critical: [1.3      ] %                        │
-│  direction: (•) above  ( ) below                          │
+│  breach_when: (•) lt (<阈值告警)  ( ) gt (>阈值告警)       │
+│   ↑ v2: 字面对齐 signal 文本比较符                          │
 │  window_periods: [2] 期 (留空 = 单点)                      │
 │  source: financial:NIM (只读)                             │
 │                                                            │
 │  备注 (可选): [                                          ] │
 │                                                            │
-│              [Cancel]  [Approve with edits]                │
+│  Cancel | [Approve with edits] (proposed 态)              │
+│  Cancel | [Save changes]      (active 态 → PATCH)         │
 └────────────────────────────────────────────────────────────┘
 ```
 
-### Cockpit Badge
+### Cockpit Badge (v2: red/yellow 双态)
 
 ```
+正常态:
 ┌─ 论点变量提议 ───────────────────┐
 │ 🟡 5 条待 review [查看 →]        │
 │   • 002049 紫光国微 (2)          │
 │   • 300348 长亮科技 (1)          │
 │   • 600036 招商银行 (2)          │
 └────────────────────────────────────┘
+
+v2 失败态 (Q-new):
+┌─ 论点变量提议 ───────────────────┐
+│ 🔴 上次 propose 失败 (run 8)    │
+│   [查看错误 →]                  │
+│ ────────────────────────────  │
+│ 🟡 3 条待 review (旧)           │
+└────────────────────────────────────┘
 ```
+
+TanStack Query: `useQuery({refetchInterval: 30_000})` polling `/api/cockpit/claim-variables-pending`。
 
 点击"查看 →"跳到第一个待 review 的 stock 的 StockDetail。
 
@@ -241,94 +455,167 @@ def _on_run_completed_propose_claim_variables(event: ResearchRunCompleted):
 - proposed: 🟡 黄色 (待 review)
 - active: 🟢 绿色 (已激活,正在 monitor)
 - rejected: ⚪ 灰色 (用户拒绝,折叠显示)
+- propose 失败: 🔴 红色 badge (v2 Q-new)
 
-## 后端实施工作量
-
-| 文件 | 内容 | 行数估算 |
-|---|---|---|
-| `app/models/research_claim_variable.py` (新) | ORM model | ~50 |
-| `alembic/versions/s5_research_claim_variables.py` (新) | migration | ~40 |
-| `app/services/thesis_variable_proposal_service.py` (新) | LLM 调用 + parse + persist | ~200 |
-| `app/services/thesis_monitor_service.py` (改) | 加 `check_claim_variables()` + 6-7 `_fetch_<source>` 路由 | +180 |
-| `app/routers/research.py` 或新 router | approve/reject/list endpoints | ~80 |
-| `app/core/event_handlers.py` (改) | ResearchRunCompleted handler | ~15 |
-| `app/core/events.py` (改) | 加 ClaimVariablesProposed 事件 | ~10 |
-| `tests/test_thesis_variable_proposal_service.py` (新) | LLM mock + persist tests | ~200 |
-| `tests/test_thesis_monitor_claim_variables.py` (新) | 6-7 source routing + breach tests | ~250 |
-| `tests/test_research_claim_variables_api.py` (新) | approve/reject endpoint tests | ~80 |
-| **后端小计** | | **~1100** |
-
-## 前端实施工作量
+## 后端实施工作量 (v2)
 
 | 文件 | 内容 | 行数估算 |
 |---|---|---|
-| `src/api/client.ts` (改) | approve/reject/listClaimVariables API | ~40 |
-| `src/api/types.ts` (改) | ResearchClaimVariable 类型 | ~30 |
-| `src/features/stock/ClaimVariablesCard.tsx` (新) | 提议卡片列表 | ~180 |
-| `src/features/stock/EditClaimVariableModal.tsx` (新) | Edit modal | ~120 |
-| `src/features/cockpit/PendingClaimVariablesBadge.tsx` (新) | Cockpit badge | ~80 |
+| `app/models/research_claim_variable.py` (新) | ORM model + UniqueConstraint | ~60 |
+| `app/models/financial.py` (改 v2 Q3') | 加 net_interest_margin 列 | +2 |
+| `app/services/pipelines/financial_pipeline.py` (改 v2 Q3') | column_map 加 nim.t → net_interest_margin | +3 |
+| `alembic/versions/s5_3_research_claim_variables.py` (新) | 新表 + net_interest_margin 列 + last_alerted_at | ~60 |
+| `app/services/thesis_variable_sync_service.py` (改 v2 Q1') | sync_stock 字段名 current_value → value,保留 threshold 字段 | +15 |
+| `app/services/thesis_variable_proposal_service.py` (新) | LLM 调用 + parse + dedup + persist + audit | ~250 |
+| `app/services/thesis_monitor_service.py` (改) | `check_claim_variables()` + 6-7 `_fetch_<source>` 路由 + 多期检查 + per-var try/except + last_alerted_at dedup | +250 |
+| `app/routers/research.py` 或新 router | approve/reject/PATCH/list endpoints + audit | ~120 |
+| `app/routers/cockpit.py` (改) | claim-variables-pending endpoint + last_proposal 状态 | +30 |
+| `app/core/event_handlers.py` (改) | ResearchRunCompleted + ThesisAlertTriggered handler | ~50 |
+| `app/core/events.py` (改) | ClaimVariablesProposed + ThesisAlertTriggered | ~25 |
+| `app/scheduler.py` (改 v2 Q6'-A2) | thesis_evaluation_job 注册 (17:30 mon-fri,独立) | +30 |
+| `tests/test_thesis_variable_proposal_service.py` (新) | LLM mock + persist + dedup + audit tests | ~250 |
+| `tests/test_thesis_monitor_claim_variables.py` (新) | 6-7 source routing + 多期 + 持仓过滤 + dedup tests | ~300 |
+| `tests/test_research_claim_variables_api.py` (新) | approve/reject/PATCH endpoint tests | ~120 |
+| `tests/test_scheduler_thesis_job.py` (新 v2) | thesis_evaluation_job 触发测试 | ~50 |
+| **后端小计** | | **~1565** |
+
+## 前端实施工作量 (v2)
+
+| 文件 | 内容 | 行数估算 |
+|---|---|---|
+| `src/api/client.ts` (改) | approve/reject/PATCH/listClaimVariables API | ~50 |
+| `src/api/types.ts` (改) | ResearchClaimVariable + breach_when + last_proposal 类型 | ~40 |
+| `src/features/stock/ClaimVariablesCard.tsx` (新) | 提议卡片列表 + active/rejected 三态 | ~220 |
+| `src/features/stock/EditClaimVariableModal.tsx` (新) | Edit modal 支持 proposed/active 两态 | ~150 |
+| `src/features/cockpit/PendingClaimVariablesBadge.tsx` (新) | Cockpit badge red/yellow 双态 + 30s polling | ~110 |
 | `src/pages/StockDetailPage.tsx` 或 features/stock (改) | 挂载 ClaimVariablesCard | ~10 |
 | `src/features/cockpit/CockpitPage.tsx` (改) | 挂载 badge | ~10 |
-| **前端小计** | | **~470** |
+| **前端小计** | | **~590** |
 
-**总计**: ~1570 行代码,7 小时 (含 grill + 实施 + dev server 验证 + 真实 LLM spike)
+**总计**: ~2155 行代码,**~10 小时** (含二轮 grill + 实施 + dev server 验证 + 真实 LLM spike)
 
-## 验收标准
+## 验收标准 (v2)
 
-- [ ] backend model + migration 创建成功
+### 后端 model + migration
+- [ ] backend `ResearchClaimVariable` model + UniqueConstraint 建表成功
+- [ ] `FinancialStatement.net_interest_margin` 列加上 (v2 Q3')
+- [ ] `financial_pipeline` 持久化 NIM 数据(下次 Lixinger pull 时填充)
+- [ ] migration `s5_3_*` 接 s5_2 链,跑通 upgrade/downgrade
+
+### proposal service (含 v2 dedup)
 - [ ] thesis_variable_proposal_service: 给定 mock LLM 输出,正确解析 + 持久化 proposed variable
 - [ ] thesis_variable_proposal_service: 无数据源可监控的 claim 跳过 (Q3-A)
-- [ ] ResearchRunCompleted EventBus handler 触发提议
-- [ ] approve endpoint: 复制到 thesis_variables_json + status='active'
-- [ ] reject endpoint: status='rejected' + (若已在 thesis_variables_json) 删除
+- [ ] thesis_variable_proposal_service: 业务级 dedup — 同 (stock, variable_name, source) 已有 proposed/active 时 skip (v2 Q-new)
+- [ ] thesis_variable_proposal_service: DB UniqueConstraint 兜底,重复 INSERT 抛 IntegrityError 时 graceful 处理 (v2 Q-new)
+- [ ] thesis_variable_proposal_service: signal 文本 "<X" 正确映射 breach_when="lt",threshold=X (v2 Q-new)
+- [ ] ResearchRunCompleted EventBus handler 触发提议 + audit_log
+- [ ] LLM 失败时 audit_log event="claim_variable_proposal_failed" (v2 Q-new)
+- [ ] 部分失败时 audit_log event="claim_variable_proposal_partial" 带 failed_claims (v2 Q-new)
+
+### thesis_variables_json schema 统一 (v2 Q1')
+- [ ] `sync_stock` 写入字段名 `value` (不是 `current_value`)
+- [ ] `sync_stock` 保留 existing 的 threshold_*/direction 字段不被覆盖
+- [ ] `check_variable` 读 `value` 正常工作(本就如此)
+
+### monitor (含 v2 多期 + 持仓过滤 + 隔离 + dedup)
+- [ ] check_claim_variables: INNER JOIN holdings WHERE sell_date IS NULL (v2 Q-new)
 - [ ] check_claim_variables: 对 active variable 按 source fetch current_value
 - [ ] check_claim_variables: 6-7 source 各自正确路由 (financial / valuation / kline)
+- [ ] check_claim_variables: NIM source 正确读 net_interest_margin 列 (v2 Q3')
 - [ ] check_claim_variables: 数据缺失 (None) 跳过,不误报
-- [ ] check_claim_variables: window_periods > 1 时检查连续 N 期
+- [ ] check_claim_variables: window_periods > 1 时拉过去 N 期,连续 N 期都 breach 才告警 (v2 Q-window)
+- [ ] check_claim_variables: 单 var fetch 异常 try/except,继续下一条 (v2 Q-new)
+- [ ] check_claim_variables: 同 var 7 天内不重发 (last_alerted_at dedup, v2 Q6'-B1)
+- [ ] check_claim_variables: breach 时 audit_log + emit ThesisAlertTriggered
+- [ ] ThesisAlertTriggered handler 调 notification_service.send
+
+### API endpoints
+- [ ] approve endpoint: status='active' + audit_log (不复制到 thesis_variables_json, v2 Q4'-C)
+- [ ] reject endpoint: status='rejected' + audit_log
+- [ ] PATCH endpoint: 改 threshold/breach_when/window_periods + audit_log before/after (v2 Q-new)
+- [ ] GET /api/stocks/{code}/claim-variables: 返回 proposed/active/rejected 三组
+- [ ] GET /api/cockpit/claim-variables-pending: 返回 count + last_proposal 状态 (v2 Q-new)
+
+### scheduler (v2 Q6')
+- [ ] `thesis_evaluation_job` 注册在 17:30 mon-fri,独立于 alert_evaluation_job
+- [ ] job 跑通 check_held_stocks + check_claim_variables
+
+### 前端
 - [ ] 前端 StockDetail 显示 proposed 卡片
-- [ ] Edit modal 改字段后 approve 正确
-- [ ] Cockpit badge 显示 proposed 计数
+- [ ] Edit modal 改字段后 approve 正确 (proposed 态)
+- [ ] Edit modal 改字段后 PATCH 正确 (active 态, v2 Q-new)
+- [ ] Cockpit badge 显示 proposed 计数,30s 自动刷新 (v2 Q-new)
+- [ ] Cockpit badge 失败态红色显示 (v2 Q-new)
+
+### dev server + 真实 LLM spike
 - [ ] dev server 启动,浏览器手动验证 happy path (用 run 8 真实 claims)
 - [ ] 真实 LLM spike: propose_for_run(run_id=8) 跑通,落 5+ proposed variables
+- [ ] spike 报告: LLM prompt 微调建议 + source 分布 + breach_when 翻转正确率
 
-## 后置 / 未来工作
+## 后置 / 未来工作 (v2 已实现项移除)
 
-- **window_periods 连续性检查** — 第一版可只支持单点 (window=None),后续加多期检查
+- ~~window_periods 多期检查~~ — **v2 已实现 (Q-window_periods)**
+- ~~multi-stock claim~~ — **schema 已支持,LLM prompt 明确"per (claim × relevant stock) 输出一行"即可**
 - **更多数据源** — `financial:OCF_to_NI` / `valuation:DYR` / `kline:drawdown_max` 等,扩展 source shortlist
 - **theme-level monitor (Q1-A)** — 整个 theme 的 claims (e.g. 银行业净息差) 接入,需要外部数据源 (央行/监管)
 - **historical breach 追溯** — activate 后,回看过去 N 期是否已经 breached
-- **multi-stock claim** — claim.stock_codes 有多个时,是否复制到所有 stock 还是只第一个 (默认: 全部)
+- **watch list (非持仓观察)** — check_claim_variables 当前过滤持仓,若用户想观察未持仓股,需新增 watch entity
 
-## 关联文件索引
-
-实施时涉及的现有文件:
+## 关联文件索引 (v2)
 
 | 文件 | 修改内容 |
 |---|---|
-| `backend/app/models/research_claim_variable.py` | **新建** |
-| `backend/alembic/versions/s5_research_claim_variables.py` | **新建** migration |
-| `backend/app/services/thesis_variable_proposal_service.py` | **新建** |
-| `backend/app/services/thesis_monitor_service.py` | 加 `check_claim_variables` + source routing |
-| `backend/app/routers/research.py` (或新 router) | approve/reject/list endpoints |
-| `backend/app/core/event_handlers.py` | ResearchRunCompleted handler |
-| `backend/app/core/events.py` | ClaimVariablesProposed 事件 |
-| `backend/app/scheduler.py` | 在现有 17:30 alert job 加 check_claim_variables 调用 |
+| `backend/app/models/research_claim_variable.py` | **新建** ORM + UniqueConstraint |
+| `backend/app/models/financial.py` | **改** 加 `net_interest_margin` 列 (v2 Q3') |
+| `backend/app/services/pipelines/financial_pipeline.py` | **改** column_map 加 nim.t 映射 (v2 Q3') |
+| `backend/alembic/versions/s5_3_research_claim_variables.py` | **新建** migration (新表 + net_interest_margin 列 + last_alerted_at) |
+| `backend/app/services/thesis_variable_proposal_service.py` | **新建** LLM + dedup + audit |
+| `backend/app/services/thesis_variable_sync_service.py` | **改** 字段名 + 保留 threshold (v2 Q1') |
+| `backend/app/services/thesis_monitor_service.py` | 加 `check_claim_variables` + source routing + 多期 + 持仓过滤 + per-var try/except + last_alerted_at dedup |
+| `backend/app/routers/research.py` (或新 router) | approve/reject/PATCH/list endpoints + audit |
+| `backend/app/routers/cockpit.py` | 加 claim-variables-pending endpoint (含 last_proposal) |
+| `backend/app/core/event_handlers.py` | ResearchRunCompleted + ThesisAlertTriggered handler |
+| `backend/app/core/events.py` | ClaimVariablesProposed + ThesisAlertTriggered |
+| `backend/app/scheduler.py` | 新建独立 `thesis_evaluation_job` (v2 Q6'-A2,不寄生 alert_evaluation_job) |
 | `backend/tests/test_thesis_variable_proposal_service.py` | **新建** |
 | `backend/tests/test_thesis_monitor_claim_variables.py` | **新建** |
-| `frontend/src/api/client.ts` | approve/reject/listClaimVariables API |
-| `frontend/src/api/types.ts` | ResearchClaimVariable 类型 |
+| `backend/tests/test_research_claim_variables_api.py` | **新建** |
+| `backend/tests/test_scheduler_thesis_job.py` | **新建** (v2) |
+| `frontend/src/api/client.ts` | approve/reject/PATCH/listClaimVariables API |
+| `frontend/src/api/types.ts` | ResearchClaimVariable + breach_when + last_proposal 类型 |
 | `frontend/src/features/stock/ClaimVariablesCard.tsx` | **新建** |
-| `frontend/src/features/stock/EditClaimVariableModal.tsx` | **新建** |
-| `frontend/src/features/cockpit/PendingClaimVariablesBadge.tsx` | **新建** |
+| `frontend/src/features/stock/EditClaimVariableModal.tsx` | **新建** (proposed/active 两态) |
+| `frontend/src/features/cockpit/PendingClaimVariablesBadge.tsx` | **新建** (red/yellow 双态 + 30s polling) |
 | `frontend/src/pages/StockDetailPage.tsx` (或 features/stock) | 挂 ClaimVariablesCard |
 | `frontend/src/features/cockpit/CockpitPage.tsx` | 挂 badge |
 | `docs/progress/STATUS.md` | 完成后标 P2 (新) ship |
 
-## 实施前 spike 建议
+## 实施前 spike 建议 (v2)
 
 下次实施会话第一步应该 spike `thesis_variable_proposal_service` 真实跑一次 (用 run 8 的 claims):
-- 验证 LLM 输出 schema 可解析
-- 看实际提议数量 + source 分布
+- 验证 LLM 输出 schema 可解析 (含 `breach_when` 字段)
+- **v2 重点**: 看信号文本 `<` / `>` 翻译成 `breach_when` 的正确率 (≥80% 算 prompt 过关)
+- 看实际提议数量 + source 分布 (NIM 提议比例)
 - 看误判率 (LLM 编阈值 vs 合理提议)
+- 验证业务级 dedup 跨 run 是否生效
 
 spike 结果会影响 LLM prompt 微调,避免实施时返工。
+
+## v2 grill-me 会话决策日志 (2026-06-16)
+
+二次 grill-me 会话产出 14 项决策(详见各章节"v2"标记):
+
+1. **Q1' schema 统一** — `thesis_variables_json` 3 套 schema 标准化为 monitor schema + 修 `sync_stock` 字段名 + 保留 threshold
+2. **Q3' NIM 列** — `FinancialStatement` 加 `net_interest_margin` + pipeline 持久化(Lixinger 已在拉)
+3. **Q4' 翻转双源不复制** — `research_claim_variables` 表与 `thesis_variables_json` 各为真相源,monitor 双 check 函数;原 Q4-A"approve 时复制"作废
+4. **breach_when 机械字段** — `lt`/`gt` 字面对齐 signal 文本,替代易错的 `direction`
+5. **window_periods 多期检查** — v1 真实现拉过去 N 期连续 breach 检查
+6. **propose 业务级 dedup + DB UniqueConstraint** — 同 (stock, name, source) 已有 proposed/active 时 skip
+7. **过滤 open holdings** — check_claim_variables INNER JOIN holdings WHERE sell_date IS NULL
+8. **per-var try/except 隔离** — 单 source 失败不影响整批,summary 报 checked/breached/failed
+9. **Q6' 独立 thesis_evaluation_job + last_alerted_at 7 天 dedup** — 不寄生 alert_evaluation_job
+10. **告警三处落地** — audit_log (同步) + EventBus ThesisAlertTriggered + notification_service.send
+11. **LLM 失败 UX** — audit_log + Cockpit red/yellow badge
+12. **PATCH endpoint** — active var 可编辑 threshold/breach_when/window_periods
+13. **TanStack 30s polling** — 不引入 SSE 基础设施
+14. **migration 命名 s5_3_** — 接 s5_1 / s5_2 链

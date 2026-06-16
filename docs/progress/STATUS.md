@@ -2,19 +2,19 @@
 
 > **此文档是项目当前状态的真实来源。AI 代理应首先阅读此文件。**
 >
-> | 字段 | 值 (实测于 2026-06-16) |
+> | 字段 | 值 (实测于 2026-06-17) |
 > |---|---|
-> | 最后更新 | 2026-06-16 (Phase 2 #10 Run diff 上线后) |
+> | 最后更新 | 2026-06-17 (Phase 2 #9 阶段 B v2 thesis monitor 上线后) |
 > | 分支 | `master` |
-> | 最新 commit | `10deab7 feat(research): Phase 2 #10 Run diff 前端 (HistoryTab + Drawer + Panel)` |
-> | 测试 | **1030 passed**, 0 failed (`pytest`) |
-> | 测试函数数 | 1030 (1019 + research_diff_service 11 个) |
-> | Alembic head | `s4_research_claims` |
-> | Alembic 版本文件数 | 23 |
-> | 后端代码 | ~22,500 行 (app/) + ~9,200 行 (tests/) |
-> | 前端代码 | ~11,600 行 (src/) |
+> | 最新 commit | (未提交,working tree 有 Phase 2 #9 阶段 B v2 完整实现) |
+> | 测试 | **1063 passed**, 0 failed (`pytest`) |
+> | 测试函数数 | 1063 (1030 baseline + claim variable 新增 33: proposal 6 + monitor 13 + api 14) |
+> | Alembic head | `s5_3_claim_variables` |
+> | Alembic 版本文件数 | 24 |
+> | 后端代码 | ~23,500 行 (app/) + ~9,800 行 (tests/) |
+> | 前端代码 | ~12,200 行 (src/) |
 > | 远程仓库 | 暂无 (`git remote -v` 为空) |
-> | 真实使用 | **0 holdings / 6 trades / 220 drafts (全 pending) / 264 active candidates / 8 research_runs (含 Phase 2 #9 + Phase 2 #10 ship) / 3 backtests (全 0 metrics)** |
+> | 真实使用 | **1 holdings / 6 trades / 220 drafts (全 pending) / 264 active candidates / 8 research_runs (含 Phase 2 #9 阶段 A + B + Phase 2 #10 ship) / 3 backtests / 8 research_claim_variables (2 active / 1 proposed / 5 rejected by test)** |
 
 ---
 
