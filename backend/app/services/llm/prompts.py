@@ -32,7 +32,19 @@ def build_system_prompt(max_searches: int) -> str:
    - evidence_summary(证据摘要)
    - main_risk(主要风险)
 7. 列失败条件 (≥3 条): 什么情况说明这个判断错了
+   **structured 要求**: 每条必须是 {{subject, predicate, signal, outcome, stock_codes, layer_index}}
+   - subject: 失败条件针对的对象 (e.g. "银行IT预算")
+   - predicate: 主体发生什么变化 (e.g. "大幅缩减")
+   - signal: 可观察量化信号,**强烈推荐填** (e.g. "订单下滑超20%" / "净息差>2%"); 无量化信号时 null
+   - outcome: 后果 (e.g. "信创替代进度明显放缓")
+   - stock_codes: 受影响的 A 股代码数组 (6 位),无具体公司时空数组 []
+   - layer_index: 受影响的层 (1-8),无具体层时 null
 8. 列下一步验证 (≥3 条): 用户该查什么具体文档/数据
+   **structured 同 #7 schema**: {{subject, predicate, signal, outcome, stock_codes, layer_index}}
+   - subject: 要追踪的对象 (e.g. "央行数字人民币运营数据")
+   - predicate: 用户该做的动作 (e.g. "跟踪" / "查阅")
+   - signal: 可观察量化指标 (e.g. "钱包开立数")
+   - outcome: 验证目标 (e.g. "验证第4层芯片需求增速")
 
 # 强制约束
 
@@ -179,12 +191,78 @@ SERENITY_RESEARCH_JSON_SCHEMA: dict[str, Any] = {
         "failure_conditions": {
             "type": "array",
             "minItems": 3,
-            "items": {"type": "string"},
+            "description": "失败条件:什么场景说明这个判断错了 (structured)",
+            "items": {
+                "type": "object",
+                "required": ["subject", "predicate", "outcome"],
+                "properties": {
+                    "subject": {
+                        "type": "string",
+                        "description": "主体 — 失败条件针对的对象,如「银行IT预算」/「紫光国微金融芯片业务收入」",
+                    },
+                    "predicate": {
+                        "type": "string",
+                        "description": "动作或事件 — 主体发生什么变化,如「大幅缩减」/「增速转负」",
+                    },
+                    "signal": {
+                        "type": ["string", "null"],
+                        "description": "可观察的量化信号 (可选,但强烈推荐)。如「订单下滑超20%」/「净息差回升至2%以上」/「连续两季下滑」。无量化信号时填 null",
+                    },
+                    "outcome": {
+                        "type": "string",
+                        "description": "后果 — 该变化导致什么逻辑失效,如「信创替代进度明显放缓」/「第4层稀缺性逻辑失效」",
+                    },
+                    "stock_codes": {
+                        "type": "array",
+                        "items": {"type": "string", "pattern": r"^\d{6}$"},
+                        "description": "受影响的 A 股代码列表 (6 位),无具体公司时填空数组 []",
+                    },
+                    "layer_index": {
+                        "type": ["integer", "null"],
+                        "minimum": 1,
+                        "maximum": 8,
+                        "description": "受影响的价值链层 (1-8),无具体层时填 null",
+                    },
+                },
+            },
         },
         "next_steps": {
             "type": "array",
             "minItems": 3,
-            "items": {"type": "string"},
+            "description": "下一步验证:用户该查什么具体文档/数据 (structured,同 failure_conditions schema)",
+            "items": {
+                "type": "object",
+                "required": ["subject", "predicate", "outcome"],
+                "properties": {
+                    "subject": {
+                        "type": "string",
+                        "description": "主体 — 要追踪的对象,如「央行数字人民币运营数据」/「长亮科技季度合同负债」",
+                    },
+                    "predicate": {
+                        "type": "string",
+                        "description": "动作 — 用户应该做什么,如「跟踪」/「查阅」/「监测」",
+                    },
+                    "signal": {
+                        "type": ["string", "null"],
+                        "description": "可观察的量化指标 (可选),如「钱包开立数」/「合同负债环比」",
+                    },
+                    "outcome": {
+                        "type": "string",
+                        "description": "验证目标 — 该动作验证什么,如「验证第4层芯片需求增速」/「验证信创替代订单持续性」",
+                    },
+                    "stock_codes": {
+                        "type": "array",
+                        "items": {"type": "string", "pattern": r"^\d{6}$"},
+                        "description": "相关 A 股代码 (6 位),无具体公司时填空数组 []",
+                    },
+                    "layer_index": {
+                        "type": ["integer", "null"],
+                        "minimum": 1,
+                        "maximum": 8,
+                        "description": "相关价值链层 (1-8),无具体层时填 null",
+                    },
+                },
+            },
         },
     },
 }

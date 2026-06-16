@@ -104,8 +104,26 @@ def _valid_llm_output() -> dict:
              "constrains_what": "环节3", "chain_position": "层7",
              "rank_reason": "原因", "evidence_summary": "证据", "main_risk": "风险"},
         ],
-        "failure_conditions": ["需求放缓"],
-        "next_steps": ["查年报"],
+        "failure_conditions": [
+            {
+                "subject": "需求",
+                "predicate": "放缓",
+                "signal": "订单下滑>20%",
+                "outcome": "稀缺层逻辑失效",
+                "stock_codes": ["300348"],
+                "layer_index": 2,
+            }
+        ],
+        "next_steps": [
+            {
+                "subject": "年报",
+                "predicate": "查阅",
+                "signal": None,
+                "outcome": "验证业务进展",
+                "stock_codes": [],
+                "layer_index": None,
+            }
+        ],
     }
 
 

@@ -10,6 +10,7 @@ Maps JSON output from submit_research tool call to ORM rows:
 """
 from __future__ import annotations
 
+import json
 import logging
 from datetime import date
 from typing import Any
@@ -19,6 +20,7 @@ from sqlalchemy.orm import Session
 from app.models.research_company_ranking import ResearchCompanyRanking
 from app.models.research_company_universe import ResearchCompanyUniverse
 from app.models.research_evidence import ResearchEvidence
+from app.models.research_claim import ResearchClaim
 from app.models.research_run import ResearchRun
 from app.models.scarce_layer import ScarceLayer
 from app.models.value_chain_layer import ValueChainLayer
@@ -150,16 +152,117 @@ def persist_research_result(
             main_risk_md=r["main_risk"],
         ))
 
-    # 6) Run-level markdown summaries
+    # 6) Run-level markdown summaries + structured claims (Phase 2 #9)
     run.system_change_md = result["system_change"]
-    run.failure_conditions_md = "\n".join(
-        f"{i+1}. {fc}" for i, fc in enumerate(result["failure_conditions"])
+
+    failure_claims = _persist_claims(
+        db, run.id, result["failure_conditions"], "failure_condition"
     )
-    run.next_steps_md = "\n".join(
-        f"{i+1}. {ns}" for i, ns in enumerate(result["next_steps"])
+    next_step_claims = _persist_claims(
+        db, run.id, result["next_steps"], "next_step"
     )
+    # Derive backward-compat md from structured claims (Q5 双写决策)
+    run.failure_conditions_md = _derive_md(failure_claims)
+    run.next_steps_md = _derive_md(next_step_claims)
 
     db.flush()
+
+
+def _persist_claims(
+    db: Session,
+    run_id: int,
+    raw_claims: list[Any],
+    claim_type: str,
+) -> list[ResearchClaim]:
+    """Persist list of structured claim dicts to research_claims table.
+
+    Each claim must have: subject / predicate / outcome (required)
+    Optional: signal / stock_codes / layer_index
+
+    Returns the list of persisted ResearchClaim ORM rows (used by caller
+    to derive md).
+
+    Raises ResearchPersistenceError on missing required fields.
+    """
+    persisted: list[ResearchClaim] = []
+    for i, raw in enumerate(raw_claims):
+        # Tolerate legacy string format (defensive — shouldn't happen post-Q19)
+        if isinstance(raw, str):
+            logger.warning(
+                "Claim type=%s position=%d is bare string (legacy?), wrapping",
+                claim_type, i,
+            )
+            raw = {
+                "subject": "(未结构化)",
+                "predicate": "(legacy)",
+                "outcome": raw,
+            }
+
+        _require_fields(raw, ["subject", "predicate", "outcome"])
+
+        stock_codes = _validate_stock_codes(raw.get("stock_codes"))
+        layer_idx = raw.get("layer_index")
+        if layer_idx is not None and not (1 <= int(layer_idx) <= 8):
+            logger.warning(
+                "Claim type=%s position=%d has invalid layer_index=%r, setting None",
+                claim_type, i, layer_idx,
+            )
+            layer_idx = None
+
+        claim = ResearchClaim(
+            research_run_id=run_id,
+            type=claim_type,
+            position=i,
+            subject=raw["subject"],
+            predicate=raw["predicate"],
+            signal=raw.get("signal"),
+            outcome=raw["outcome"],
+            stock_codes_json=json.dumps(stock_codes, ensure_ascii=False),
+            layer_index=int(layer_idx) if layer_idx is not None else None,
+        )
+        db.add(claim)
+        persisted.append(claim)
+    return persisted
+
+
+def _validate_stock_codes(raw: Any) -> list[str]:
+    """Validate and normalize A-share 6-digit stock codes.
+
+    Drops entries that don't match ^\\d{6}$. Logs warn for each dropped.
+    """
+    import re
+    if not raw:
+        return []
+    if not isinstance(raw, list):
+        logger.warning("stock_codes not a list: %r, returning []", raw)
+        return []
+    pattern = re.compile(r"^\d{6}$")
+    valid: list[str] = []
+    for code in raw:
+        if isinstance(code, str) and pattern.match(code):
+            valid.append(code)
+        else:
+            logger.warning("Dropping invalid stock_code=%r", code)
+    return valid
+
+
+def _derive_md(claims: list[ResearchClaim]) -> str:
+    """Derive backward-compat markdown from structured claims.
+
+    Format: "{position}. {subject}{predicate}" + optional "({signal})" + ",{outcome}"
+    """
+    if not claims:
+        return ""
+    lines: list[str] = []
+    for i, c in enumerate(claims):
+        parts = [c.subject, c.predicate]
+        line = "".join(p for p in parts if p)
+        if c.signal:
+            line += f"({c.signal})"
+        if c.outcome:
+            line += f",{c.outcome}" if line else c.outcome
+        lines.append(f"{i+1}. {line}")
+    return "\n".join(lines)
 
 
 def _require_fields(d: dict[str, Any], required: list[str]) -> None:

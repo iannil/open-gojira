@@ -63,8 +63,22 @@ def valid_llm_output():
              "main_risk": f"风险{i}"}
             for i in range(1, 6)  # 3-7
         ],
-        "failure_conditions": ["需求放缓", "竞品扩产", "估值已涨"],
-        "next_steps": ["查年报", "查订单", "查客户认证"],
+        "failure_conditions": [
+            {"subject": "需求", "predicate": "放缓", "signal": "订单下滑>20%",
+             "outcome": "稀缺层逻辑失效", "stock_codes": ["300001"], "layer_index": 4},
+            {"subject": "竞品", "predicate": "扩产", "signal": None,
+             "outcome": "稀缺性消失", "stock_codes": [], "layer_index": None},
+            {"subject": "估值", "predicate": "已涨", "signal": "PE>50",
+             "outcome": "安全边际不足", "stock_codes": [], "layer_index": None},
+        ],
+        "next_steps": [
+            {"subject": "年报", "predicate": "查阅", "signal": None,
+             "outcome": "验证业务进展", "stock_codes": [], "layer_index": None},
+            {"subject": "订单", "predicate": "查询", "signal": None,
+             "outcome": "验证订单可持续", "stock_codes": [], "layer_index": None},
+            {"subject": "客户认证", "predicate": "跟踪", "signal": None,
+             "outcome": "验证客户黏性", "stock_codes": [], "layer_index": None},
+        ],
     }
 
 
@@ -91,10 +105,25 @@ def test_persist_full_valid_output(db_session, setup_theme_and_stock, valid_llm_
     assert len(evidence) == 30
     assert len(ranking) == 5
 
-    # Markdown fields populated
+    # Markdown fields populated (derived from structured claims)
     assert run.system_change_md == "AI 需求驱动内存互连升级"
     assert "需求放缓" in run.failure_conditions_md
-    assert "查年报" in run.next_steps_md
+    assert "年报查阅" in run.next_steps_md  # derived from {subject:"年报", predicate:"查阅"}
+
+    # Structured claims persisted to research_claims table
+    from app.models.research_claim import ResearchClaim
+    claims = db_session.query(ResearchClaim).filter(
+        ResearchClaim.research_run_id == run.id
+    ).all()
+    assert len(claims) == 6  # 3 failure + 3 next_step
+    failure_claims = [c for c in claims if c.type == "failure_condition"]
+    assert len(failure_claims) == 3
+    assert failure_claims[0].subject == "需求"
+    assert failure_claims[0].predicate == "放缓"
+    assert failure_claims[0].signal == "订单下滑>20%"
+    assert failure_claims[0].outcome == "稀缺层逻辑失效"
+    assert "300001" in (failure_claims[0].stock_codes_json or "[]")
+    assert failure_claims[0].layer_index == 4
 
 
 def test_persist_rejects_insufficient_companies(db_session, setup_theme_and_stock, valid_llm_output):

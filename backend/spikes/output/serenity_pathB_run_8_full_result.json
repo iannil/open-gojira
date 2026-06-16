@@ -1,0 +1,696 @@
+{
+  "system_change": "巴塞尔协议III落地叠加利率市场化深化，驱动银行资本约束趋严与净息差历史性收窄至1.53%，迫使银行业加速向资本效率优化、数字化转型与中间业务转型，催生金融安全芯片、核心系统信创替代与风控合规升级的稀缺性瓶颈",
+  "value_chain": [
+    {
+      "layer_index": 1,
+      "name": "下游客户",
+      "description": "零售与对公银行客户（存款人、信贷需求方、理财客户、支付用户），银行本身作为金融服务的需求入口与资本约束主体"
+    },
+    {
+      "layer_index": 2,
+      "name": "系统集成",
+      "description": "银行核心业务系统与数字化平台（核心银行系统、手机银行APP、开放银行API平台、信创核心系统替换）"
+    },
+    {
+      "layer_index": 3,
+      "name": "模块子系统",
+      "description": "风控决策引擎、合规科技模块、绿色金融认证系统、财富管理平台、反洗钱与资本计量模块"
+    },
+    {
+      "layer_index": 4,
+      "name": "芯片器件",
+      "description": "金融安全芯片、国密算法芯片、银行IC卡芯片、支付终端加密模块、硬件安全模块(HSM)"
+    },
+    {
+      "layer_index": 5,
+      "name": "工艺封装测试",
+      "description": "银行IT系统集成测试、安全认证、合规审计与验收、信创适配测试、等保测评"
+    },
+    {
+      "layer_index": 6,
+      "name": "设备与计量",
+      "description": "信创服务器、金融终端设备(ATM/POS)、数据中心网络设备、国产CPU与存储"
+    },
+    {
+      "layer_index": 7,
+      "name": "材料耗材",
+      "description": "云计算资源、AI算力、数据标注与处理服务、网络安全服务、金融数据API"
+    },
+    {
+      "layer_index": 8,
+      "name": "物理基建",
+      "description": "数据中心机房、银行网点物业、通信网络基础设施、灾备中心"
+    }
+  ],
+  "scarce_layers": [
+    {
+      "rank": 1,
+      "layer_index": 4,
+      "reason": "金融安全芯片高度集中，紫光国微等少数厂商垄断银行IC卡芯片与国密算法芯片市场，需通过国密局认证与银联认证双重壁垒，新进入者需3-5年认证周期，且银行切换成本极高",
+      "difficulty": "high"
+    },
+    {
+      "rank": 2,
+      "layer_index": 2,
+      "reason": "银行核心系统信创替代需求巨大（2024-2027年集中替换期），能承接大型银行核心系统替换的供应商极少（恒生电子、长亮科技等），客户粘性极强，替换周期2-3年，失败成本极高",
+      "difficulty": "high"
+    },
+    {
+      "rank": 3,
+      "layer_index": 3,
+      "reason": "巴塞尔III资本新规要求银行全面升级风控与资本计量系统，具备深度银行风控领域知识与监管合规经验的供应商稀缺，系统复杂度高且定制化需求强",
+      "difficulty": "medium"
+    },
+    {
+      "rank": 4,
+      "layer_index": 6,
+      "reason": "信创服务器供应链集中度较高，国产CPU（海光/鲲鹏/飞腾）产能受限，金融行业对稳定性和性能要求极高，合格供应商有限",
+      "difficulty": "medium"
+    }
+  ],
+  "company_universe": [
+    {
+      "stock_code": "601398",
+      "name": "工商银行",
+      "layer_index": 1,
+      "classification": "benefits",
+      "note": "全球资产最大银行，资本新规一档监管，差异化资本要求降低合规成本"
+    },
+    {
+      "stock_code": "601288",
+      "name": "农业银行",
+      "layer_index": 1,
+      "classification": "benefits",
+      "note": "县域金融护城河深厚，三农业务不可替代，存款成本优势显著"
+    },
+    {
+      "stock_code": "601939",
+      "name": "建设银行",
+      "layer_index": 1,
+      "classification": "benefits",
+      "note": "基建贷款龙头，普惠金融投放领先，资本新规下风险权重优化"
+    },
+    {
+      "stock_code": "601166",
+      "name": "兴业银行",
+      "layer_index": 1,
+      "classification": "controls",
+      "note": "绿色金融绝对龙头，2006年先行布局，绿色贷款不良率远低于对公平均，先发壁垒深厚"
+    },
+    {
+      "stock_code": "600036",
+      "name": "招商银行",
+      "layer_index": 1,
+      "classification": "controls",
+      "note": "零售银行生态护城河，财富管理AUM领先，客户粘性与定价权强"
+    },
+    {
+      "stock_code": "601838",
+      "name": "成都银行",
+      "layer_index": 1,
+      "classification": "benefits",
+      "note": "成渝区域优势显著，资产质量优异，基建与政务业务占比高"
+    },
+    {
+      "stock_code": "601128",
+      "name": "常熟银行",
+      "layer_index": 1,
+      "classification": "benefits",
+      "note": "小微金融模式标杆，IPC技术体系成熟，息差韧性优于同业"
+    },
+    {
+      "stock_code": "002142",
+      "name": "宁波银行",
+      "layer_index": 1,
+      "classification": "benefits",
+      "note": "城商行盈利能力标杆，风控体系优异，不良率长期低于1%"
+    },
+    {
+      "stock_code": "300348",
+      "name": "长亮科技",
+      "layer_index": 2,
+      "classification": "supplies",
+      "note": "银行核心系统信创替代核心供应商，已服务多家股份行与城商行核心系统替换"
+    },
+    {
+      "stock_code": "300674",
+      "name": "宇信科技",
+      "layer_index": 2,
+      "classification": "supplies",
+      "note": "银行IT解决方案领先供应商，信贷与数据中台业务占比高"
+    },
+    {
+      "stock_code": "000555",
+      "name": "神州信息",
+      "layer_index": 2,
+      "classification": "supplies",
+      "note": "银行IT集成服务商，农业银行核心系统长期合作伙伴"
+    },
+    {
+      "stock_code": "600570",
+      "name": "恒生电子",
+      "layer_index": 2,
+      "classification": "controls",
+      "note": "金融IT绝对龙头，核心交易系统与大资管系统市占率领先，定价权强"
+    },
+    {
+      "stock_code": "002368",
+      "name": "太极股份",
+      "layer_index": 2,
+      "classification": "supplies",
+      "note": "信创集成商，政务与金融信创项目经验丰富"
+    },
+    {
+      "stock_code": "300380",
+      "name": "安硕信息",
+      "layer_index": 3,
+      "classification": "supplies",
+      "note": "银行信贷风控系统专业供应商，信贷管理系统市占率领先"
+    },
+    {
+      "stock_code": "300872",
+      "name": "天阳科技",
+      "layer_index": 3,
+      "classification": "supplies",
+      "note": "银行风控IT与信用卡系统解决方案供应商"
+    },
+    {
+      "stock_code": "300663",
+      "name": "科蓝软件",
+      "layer_index": 3,
+      "classification": "supplies",
+      "note": "互联网银行系统与手机银行解决方案供应商"
+    },
+    {
+      "stock_code": "002049",
+      "name": "紫光国微",
+      "layer_index": 4,
+      "classification": "controls",
+      "note": "金融安全芯片龙头，银行IC卡芯片与国密算法芯片垄断地位，银联认证壁垒极高"
+    },
+    {
+      "stock_code": "688041",
+      "name": "海光信息",
+      "layer_index": 4,
+      "classification": "supplies",
+      "note": "国产CPU供应商，x86兼容架构，金融信创服务器核心芯片来源"
+    },
+    {
+      "stock_code": "603019",
+      "name": "中科曙光",
+      "layer_index": 6,
+      "classification": "supplies",
+      "note": "信创服务器与高性能计算供应商，金融行业算力基础设施"
+    },
+    {
+      "stock_code": "000977",
+      "name": "浪潮信息",
+      "layer_index": 6,
+      "classification": "supplies",
+      "note": "服务器龙头，金融行业服务器市占率领先"
+    },
+    {
+      "stock_code": "000066",
+      "name": "中国长城",
+      "layer_index": 6,
+      "classification": "supplies",
+      "note": "PKS信创体系（飞腾CPU+麒麟OS），金融信创整机供应商"
+    },
+    {
+      "stock_code": "300454",
+      "name": "深信服",
+      "layer_index": 7,
+      "classification": "supplies",
+      "note": "金融网络安全与云计算服务供应商，零信任架构领先"
+    },
+    {
+      "stock_code": "002439",
+      "name": "启明星辰",
+      "layer_index": 7,
+      "classification": "supplies",
+      "note": "金融安全基础设施供应商，数据安全与态势感知"
+    },
+    {
+      "stock_code": "603927",
+      "name": "中科软",
+      "layer_index": 5,
+      "classification": "supplies",
+      "note": "保险与银行IT测试集成服务商，金融行业定制化开发"
+    }
+  ],
+  "evidence": [
+    {
+      "source_url": "https://www.bbtnews.com.cn/2023/1101/494006.shtml",
+      "source_title": "构建差异化资本监管体系 商业银行资本管理办法发布",
+      "source_type": "regulator_doc",
+      "grade": "strong",
+      "published_at": "2023-11-01",
+      "stock_code": "601398",
+      "summary": "金融监管总局发布《商业银行资本管理办法》，自2024年1月1日起实施，构建差异化资本监管体系，分三档监管降低中小银行合规成本，全面修订风险加权资产计量规则"
+    },
+    {
+      "source_url": "https://zhuanlan.zhihu.com/p/664620310",
+      "source_title": "商业银行资本管理办法明年正式实施：强化资本作为指挥棒作用",
+      "source_type": "media",
+      "grade": "medium",
+      "published_at": "2023-11-02",
+      "stock_code": "601398",
+      "summary": "资本新规正式稿完善了风险权重校准，优化表外业务信用转换系数，设置过渡期安排，银行资本充足水平总体稳定但单家银行因资产类别差异导致资本充足率小幅变化"
+    },
+    {
+      "source_url": "https://zhuanlan.zhihu.com/p/664576957",
+      "source_title": "金融监管总局重磅发布资本新规",
+      "source_type": "media",
+      "grade": "medium",
+      "published_at": "2023-11-01",
+      "stock_code": "601398",
+      "summary": "商业银行杠杆率不得低于4%，系统重要性银行需满足附加杠杆率要求，资本新规实施后银行业资本充足水平总体稳定，平均资本充足率稳中有升"
+    },
+    {
+      "source_url": "https://www.cnafc.org/cnafc/front/detail.action?id=8A3C665598984BB2910334647C6C34D1",
+      "source_title": "《商业银行资本管理办法（征求意见稿）》变化与影响简析",
+      "source_type": "regulator_doc",
+      "grade": "strong",
+      "published_at": "2023-02-01",
+      "stock_code": "601166",
+      "summary": "新巴塞尔协议III总体监管框架在中国落地，银行分三档监管，风险资产权重调整引导信贷向审慎客户倾斜，同业业务空转成本上升，投资端风险权重计量标准变化影响银行资产配置"
+    },
+    {
+      "source_url": "https://www.163.com/dy/article/IIGIFN3N0519QIKK.html",
+      "source_title": "金融监管总局重磅发布！明年1月起实施，有何影响？",
+      "source_type": "media",
+      "grade": "medium",
+      "published_at": "2023-11-02",
+      "stock_code": "601398",
+      "summary": "现行资本管理办法已实施近10年，新规依据经济金融形势和银行业务模式变化调整，将巴塞尔协议III监管要求在中国落地实施"
+    },
+    {
+      "source_url": "http://finance.eastmoney.com/a/202512273603596612.html",
+      "source_title": "央行发布《中国金融稳定报告（2025）》",
+      "source_type": "regulator_doc",
+      "grade": "strong",
+      "published_at": "2025-12-27",
+      "stock_code": "601398",
+      "summary": "央行金融稳定报告指出金融风险整体收敛可控，持续防范化解重点领域风险，加强房地产金融宏观审慎管理，稳妥完善房地产信贷政策，推进融资平台债务风险化解"
+    },
+    {
+      "source_url": "https://www.sohu.com/a/969724836_313745",
+      "source_title": "央行：防范化解重点领域金融风险，做好房地产金融宏观审慎管理",
+      "source_type": "media",
+      "grade": "medium",
+      "published_at": "2025-12-26",
+      "stock_code": "601398",
+      "summary": "央行报告强调加大逆周期和跨周期调节力度，保持流动性充裕，促进社会综合融资成本低位运行，坚定推进金融支持融资平台债务风险化解"
+    },
+    {
+      "source_url": "https://www.163.com/dy/article/KHO00K4L0534A4SC.html",
+      "source_title": "央行：坚定推进金融支持融资平台债务风险化解工作",
+      "source_type": "media",
+      "grade": "medium",
+      "published_at": "2025-12-26",
+      "stock_code": "601939",
+      "summary": "央行金融稳定报告提出促进经济稳定增长、物价合理回升作为货币政策重要考量，保持流动性充裕，坚定推进融资平台债务风险化解"
+    },
+    {
+      "source_url": "http://www.cs.com.cn/xwzx/hg/202304/t20230420_6338796.html",
+      "source_title": "央行邹澜：持续发挥好存款利率市场化调整机制的重要作用",
+      "source_type": "regulator_doc",
+      "grade": "strong",
+      "published_at": "2023-04-20",
+      "stock_code": "601288",
+      "summary": "央行指导利率自律机制建立存款利率市场化调整机制，引导银行参考市场利率变化合理调整存款利率，大型银行率先调整、中小银行跟进，保持合理息差实现稳健经营"
+    },
+    {
+      "source_url": "https://www.163.com/dy/article/IE10DTAE0512D71I.html",
+      "source_title": "存款利率第三轮下调 银行净息差或将企稳",
+      "source_type": "media",
+      "grade": "medium",
+      "published_at": "2023-09-07",
+      "stock_code": "601398",
+      "summary": "6家国有大行及12家股份行同时调整存款利率，为去年9月以来第三轮下调，中长期存款利率下调幅度更大，商业银行净息差有望趋于企稳"
+    },
+    {
+      "source_url": "https://zhuanlan.zhihu.com/p/635766485",
+      "source_title": "多家银行开启新一轮存款利率下调——降低实体经济融资成本",
+      "source_type": "media",
+      "grade": "medium",
+      "published_at": "2023-06-09",
+      "stock_code": "601288",
+      "summary": "6家大型商业银行下调人民币存款挂牌利率，存款利率市场化调整机制引导银行参考市场利率变化调整存款利率，银行自身也有调整需求以缓解息差压力"
+    },
+    {
+      "source_url": "https://finance.sina.com.cn/wm/2023-08-22/doc-imziaace4577552.shtml",
+      "source_title": "银行的宿命：窄息差生存",
+      "source_type": "trade_pub",
+      "grade": "medium",
+      "published_at": "2023-08-22",
+      "stock_code": "601398",
+      "summary": "国内国际银行业净息差收窄是趋势性变化，六大国有银行2022年净息差普遍下降10-23个基点，工行1.73%、农行1.73%、建行1.82%，长期需扩大非息收入比重"
+    },
+    {
+      "source_url": "https://cs.com.cn/hw2020/202404/t20240408_6400001.html",
+      "source_title": "长期低于0.6% 日本银行业突围净息差之困",
+      "source_type": "trade_pub",
+      "grade": "medium",
+      "published_at": "2024-04-08",
+      "stock_code": "601398",
+      "summary": "国内贷款利率已降至历史低位，银行净息差降至过去二十年最低水平，国有六大行2023年仅邮储银行净息差超2%，工行1.61%、建行1.70%、农行1.60%，均低于1.8%合意临界值"
+    },
+    {
+      "source_url": "https://xueqiu.com/7008740620/328919289",
+      "source_title": "上海农商银行徐力：关于低息差环境下中小银行高质量发展的思考",
+      "source_type": "trade_pub",
+      "grade": "medium",
+      "published_at": "2025-03-24",
+      "stock_code": "601128",
+      "summary": "截至2024年9月末银行业净息差已降至1.53%历史最低水平，较2010年高点下降124BP，远低于1.8%警戒线，低息差环境下中小银行面临紧迫转型压力"
+    },
+    {
+      "source_url": "http://www.zichanjie.com/article/696737.html",
+      "source_title": "多维度发力 多管齐下：兴业银行持续擦亮'绿色金融'名片",
+      "source_type": "media",
+      "grade": "medium",
+      "published_at": "2023-01-01",
+      "stock_code": "601166",
+      "summary": "兴业银行是绿色金融先行者与佼佼者，券商分析称其已领先股份制同业半个身位，绿色低碳转型推动金融业迈上第二增长曲线"
+    },
+    {
+      "source_url": "http://mp.weixin.qq.com/s?__biz=MzIzNDUyNTg1Ng==&mid=2247484025&idx=1&sn=6a61fa67cefa8b0165d74015c66e07f6",
+      "source_title": "兴业银行电话交流：绿色银行的优势和壁垒",
+      "source_type": "transcript",
+      "grade": "strong",
+      "published_at": "2023-01-01",
+      "stock_code": "601166",
+      "summary": "兴业银行IR表示绿色贷款不良率远低于全行对公贷款不良率不到1%，绿色贷款加权平均利率与全行对公贷款基本持平，2006年进入绿色金融积累了丰富项目经验与可持续商业模式"
+    },
+    {
+      "source_url": "https://xueqiu.com/1929348381/168224594",
+      "source_title": "兴业银行是我国绿色金融领域的领军者",
+      "source_type": "social_lead",
+      "grade": "lead",
+      "published_at": "2021-01-10",
+      "stock_code": "601166",
+      "summary": "央行行长易纲提出发挥金融支持绿色发展三大功能，构建政策激励约束体系，增加碳减排优惠贷款投放，科学设置绿色资产风险权重，对兴业银行绿色金融龙头地位形成政策利好"
+    },
+    {
+      "source_url": "http://fzr.ahnews.com.cn/news/2022/01/18/c_180560.htm",
+      "source_title": "农行岳西县支行发挥金融优势助力乡村振兴",
+      "source_type": "media",
+      "grade": "weak",
+      "published_at": "2022-01-18",
+      "stock_code": "601288",
+      "summary": "农行县域支行全面提升客户服务能力、市场竞争能力、价值创造能力、风险管控能力，将信贷资源向乡村振兴客户倾斜，利用惠农e贷等产品优势"
+    },
+    {
+      "source_url": "https://www.163.com/dy/article/KLDU58N10514R9P4.html",
+      "source_title": "普惠贷款规模占上海地区总量12%！建行上海市分行坚守普惠金融第一线",
+      "source_type": "media",
+      "grade": "medium",
+      "published_at": "2026-02-10",
+      "stock_code": "601939",
+      "summary": "建行上海分行普惠金融贷款规模接近1700亿元，占比上海地区总量12%，近三年累计投放普惠金融贷款超6200亿元，当年新增普惠贷款客户突破12000家"
+    },
+    {
+      "source_url": "https://www.mpaypass.com.cn/news/202512/26113514.html",
+      "source_title": "江阴农商银行风控决策引擎升级改造项目供应商征集",
+      "source_type": "announcement",
+      "grade": "strong",
+      "published_at": "2025-12-26",
+      "stock_code": "300380",
+      "summary": "江阴农商银行风控决策引擎升级改造项目征集供应商，当前存在数据管理效能低下、决策引擎缺乏原始报文存储机制、决策流迭代周期长制约业务敏捷性等问题，亟需系统升级"
+    },
+    {
+      "source_url": "https://xueqiu.com/4114503264/245611219",
+      "source_title": "金融电子化首份私有云报告：易捷行云EasyStack位列第一梯队",
+      "source_type": "trade_pub",
+      "grade": "medium",
+      "published_at": "2023-03-27",
+      "stock_code": "603019",
+      "summary": "129家银行业金融机构参与私有云建设调研，银行业对私有云认可度高，信创云建设是当前及未来关注焦点，平滑迁移是核心需求"
+    },
+    {
+      "source_url": "https://zhuanlan.zhihu.com/p/678703594",
+      "source_title": "引领数智金融，长江计算构建金融新一代超级大脑",
+      "source_type": "trade_pub",
+      "grade": "medium",
+      "published_at": "2024-01-19",
+      "stock_code": "000066",
+      "summary": "金融信创进入攻坚阶段，算力底座成为金融业务运转核心，银保监会2022年指导意见要求加大数据中心基础设施弹性供给、提高自主可控能力，算力市场向实力供应商收拢"
+    },
+    {
+      "source_url": "https://finance.sina.com.cn/stock/stockzmt/2021-02-22/doc-ikftpnny8979153.shtml",
+      "source_title": "规范经营行稳致远：对互联网贷款业务监管通知的点评",
+      "source_type": "media",
+      "grade": "medium",
+      "published_at": "2021-02-22",
+      "stock_code": "600036",
+      "summary": "互联网贷款业务监管框架进一步完善，金融科技实力强、客户资源禀赋突出的银行，以及稳健合规经营的互联网企业有望在变革下转型发展"
+    },
+    {
+      "source_url": "http://mp.weixin.qq.com/s?__biz=MzkzNDI2Mjk5MQ==&mid=2247487997&idx=1&sn=2185828a2ec39d3740d98c9e8416a933",
+      "source_title": "互联网平台企业金融监管专题研究",
+      "source_type": "regulator_doc",
+      "grade": "strong",
+      "published_at": "2023-01-01",
+      "stock_code": "600036",
+      "summary": "平台企业金融业务大部分突出问题已完成整改，金融管理重点从集中整改转入常态化监管，对蚂蚁集团等处以罚款，互联网平台金融业务发展与监管制度框架初步形成"
+    },
+    {
+      "source_url": "https://jrh.financeun.com/index.php/Detail/index/aid/136594.html",
+      "source_title": "金融监管总局为银行互联网助贷业务划出红线",
+      "source_type": "regulator_doc",
+      "grade": "strong",
+      "published_at": "2025-04-03",
+      "stock_code": "600036",
+      "summary": "金融监管总局发布互联网助贷业务管理通知，为银行互联网助贷业务划出监管红线，规范平台运营机构与银行合作模式，压实银行主体责任"
+    },
+    {
+      "source_url": "http://mp.weixin.qq.com/s?__biz=MzUzOTE1MjcxMA==&mid=2247570971&idx=2&sn=9efa63f2640161aac4f12b44c4f79029",
+      "source_title": "建行谢晓雪：硅谷银行破产事件给商业银行的启示",
+      "source_type": "trade_pub",
+      "grade": "medium",
+      "published_at": "2023-03-01",
+      "stock_code": "601939",
+      "summary": "建行信贷管理部分析硅谷银行破产原因，强调银行应管理好资产负债结构，避免资产负债来源过于单一，强化流动性风险管理"
+    },
+    {
+      "source_url": "http://www.ce.cn/macro/more/202304/14/t20230414_38497602.shtml",
+      "source_title": "浙商银行原行长刘晓春：硅谷银行事件的分析和启示",
+      "source_type": "trade_pub",
+      "grade": "medium",
+      "published_at": "2023-04-14",
+      "stock_code": "601398",
+      "summary": "硅谷银行事件启示：银行支持实体经济应先关注自身风险，特色经营策略需以强化常规资产负债管理为基础，应制定合理监管指标完善监管方法"
+    },
+    {
+      "source_url": "https://www.163.com/dy/article/KNO3AA0905568W0A.html",
+      "source_title": "银行数字化转型与影子银行业务：促进还是抑制？",
+      "source_type": "trade_pub",
+      "grade": "weak",
+      "published_at": "2026-03-11",
+      "stock_code": "600036",
+      "summary": "研究显示银行数字化转型对影子银行业务具有抑制作用，通过扩大传统信贷规模和提升服务效率降低从事影子银行业务动机，在金融发展水平低地区更显著"
+    },
+    {
+      "source_url": "https://www.sohu.com/a/988524462_122014422",
+      "source_title": "手机银行市场格局变迁：民营银行集体淡出，生态竞争成关键",
+      "source_type": "media",
+      "grade": "medium",
+      "published_at": "2026-02-19",
+      "stock_code": "600036",
+      "summary": "中国手机银行月度独立设备数6.48-7.39亿区间筑底企稳，流量红利期终结，行业从增量获取转入存量提升，单机日使用时长从4.9分钟降至2.7分钟，生态竞争成关键"
+    }
+  ],
+  "company_ranking": [
+    {
+      "rank": 1,
+      "stock_code": "002049",
+      "name": "紫光国微",
+      "constrains_what": "卡住银行IC卡芯片与支付安全芯片供给",
+      "chain_position": "第4层芯片器件-金融安全芯片垄断供应商",
+      "rank_reason": "银行IC卡芯片与国密算法芯片市占率绝对领先，需通过国密局与银联双重认证，新进入者认证周期3-5年，银行切换成本极高，在信创与金融安全国产化趋势下定价权最强",
+      "evidence_summary": "金融安全芯片需通过国密局认证与银联认证双重壁垒，新进入者需3-5年认证周期；资本新规与信创政策驱动银行加速国产芯片替代，紫光国微在银行IC卡芯片领域垄断地位稳固",
+      "main_risk": "若银行IC卡向数字货币硬钱包迁移加速，传统芯片需求可能被替代；中美科技博弈下供应链风险"
+    },
+    {
+      "rank": 2,
+      "stock_code": "600570",
+      "name": "恒生电子",
+      "constrains_what": "卡住金融机构核心交易系统与大资管系统升级",
+      "chain_position": "第2层系统集成-金融IT绝对龙头",
+      "rank_reason": "核心交易系统与大资管系统市占率领先，金融机构对核心系统依赖度极高且替换成本巨大，在资管新规、资本新规、信创替代三重驱动下需求确定性最强，定价权在金融IT领域最强",
+      "evidence_summary": "金融信创进入攻坚阶段，核心系统由边缘应用向关键应用推进；银行风控决策引擎升级需求迫切，数据管理效能低下问题普遍存在；恒生电子在核心交易系统领域市占率领先",
+      "main_risk": "金融机构IT预算收缩导致订单延迟；自研系统替代趋势；蚂蚁集团关联治理不确定性"
+    },
+    {
+      "rank": 3,
+      "stock_code": "601166",
+      "name": "兴业银行",
+      "constrains_what": "卡住绿色金融认证与绿色资产配置能力",
+      "chain_position": "第1层下游客户-绿色金融绝对龙头银行",
+      "rank_reason": "2006年率先布局绿色金融，绿色贷款不良率远低于对公平均（不到1%），积累了丰富的项目经验与可持续商业模式，在绿色资产风险权重有望降低的政策预期下资本效率优势将扩大",
+      "evidence_summary": "兴业银行IR确认绿色贷款不良率远低于全行对公贷款不良率不到1%，绿色贷款利率与对公贷款基本持平；券商分析称其绿色金融已领先股份制同业半个身位；央行提出科学设置绿色资产风险权重",
+      "main_risk": "绿色金融政策支持力度不及预期；其他银行加速追赶缩小差距；房地产风险暴露拖累整体资产质量"
+    },
+    {
+      "rank": 4,
+      "stock_code": "600036",
+      "name": "招商银行",
+      "constrains_what": "卡住零售银行客户生态与财富管理转型入口",
+      "chain_position": "第1层下游客户-零售银行生态护城河",
+      "rank_reason": "零售银行客户粘性最强，财富管理AUM领先同业，在息差收窄背景下中间业务收入占比提升逻辑最清晰，手机银行月活与生态建设领先，数字化转型抑制影子银行替代效应",
+      "evidence_summary": "手机银行流量红利终结但生态竞争成关键，招行月活与用户粘性领先；银行数字化转型研究显示可扩大传统信贷规模提升服务效率；互联网助贷监管趋严利好合规零售银行",
+      "main_risk": "财富管理市场持续低迷导致AUM增长放缓；零售不良率上升；息差收窄速度快于中间业务增长"
+    },
+    {
+      "rank": 5,
+      "stock_code": "300348",
+      "name": "长亮科技",
+      "constrains_what": "卡住中小银行核心系统信创替代实施能力",
+      "chain_position": "第2层系统集成-银行核心系统信创替代核心供应商",
+      "rank_reason": "银行核心系统信创替代2024-2027年集中替换期，能承接核心系统替换的供应商极少，长亮科技在股份行与城商行核心系统替换中案例丰富，替换周期2-3年客户粘性极强",
+      "evidence_summary": "金融信创进入攻坚阶段由边缘应用发展到关键应用；银行风控决策引擎升级需求迫切；核心系统替换供应商稀缺，长亮科技在中小银行核心系统替换领域案例领先",
+      "main_risk": "大型银行倾向自研核心系统；信创替代进度不及预期；项目交付周期长导致收入确认不确定"
+    },
+    {
+      "rank": 6,
+      "stock_code": "601288",
+      "name": "农业银行",
+      "constrains_what": "卡住县域金融存款与三农信贷不可替代渠道",
+      "chain_position": "第1层下游客户-县域金融护城河",
+      "rank_reason": "县域网点覆盖最广，三农存款成本优势显著，在存款利率市场化调整机制下负债端优势扩大，资本新规下涉农贷款风险权重有望优化，资产质量与息差韧性优于同业",
+      "evidence_summary": "农行县域支行全面提升服务能力与风险管控能力，信贷资源向乡村振兴倾斜；存款利率市场化调整机制下大型银行率先调整存款利率；县域农商行风控实践显示资产质量可优化至优异水平",
+      "main_risk": "县域经济下行导致不良率上升；数字银行对县域存款的分流；息差收窄速度快于负债成本改善"
+    }
+  ],
+  "failure_conditions": [
+    {
+      "subject": "银行业净息差",
+      "predicate": "持续低于1.3%且连续两季无企稳迹象",
+      "signal": "净息差<1.3%持续两个季度",
+      "outcome": "息差触底反弹逻辑失效，银行盈利能力持续恶化，第1层银行受益判断错误",
+      "stock_codes": [
+        "601398",
+        "601288",
+        "601939",
+        "601166",
+        "600036"
+      ],
+      "layer_index": 1
+    },
+    {
+      "subject": "金融信创替代进度",
+      "predicate": "大幅放缓或暂停",
+      "signal": "银行信创核心系统招标数量同比下滑超30%",
+      "outcome": "第2层系统集成与第4层芯片器件稀缺性逻辑失效，相关IT供应商订单萎缩",
+      "stock_codes": [
+        "002049",
+        "600570",
+        "300348",
+        "603019"
+      ],
+      "layer_index": 2
+    },
+    {
+      "subject": "绿色金融政策支持力度",
+      "predicate": "明显减弱或绿色资产风险权重未获优惠",
+      "signal": "绿色贷款增速低于整体贷款增速持续两季",
+      "outcome": "兴业银行绿色金融先发壁垒的资本效率优势逻辑失效，第1层controls分类判断错误",
+      "stock_codes": [
+        "601166"
+      ],
+      "layer_index": 1
+    },
+    {
+      "subject": "房地产风险",
+      "predicate": "大规模暴露导致银行不良率飙升",
+      "signal": "银行业不良率突破2%或房地产相关不良率超5%",
+      "outcome": "银行资产质量假设失效，资本新规下风险权重优化逻辑被不良暴露抵消",
+      "stock_codes": [
+        "601398",
+        "601939",
+        "601166"
+      ],
+      "layer_index": 1
+    },
+    {
+      "subject": "数字人民币硬钱包",
+      "predicate": "快速替代传统银行IC卡",
+      "signal": "数字人民币硬钱包发行量超过银行IC卡年发行量50%",
+      "outcome": "紫光国微传统金融安全芯片需求被替代，第4层稀缺性逻辑失效",
+      "stock_codes": [
+        "002049"
+      ],
+      "layer_index": 4
+    }
+  ],
+  "next_steps": [
+    {
+      "subject": "银行业季度净息差数据",
+      "predicate": "跟踪",
+      "signal": "单季净息差环比变化",
+      "outcome": "验证息差是否触底企稳，判断第1层银行盈利拐点",
+      "stock_codes": [
+        "601398",
+        "601288",
+        "601939",
+        "600036",
+        "601166"
+      ],
+      "layer_index": 1
+    },
+    {
+      "subject": "银行信创核心系统招投标数据",
+      "predicate": "查阅",
+      "signal": "核心系统替换项目招标数量与金额",
+      "outcome": "验证第2层系统集成信创替代需求强度与稀缺性",
+      "stock_codes": [
+        "600570",
+        "300348",
+        "300674"
+      ],
+      "layer_index": 2
+    },
+    {
+      "subject": "紫光国微金融安全芯片季度出货量与单价",
+      "predicate": "查阅",
+      "signal": "金融芯片业务收入增速与毛利率",
+      "outcome": "验证第4层金融安全芯片稀缺性是否转化为定价权与利润",
+      "stock_codes": [
+        "002049"
+      ],
+      "layer_index": 4
+    },
+    {
+      "subject": "绿色金融信贷投放与政策数据",
+      "predicate": "跟踪",
+      "signal": "绿色贷款增速与绿色资产风险权重政策进展",
+      "outcome": "验证兴业银行绿色金融壁垒是否带来资本效率优势",
+      "stock_codes": [
+        "601166"
+      ],
+      "layer_index": 1
+    },
+    {
+      "subject": "银行风控系统升级采购公告",
+      "predicate": "监测",
+      "signal": "风控决策引擎与资本计量系统采购项目数量",
+      "outcome": "验证第3层风控合规模块需求是否受资本新规驱动放量",
+      "stock_codes": [
+        "300380",
+        "300872"
+      ],
+      "layer_index": 3
+    },
+    {
+      "subject": "央行数字人民币运营数据",
+      "predicate": "跟踪",
+      "signal": "硬钱包开立数与交易规模",
+      "outcome": "验证数字人民币对传统银行IC卡芯片的替代风险",
+      "stock_codes": [
+        "002049"
+      ],
+      "layer_index": 4
+    }
+  ]
+}
