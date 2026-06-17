@@ -263,6 +263,21 @@ export default function CandidatesPage() {
     { title: '代码', dataIndex: 'stock_code', width: 90 },
     { title: '名称', dataIndex: 'stock_name', width: 100 },
     {
+      title: '分层',
+      dataIndex: 'stock_tier',
+      width: 70,
+      render: (v: string | null) => {
+        if (!v) return '-';
+        const config: Record<string, { label: string; color: string }> = {
+          core: { label: '核心', color: 'gold' },
+          watch: { label: '关注', color: 'blue' },
+          focus: { label: '重点', color: 'green' },
+        };
+        const c = config[v];
+        return c ? <Tag color={c.color}>{c.label}</Tag> : v;
+      },
+    },
+    {
       title: '行业',
       dataIndex: 'stock_industry',
       width: 100,
