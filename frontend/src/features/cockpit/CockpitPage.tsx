@@ -64,7 +64,8 @@ import type {
   CockpitResponse,
   RebalanceSuggestion,
   SerenityCockpitSummary,
-  ThemeExposure,
+  ThemeExposureAnalysis,
+  ThemeExposureItem,
 } from '../../api/types';
 
 const { Title, Text } = Typography;
@@ -216,8 +217,8 @@ function CycleDashboardCard({
   );
 }
 
-function ThemeExposureCard({ data }: { data: ThemeExposure | null }) {
-  if (!data || data.targets.length === 0) {
+function ThemeExposureCard({ data }: { data: ThemeExposureAnalysis | null }) {
+  if (!data || !data.exposure || data.exposure.length === 0) {
     return (
       <Card className="gojira-card" bordered={false} title="主题配置" style={{ marginBottom: 0 }}>
         <Empty description="暂无主题配置" image={Empty.PRESENTED_IMAGE_SIMPLE} />
@@ -225,49 +226,27 @@ function ThemeExposureCard({ data }: { data: ThemeExposure | null }) {
     );
   }
 
-  const columns: ColumnsType<ThemeExposure['targets'][number]> = [
+  const columns: ColumnsType<ThemeExposureItem> = [
     { title: '主题', dataIndex: 'theme', width: 120 },
     {
-      title: '目标%',
-      dataIndex: 'target_pct',
+      title: '权重%',
+      dataIndex: 'weight_pct',
       width: 80,
       align: 'right',
-      render: (v: number) => <span className="num">{(v * 100).toFixed(1)}%</span>,
+      render: (v: number) => <span className="num">{v.toFixed(1)}%</span>,
     },
     {
-      title: '实际%',
-      dataIndex: 'actual_pct',
-      width: 80,
+      title: '市值',
+      dataIndex: 'value',
+      width: 100,
       align: 'right',
-      render: (v: number) => <span className="num">{(v * 100).toFixed(1)}%</span>,
+      render: (v: number) => <span className="num">{v.toLocaleString('zh-CN', { maximumFractionDigits: 0 })}</span>,
     },
     {
-      title: '偏离%',
-      dataIndex: 'drift_pct',
-      width: 80,
+      title: '数量',
+      dataIndex: 'count',
+      width: 60,
       align: 'right',
-      render: (v: number) => {
-        const absV = Math.abs(v);
-        let color = 'var(--green-600)';
-        if (absV > 0.05) color = 'var(--amber-600)';
-        if (absV > 0.1) color = 'var(--red-600)';
-        return (
-          <span className="num" style={{ color }}>
-            {(v * 100).toFixed(1)}%
-          </span>
-        );
-      },
-    },
-    {
-      title: '状态',
-      dataIndex: 'warning',
-      width: 80,
-      render: (warning: string | null) =>
-        warning ? (
-          <Tag color="orange" style={{ fontSize: 11 }}>{warning}</Tag>
-        ) : (
-          <Tag color="green" style={{ fontSize: 11 }}>正常</Tag>
-        ),
     },
   ];
 
@@ -275,17 +254,10 @@ function ThemeExposureCard({ data }: { data: ThemeExposure | null }) {
     <Card
       className="gojira-card"
       bordered={false}
-      title="主题配置偏离"
+      title="主题配置"
       style={{ marginBottom: 0 }}
-      extra={
-        data.warnings.length > 0 && (
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            <span className="num">{data.warnings.length}</span> 条警告
-          </Text>
-        )
-      }
     >
-      <Table dataSource={data.targets} columns={columns} rowKey="theme" size="small" pagination={false} />
+      <Table dataSource={data.exposure} columns={columns} rowKey="theme" size="small" pagination={false} />
     </Card>
   );
 }

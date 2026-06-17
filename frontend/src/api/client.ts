@@ -326,8 +326,8 @@ export async function listThemes(): Promise<ThemeItem[]> {
   return res.data;
 }
 
-export async function getThemeExposure(): Promise<ThemeExposure> {
-  const res = await apiClient.get<ThemeExposure>('/themes/exposure/analysis');
+export async function getThemeExposure(): Promise<ThemeExposureAnalysis> {
+  const res = await apiClient.get<ThemeExposureAnalysis>('/themes/exposure/analysis');
   return res.data;
 }
 

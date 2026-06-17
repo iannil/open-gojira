@@ -224,18 +224,15 @@ def on_research_run_failed(event: ResearchRunFailed) -> None:
     alert = SystemAlert(
         severity="warning",
         category="research",
-        title=f"Serenity 研究失败: {event.research_theme_name}",
-        message=(
-            f"theme_id={event.research_theme_id} run_id={event.run_id} "
-            f"attempts={event.attempt_count}\n\nError: {event.error[:500]}"
-        ),
-        source="research_runner",
-        payload={
-            "run_id": event.run_id,
+        message=f"Serenity 研究失败: {event.research_theme_name}",
+        detail_json={
+            "source": "research_runner",
+            "title": f"Serenity 研究失败: {event.research_theme_name}",
             "theme_id": event.research_theme_id,
-            "attempt_count": event.attempt_count,
+            "run_id": event.run_id,
+            "attempts": event.attempt_count,
+            "error": event.error[:500],
         },
-        triggered_at=datetime.now(timezone.utc).replace(tzinfo=None),
     )
     with SessionLocal() as db:
         db.add(alert)
@@ -255,20 +252,16 @@ def on_monthly_budget_exceeded(event: MonthlyBudgetExceeded) -> None:
     alert = SystemAlert(
         severity="warning",
         category="research",
-        title=f"Serenity 月度预算超限: {event.month}",
-        message=(
-            f"已花费 ¥{event.spend_cny:.2f} 超出预算 ¥{event.budget_cny:.2f}\n"
-            f"由 run_id={event.triggered_by_run_id} 触发。\n"
-            f"提示:这是软上限,仅告警不禁用。可在 .env 调整 SERENITY_MONTHLY_BUDGET_CNY。"
-        ),
-        source="research_runner",
-        payload={
+        message=f"Serenity 月度预算超限: {event.month}",
+        detail_json={
+            "source": "research_runner",
+            "title": f"Serenity 月度预算超限: {event.month}",
             "month": event.month,
             "spend_cny": event.spend_cny,
             "budget_cny": event.budget_cny,
             "triggered_by_run_id": event.triggered_by_run_id,
+            "hint": "软上限,仅告警不禁用。可在 .env 调整 SERENITY_MONTHLY_BUDGET_CNY。",
         },
-        triggered_at=datetime.now(timezone.utc).replace(tzinfo=None),
     )
     with SessionLocal() as db:
         db.add(alert)
@@ -390,19 +383,17 @@ def on_thesis_alert_triggered(event: ThesisAlertTriggered) -> None:
         # the audit_log above is the authoritative record.
         try:
             from app.models.system_alert import SystemAlert
-            from datetime import datetime, timezone
             sa = SystemAlert(
                 severity="alert",
                 category="thesis",
-                title=f"论点告警: {event.variable_name} ({event.code})",
-                message=event.message,
-                source="thesis_monitor",
-                payload={
+                message=f"论点告警: {event.variable_name} ({event.code}) — {event.message}",
+                detail_json={
+                    "source": "thesis_monitor",
                     "claim_var_id": event.claim_var_id,
                     "stock_code": event.code,
+                    "variable_name": event.variable_name,
                     "breach_when": event.breach_when,
                 },
-                triggered_at=datetime.now(timezone.utc).replace(tzinfo=None),
             )
             db.add(sa)
             db.commit()

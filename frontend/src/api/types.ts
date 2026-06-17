@@ -415,7 +415,7 @@ export interface CockpitResponse {
   market_temperature?: number | null;
   rebalance_suggestions?: RebalanceSuggestion[];
   cycle?: CycleAssessment;
-  theme_exposure?: ThemeExposure[];
+  theme_exposure?: ThemeExposureItem[];
   dividend_projection?: DividendProjection;
   thesis_alerts?: ThesisAlert[];
   serenity_summary?: SerenityCockpitSummary | null;
@@ -537,6 +537,21 @@ export interface ThemeTarget {
   warning: string | null;
 }
 
+export interface ThemeExposureItem {
+  theme: string;
+  weight_pct: number;
+  value: number;
+  count: number;
+  stock_codes: string[];
+}
+
+export interface ThemeExposureAnalysis {
+  exposure: ThemeExposureItem[];
+  targets: ThemeTarget[];
+  warnings: string[];
+}
+
+/** @deprecated kept for backward-compat; new code should use ThemeExposureAnalysis */
 export interface ThemeExposure {
   themes: ThemeItem[];
   targets: ThemeTarget[];
