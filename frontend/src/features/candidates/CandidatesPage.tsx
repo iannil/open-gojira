@@ -478,7 +478,7 @@ export default function CandidatesPage() {
                   </Col>
                   <Col span={6}>
                     <Select
-                      placeholder="Qiu评分"
+                      placeholder="选择权"
                       allowClear
                       style={{ width: '100%' }}
                       value={filter.qiuScore}

@@ -283,7 +283,7 @@ export default function UniversePage() {
     },
     { title: '行业', dataIndex: 'industry', width: 90, ellipsis: true },
     {
-      title: '求分',
+      title: '选择权',
       dataIndex: 'qiu_score',
       width: 55,
       align: 'center',
@@ -659,7 +659,7 @@ export default function UniversePage() {
                   </Col>
                   <Col span={6}>
                     <Select
-                      placeholder="求分"
+                      placeholder="选择权"
                       allowClear
                       style={{ width: '100%' }}
                       value={myFilter.qiuScore}

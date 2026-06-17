@@ -2,19 +2,19 @@
 
 > **此文档是项目当前状态的真实来源。AI 代理应首先阅读此文件。**
 >
-> | 字段 | 值 (实测于 2026-06-17) |
+> | 字段 | 值 (实测于 2026-06-17 Batch 3 复审) |
 > |---|---|
 > | 最后更新 | 2026-06-17 (invest1/2/3 对齐审计 Batch 3 ship: spike 验证 + 3 红旗激活 + 5 missed 文档化) |
 > | 分支 | `master` |
-> | 最新 commit | 258f750 (Batch 1 invest-alignment) + 本轮未提交 (Batch 2) |
-> | 测试 | **1121 passed**, 0 failed (`pytest`) |
-> | 测试函数数 | 1121 (1084 Batch 1 + 37 Batch 2: 4 D2 optionality + 20 D3 红旗检测器+集成 + 13 D4 portfolio_risk) |
-> | Alembic head | `s6_1_red_flag_fields` |
-> | Alembic 版本文件数 | 25 |
-> | 后端代码 | ~23,700 行 (app/) + ~10,100 行 (tests/) |
-> | 前端代码 | ~12,200 行 (src/) |
+> | 最新 commit | ec5ccfc (Batch 3) / f3d04bf (Batch 2) / 258f750 (Batch 1) |
+> | 测试 | **1126 passed**, 0 failed (`pytest`) |
+> | 测试函数数 | 1126 (1084 Batch 1 + 37 Batch 2 + 5 Batch 3) |
+> | Alembic head | `s7_1_audit_opinion_field` |
+> | Alembic 版本文件数 | 46 |
+> | 后端代码 | ~32,300 行 (app/) + ~19,300 行 (tests/) |
+> | 前端代码 | ~18,300 行 (src/) |
 > | 远程仓库 | 暂无 (`git remote -v` 为空) |
-> | 真实使用 | **1 holdings / 6 trades / 218 drafts (全 pending) / 264 active candidates / 8 research_runs (含 Phase 2 #9 阶段 A + B + Phase 2 #10 ship) / 3 backtests / 9 research_claim_variables (6 active / 2 proposed / 1 rejected) / 1 真实 thesis 告警已触发 (601398 NIM 1.2% 持续 2 期)** |
+> | 真实使用 | **1 holdings / 6 trades / 220 drafts (218 pending + 2 executed/cancelled) / 264 active candidates / 8 research_runs (含 Phase 2 #9 阶段 A + B + Phase 2 #10 ship) / 3 backtests / 9 research_claim_variables (6 active / 2 proposed / 1 rejected) / 1 真实 thesis 告警已触发 (601398 NIM 1.2% 持续 2 期)** |
 
 ---
 

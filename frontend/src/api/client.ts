@@ -69,7 +69,7 @@ import type {
   StrategyUpdate,
   SyncTaskStatus,
   SyncTriggerResponse,
-  ThemeExposure,
+  ThemeExposureAnalysis,
   ThemeItem,
   ThesisVariable,
   Trade,

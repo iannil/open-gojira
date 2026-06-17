@@ -17,19 +17,19 @@ interface Props {
 const DIMENSIONS = [
   {
     key: 'upstream_power' as const,
-    label: '上游议价能力',
+    label: '上游选择权',
     question: '供应商能否挤压利润？',
     hint: '原材料是否集中、替代品是否稀缺',
   },
   {
     key: 'downstream_power' as const,
-    label: '下游议价能力',
+    label: '下游选择权',
     question: '客户能否挤压利润？',
     hint: '产品是否可替代、客户是否集中',
   },
   {
     key: 'government_power' as const,
-    label: '政府议价能力',
+    label: '政府选择权',
     question: '监管能否摧毁商业模式？',
     hint: '行业是否强监管、政策是否频变',
   },
@@ -65,7 +65,7 @@ export default function QiuScorerWizard({ open, code, onClose, onSaved, initialV
 
   return (
     <Modal
-      title={`"求"评分 — ${code}`}
+      title={`选择权评分 — ${code}`}
       open={open}
       onOk={handleSave}
       onCancel={onClose}
@@ -75,7 +75,7 @@ export default function QiuScorerWizard({ open, code, onClose, onSaved, initialV
     >
       <div style={{ marginBottom: 16 }}>
         <Typography.Text type="secondary">
-          "求"理论：分析谁求谁（上游/下游/政府），评估议价能力
+          选择权理论：评估对上游/下游/政府的选择权位阶 (invest1 §二)
         </Typography.Text>
       </div>
 
@@ -89,8 +89,8 @@ export default function QiuScorerWizard({ open, code, onClose, onSaved, initialV
             value={scores[dim.key]}
             onChange={(e) => setScores({ ...scores, [dim.key]: e.target.value })}
           >
-            <Radio.Button value={0}>0 无议价力</Radio.Button>
-            <Radio.Button value={1}>1 有议价力</Radio.Button>
+            <Radio.Button value={0}>0 被单向选择</Radio.Button>
+            <Radio.Button value={1}>1 双向选择权</Radio.Button>
           </Radio.Group>
         </div>
       ))}

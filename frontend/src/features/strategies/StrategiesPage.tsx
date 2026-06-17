@@ -38,7 +38,7 @@ const FIELD_LABELS: Record<string, string> = {
   pb_pct_10y: 'PB分位',
   dividend_sustainability: '分红可持续',
   ocf_to_ni: 'OCF/NI',
-  qiu_score: '议价能力',
+  qiu_score: '选择权位阶',
   industry_in: '行业',
   security_theme_in: '安全主线',
   bank_blind_box: '银行资产质量',

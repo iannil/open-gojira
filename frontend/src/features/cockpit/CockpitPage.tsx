@@ -658,7 +658,7 @@ function DraftList({
           {hiddenCount > 0 && (
             <div style={{ textAlign: 'center', marginTop: 8 }}>
               <Text type="secondary" style={{ fontSize: 12 }}>
-                已按 Qiu 评分排序，仅显示前 <span className="num">{DISPLAY_LIMIT}</span> 条 ·{' '}
+                已按选择权位阶排序，仅显示前 <span className="num">{DISPLAY_LIMIT}</span> 条 ·{' '}
                 <Link to="/drafts">还有 <span className="num">{hiddenCount}</span> 条待处理 →</Link>
               </Text>
             </div>
