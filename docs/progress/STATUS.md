@@ -4,17 +4,17 @@
 >
 > | 字段 | 值 (实测于 2026-06-17) |
 > |---|---|
-> | 最后更新 | 2026-06-17 (Phase 2 #9 阶段 B v2 thesis monitor 上线后) |
+> | 最后更新 | 2026-06-17 (Phase 2 #9 阶段 B v2 thesis monitor ship + Bug 1/2/3 修复 + 12 新测试) |
 > | 分支 | `master` |
-> | 最新 commit | (未提交,working tree 有 Phase 2 #9 阶段 B v2 完整实现) |
-> | 测试 | **1063 passed**, 0 failed (`pytest`) |
-> | 测试函数数 | 1063 (1030 baseline + claim variable 新增 33: proposal 6 + monitor 13 + api 14) |
+> | 最新 commit | d429ae6 (Phase 2 #9 阶段 B v2 thesis monitor 二次 grill 14 项决策 + STATUS 同步) + 本轮未提交修复 (Bug 1/2/3 + 测试补齐 + 文档同步) |
+> | 测试 | **1075 passed**, 0 failed (`pytest`) |
+> | 测试函数数 | 1075 (1063 baseline + 本轮新增 12: 4 source 单测 + 3 EventBus emit + 3 handler + 2 scheduler job) |
 > | Alembic head | `s5_3_claim_variables` |
 > | Alembic 版本文件数 | 24 |
-> | 后端代码 | ~23,500 行 (app/) + ~9,800 行 (tests/) |
+> | 后端代码 | ~23,700 行 (app/) + ~10,100 行 (tests/) |
 > | 前端代码 | ~12,200 行 (src/) |
 > | 远程仓库 | 暂无 (`git remote -v` 为空) |
-> | 真实使用 | **1 holdings / 6 trades / 220 drafts (全 pending) / 264 active candidates / 8 research_runs (含 Phase 2 #9 阶段 A + B + Phase 2 #10 ship) / 3 backtests / 8 research_claim_variables (2 active / 1 proposed / 5 rejected by test)** |
+> | 真实使用 | **1 holdings / 6 trades / 218 drafts (全 pending) / 264 active candidates / 8 research_runs (含 Phase 2 #9 阶段 A + B + Phase 2 #10 ship) / 3 backtests / 9 research_claim_variables (6 active / 2 proposed / 1 rejected) / 1 真实 thesis 告警已触发 (601398 NIM 1.2% 持续 2 期)** |
 
 ---
 
@@ -228,6 +228,8 @@ Alembic 迁移链: 21 个版本文件,head = `s2_candidate_source_field`。
 
 ### 5.2 最近里程碑 (按时间倒序)
 
+**2026-06-17**: Phase 2 #9 阶段 B v2 thesis monitor ship + Bug 1/2/3 修复。grill-me 会话产出 9 项决策 (严格 ship 口径 + 4 项产出物 + 4 source 单测补齐 + EventBus/handler/scheduler 3 项测试补齐 + Bug 1 P0 notification 修复 + Bug 2 dedup 干净验证 + dev server 3 场景截图 + STATUS/ADR/spec/reports/MEMORY 同步)。实施: Bug 1 (event_handlers.py 3 处 SystemAlert 字段不存在) 修复 → SystemAlert thesis 行 0→22 / Bug 2 不复现 (spike/dev 残留) / Bug 3 (cockpit theme_exposure schema mismatch 顺带修)。1075 测试通过 (+12)。真实生产链路跑通: 工商银行 NIM 持续 2 期 1.2% < 1.3% → audit + EventBus + SystemAlert + dispatch_alert。详见 `docs/reports/completed/plan-thesis-monitor-v2-2026-06-17.md` + `docs/reports/thesis-monitor-v2-acceptance-2026-06-17.md`。
+
 **2026-06-15 (晚)**: 三层完成度审计 + Phase 2 commit。grill-me 会话产出三层审计报告 (Phase 2 未提交批次 / Phase 1 ship 清单 / P0 阻塞链),发现 7 个 bug + Sentinel Plan 是绕路 + STATUS.md 严重过期 + backtest 0-metrics 根因。Phase 2 commit `e0a915f` 落地: schema plan_id nullable + Sentinel Plan 移除 + 7 个 bug 修复 + 976 测试通过。详见 `docs/reports/2026-06-15-completeness-audit.md`。
 
 **2026-06-15 (午)**: serenity-skill 集成 Phase 1 完成 + Phase 2 同期 ship。grill-me 会话产出 19 项决策 (Q1-Q9 核心架构 + Q10-Q19 实施细节),实施 7 张新表 / 10 个 API endpoint / 4 个 service / 异步 LLM 调用 + EventBus 告警 / Q14 反向链接 index / 34 个 Phase 1 测试 + 4 个 Phase 2 测试 (976 总通过)。Phase 2 包含: Candidate.source 区分来源 / plan_id nullable / Cockpit "今日 serenity" 卡片 + monthly_token_spend / StockDetail 反向链接 panel / Candidates source badge / `/api/health/zhipu` / LLM log dumping。GLM 账号余额不足阻塞 spike 真实验证,等充值后跑 2 次真实研究 (Phase 1 #9 唯一 external blocker)。详见 `docs/reference/specs/2026-06-14-serenity-skill-integration.md` + `docs/progress/2026-06-15-serenity-skill-integration.md`。
@@ -276,7 +278,7 @@ Alembic 迁移链: 21 个版本文件,head = `s2_candidate_source_field`。
 - ⏭️ **P1-5** CI (GitHub Actions) — 跳过 (2026-06-13 用户决策)
 
 **P2 (体验补全)**:
-- **P2-1 [高]**: Phase 2 #9 阶段 B — thesis monitor 接入 (claim.signal → 自动提议 thesis variable → 用户 review → thesis_monitor 告警)。**spec 已确认** (2026-06-16 grill),~7 小时实施。详见 `docs/reference/specs/2026-06-16-phase2-num9-stage-b-thesis-monitor.md`。
+- ~~**P2-1 [高]**: Phase 2 #9 阶段 B — thesis monitor 接入~~ ✅ **ship** (2026-06-17) — v2 14 项决策全落地 + Bug 1/2/3 修复 + 1075 测试通过 + 真实生产链路跑通（工商银行 NIM 告警 → audit + SystemAlert + notification dispatch）+ 4 张 dev server 截图。详见 `docs/reports/completed/plan-thesis-monitor-v2-2026-06-17.md` + `docs/reports/thesis-monitor-v2-acceptance-2026-06-17.md`。
 - 月度复盘视图增强、预案 diff 视图、StockDetail 新建预案回填、候选池筛选持久化、统一 GLM model 配置 (3 个名浮动)
 
 **P3 (技术债)**: holding_service 拆纯计算+持久查询两层、datetime.utcnow() → datetime.now(UTC)、前端 bundle 分块、STATUS.md 自动化生成
@@ -297,6 +299,7 @@ Alembic 迁移链: 21 个版本文件,head = `s2_candidate_source_field`。
 10. **Serenity 集成 19 项决策 (2026-06-14)**: Q1-Q9 核心架构 (B 完整工作流 / A 新 ResearchTheme / D 6 张表 + 手动导出 / D LLM Web Search / GLM-5.2 / D 手动+可选调度 / D 多入口 UI / C 硬约束+软上限 / D spike 先验证) + Q10-Q19 实施细节 (异步 ThreadPoolExecutor / 不查 Checklist / 跳过 failed / 三重硬约束 / index 反向链接 / Phase 1 仅列表 / 不抽 LLMProvider / 复用 NotificationChannel / react-markdown / 失败条件 Phase 2 不做)。详见 `docs/reference/specs/2026-06-14-serenity-skill-integration.md`。
 11. **Candidate.plan_id nullable (2026-06-15 Phase 2)**: Phase 2 临时用 Sentinel Plan 绕开 FK NOT NULL,审计后发现是绕路非 spec。改为 `plan_id nullable` (s2 migration),serenity Candidate 写 NULL,rule_based Candidate 业务层校验必须有 plan_id。删除 `_get_or_create_serenity_export_plan` 全部复杂度。
 12. **~~Backtest derived fields 是已知限制,不是 bug~~** (修正于 2026-06-15 晚): 原审计错误地认为 `backtest_engine.py:30-35` docstring 反映现状。实测 `point_in_time_context_service.build_stock_context_at` **已经计算** 3/4 derived fields (pe_pct_10y / pb_pct_10y / price_drop_pct / ocf_to_ni)。docstring 是过期的,本次同步修正。只有 `dividend_sustainability` 缺失 (需历史分红事件表),影响 2/6 策略 (高股息安全垫 / 超跌逆向)。600519 (茅台) 0 trades 是因为标的不匹配任何保守策略 (PE/PB 分位 0.51 + DYR 0.024),**正确行为**。详见 `docs/reports/2026-06-15-completeness-audit.md` 文末"审计错误更正记录"。
+13. **Thesis Monitor v2 双源不复制 + breach_when 机械字段 (2026-06-17 Phase 2 #9 阶段 B v2)**: `research_claim_variables` 表与 `thesis_variables_json` 各为真相源,monitor 跑两个 check 函数 (check_held_stocks + check_claim_variables),approve 不复制 JSON。`breach_when: "lt"|"gt"` 字面对齐 signal 文本比较符 (替代易错的 `direction`)。独立 `thesis_evaluation_job` (17:32 mon-fri,避让 alert_evaluation 17:30) + `last_alerted_at` 7 天 dedup。Bug 1 教训: SystemAlert 模型字段是 `severity/category/message/detail_json`,event_handlers.py 创建时勿用 `title/source/payload/triggered_at` (会被 broad except 静默吞掉,notification 链路全断)。详见 `docs/reference/specs/2026-06-16-phase2-num9-stage-b-thesis-monitor.md` + `docs/reports/completed/plan-thesis-monitor-v2-2026-06-17.md`。
 
 ---
 

@@ -619,3 +619,43 @@ spike 结果会影响 LLM prompt 微调,避免实施时返工。
 12. **PATCH endpoint** — active var 可编辑 threshold/breach_when/window_periods
 13. **TanStack 30s polling** — 不引入 SSE 基础设施
 14. **migration 命名 s5_3_** — 接 s5_1 / s5_2 链
+
+## v2 实施完成章节 (2026-06-17 验收)
+
+> **状态**: ship (1075 测试通过 + 真实生产链路跑通 + 4 张 dev server 截图)
+> **关联报告**: `docs/reports/completed/plan-thesis-monitor-v2-2026-06-17.md` + `docs/reports/thesis-monitor-v2-acceptance-2026-06-17.md`
+
+### 40 项验收清单实测结果
+
+**后端 model + migration (4/4)**: ResearchClaimVariable 模型 + UniqueConstraint 建表 ✅ / FinancialStatement.net_interest_margin 列 + pipeline 持久化 ✅ / migration s5_3 接 s5_2 链 ✅ / alembic head = s5_3_claim_variables ✅
+
+**proposal service (8/8)**: mock LLM 解析+持久化 ✅ / 业务级 dedup ✅ / DB UniqueConstraint 兜底 ✅ / signal→breach_when 准确率 100% (8/8 真实 spike) ✅ / EventBus 触发+audit ✅ / LLM 失败 audit event ✅ / 部分失败 audit event ✅ / DB 实测 9 claim_variables (6 active / 2 proposed / 1 rejected)
+
+**thesis_variables_json schema 统一 (3/3)**: sync_stock 字段名 value ✅ / 保留 threshold/direction 字段 ✅ / check_variable 读 value ✅
+
+**monitor (10/10)**: INNER JOIN holdings WHERE sell_date IS NULL ✅ / 按 source fetch ✅ / **7/7 source 单测覆盖** (NIM/NPL/PE_percentile/revenue_growth/margin/PB_percentile/price_drop_52w) ✅ / NIM 真实读 net_interest_margin 列 (工商银行 NIM=1.2 触发) ✅ / 数据缺失跳过 ✅ / 多期 window_periods ✅ / per-var try/except 隔离 ✅ / 7 天 dedup (单测 + 真实 db 复现验证) ✅ / breach → audit + EventBus + SystemAlert + dispatch_alert (实测 SystemAlert thesis 行 22 条) ✅
+
+**API endpoints (5/5)**: approve / reject / PATCH / GET /api/stocks/{code}/claim-variables / GET /api/cockpit/claim-variables-pending — 全部测试通过 + 截图验证 UI
+
+**scheduler (2/2)**: thesis_evaluation_job 注册 (cron `32 17 * * 1-5`,spec 写 17:30 实际 17:32 避让 alert_evaluation) + thesis_evaluation_job_invokes_both_checks 测试 + run_job_now_thesis_evaluation_executes 测试
+
+**前端 (5/5 + 1⚠️)**: StockDetail 三态卡片 (截图 02) ✅ / Edit modal proposed 态 (截图 03) ✅ / Edit modal active 态 PATCH (截图 04) ✅ / Cockpit badge proposed 计数 + 30s 刷新 (截图 01) ✅ / **Cockpit badge 失败态红色** ⚠️ — 代码完备但当前 GLM 账号未触发过真实 propose 失败,数据条件未达
+
+**dev server + 真实 LLM spike (3/3)**: 4 张截图全部通过 / propose_for_run(run_id=8) 跑通 8 proposals + 9 dedup skipped / breach_when_accuracy=1.0 (spec 要求 ≥0.8)
+
+### 实施期发现并修复的 bug
+
+1. **Bug 1 (P0) — SystemAlert 字段不存在**: `event_handlers.py` 3 处 SystemAlert 创建 (serenity 失败 / 月度预算超限 / thesis 告警) 误用 `title` / `source` / `payload` / `triggered_at`,被 broad except 静默吞掉,所有 thesis 告警的 SystemAlert + notification 链路全断 (实测 SystemAlert thesis 表 0 行)。修复后实测 22 行。详见 acceptance report 步骤 39。
+2. **Bug 2 (suspicion 澄清) — dedup 1分38秒10条同 cv_id**: audit_log 显示 cv_id=1 在 1分38秒内连续 10 条 thesis_alert_triggered,初看违反 7 天 dedup。干净环境复现验证:**dedup 工作正常** (Run 1 suppressed / Run 2 breached + 写入 last_alerted_at / Run 3 suppressed),原始现象是 spike/dev 测试残留 (含非持仓股 000001 的 mock 数据)。详见 acceptance report 步骤 40。
+3. **Bug 3 (P0 顺带) — cockpit theme_exposure schema mismatch**: 不属于 v2 范围,但阻塞 dev server 验证。前端 `ThemeExposure` 类型期望 `{themes, targets, warnings}` 但后端 `/themes/exposure/analysis` 返回 `{exposure, targets, warnings}`,Cockpit 加载崩溃。新增 `ThemeExposureAnalysis` + `ThemeExposureItem` 类型对齐。
+
+### cron 调整说明
+
+spec Q6'-A2 写 `thesis_evaluation_job` 在 17:30 mon-fri。实际实施时为避让 `alert_evaluation` (17:30 同时刻)，**调整为 17:32** (`scheduler_config_service.py:43-47`)。语义无差异（独立 job + 独立 cron），仅时间错开 2 分钟避免单进程同时跑两个 job 的潜在竞态。
+
+### 后置项 (Known Issues,不阻塞 ship)
+
+- 5 个 source 未真实 LLM 链路验证: revenue_growth / margin / PB_percentile / price_drop_52w + PE_percentile 仅单测覆盖,真实 LLM spike 因 run_id=8 是银行 theme 只产 NIM/NPL。下次跑非银行 theme (半导体 / 资源) 时自动覆盖。跟踪于 `docs/active/roadmap.md` P2。
+- Cockpit badge 失败态红色: 代码 + 类型完备,当前 GLM 账号余额充足未触发真实失败。配额耗尽时自动激活。
+- cockpit theme_exposure schema cleanup: `ThemeExposure` 旧 type 标 `@deprecated` 保留,全量删除可放下一轮 cleanup (不在 v2 范围)。
+
