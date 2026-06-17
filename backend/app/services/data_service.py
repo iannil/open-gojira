@@ -79,6 +79,7 @@ def stock_to_response(stock: Stock, db: Session) -> dict:
         "qiu_detail": qiu_detail,
         "security_theme": stock.security_theme,
         "tier": stock.tier,
+        "in_circle": stock.in_circle,
         "notes": stock.notes,
         "thesis_variables": thesis_variables,
         "business_pattern_id": stock.business_pattern_id,

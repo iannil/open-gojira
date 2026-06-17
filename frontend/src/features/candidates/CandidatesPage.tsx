@@ -270,7 +270,7 @@ export default function CandidatesPage() {
         if (!v) return '-';
         const config: Record<string, { label: string; color: string }> = {
           core: { label: '核心', color: 'gold' },
-          watch: { label: '关注', color: 'blue' },
+          satellite: { label: '卫星', color: 'blue' },
           focus: { label: '重点', color: 'green' },
         };
         const c = config[v];

@@ -760,7 +760,7 @@ function HoldingsTable({ items }: { items: CockpitHoldingItem[] }) {
         if (!v) return '—';
         return (
           <Tag color={v === 'core' ? 'gold' : 'blue'} style={{ fontSize: 11 }}>
-            {v === 'core' ? '核心' : '关注'}
+            {v === 'core' ? '核心' : '卫星'}
           </Tag>
         );
       },

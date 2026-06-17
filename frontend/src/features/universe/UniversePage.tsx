@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import {
+  App as AntApp,
   Badge,
   Button,
   Col,
@@ -10,6 +12,7 @@ import {
   Segmented,
   Select,
   Space,
+  Switch,
   Table,
   Tag,
   Tooltip,
@@ -34,7 +37,7 @@ const { Text } = Typography;
 
 const TIER_CONFIG: Record<string, { label: string; color: string }> = {
   core: { label: '核心', color: 'gold' },
-  watch: { label: '关注', color: 'blue' },
+  satellite: { label: '卫星', color: 'blue' },
   focus: { label: '重点', color: 'green' },
 };
 
@@ -137,6 +140,7 @@ export default function UniversePage() {
 
   const statsQ = useUniverseStatsQuery();
   const myQ = useMyUniverseQuery();
+  const { message } = AntApp.useApp();
   const fullQueryArgs: FullUniverseFilter = useMemo(
     () => ({
       page: fullPage,
@@ -273,6 +277,29 @@ export default function UniversePage() {
         const cfg = TIER_CONFIG[tier];
         return cfg ? <Tag color={cfg.color}>{cfg.label}</Tag> : <Tag>{tier}</Tag>;
       },
+    },
+    {
+      title: '能力圈',
+      dataIndex: 'in_circle',
+      width: 70,
+      align: 'center',
+      render: (inCircle: boolean | undefined, record: any) => (
+        <Tooltip title={inCircle ? '在我的能力圈内 (invest3 核心十诫 #9)' : '未标记为能力圈内 — plan_runner 默认过滤'}>
+          <Switch
+            size="small"
+            checked={!!inCircle}
+            onChange={async (checked) => {
+              try {
+                await axios.put(`/api/stocks/${record.code}`, { in_circle: checked });
+                message.success(`${record.code} 能力圈 ${checked ? '✓' : '✗'}`);
+                myQ.refetch();
+              } catch (e) {
+                message.error('更新失败');
+              }
+            }}
+          />
+        </Tooltip>
+      ),
     },
     {
       title: '主题',

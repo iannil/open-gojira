@@ -49,7 +49,7 @@ const TIER_COLOR: Record<string, string> = {
 
 const TIER_LABEL: Record<string, string> = {
   core: '核心',
-  watch: '关注',
+  satellite: '卫星',
   focus: '重点',
 };
 

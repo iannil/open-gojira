@@ -20,7 +20,8 @@ class CockpitCashflow(BaseModel):
 
 class CockpitDraft(BaseModel):
     id: int
-    plan_id: int
+    plan_id: Optional[int] = None
+    """M4 (Batch 5): nullable for thesis_breach SELL drafts (system-generated, no plan)."""
     code: str
     stock_name: Optional[str] = None
     side: str
@@ -87,10 +88,13 @@ class CockpitPlan(BaseModel):
     is_builtin: Optional[bool] = None
     cycle_buy_max: Optional[str] = "mid"
     disable_midstream_filter: bool = False
+    disable_in_circle_filter: bool = False
+    """M2 (Batch 5): escape hatch for能力圈过滤."""
     last_run_at: Optional[str] = None
     last_run_summary: Optional[dict[str, Any]] = None
-    """G1/G2 feedback: keys include filtered_midstream_non_leader, cycle_buy_blocked,
-    cycle_unavailable_skipped, cycle_position, passed, scanned, drafts_emitted."""
+    """G1/G2/M2 feedback: keys include filtered_midstream_non_leader,
+    filtered_out_of_circle, cycle_buy_blocked, cycle_unavailable_skipped,
+    cycle_position, passed, scanned, drafts_emitted."""
 
 
 class CockpitResponse(BaseModel):
@@ -104,6 +108,14 @@ class CockpitResponse(BaseModel):
     theme_exposure: list[dict[str, Any]] = []
     rebalance_suggestions: list[dict[str, Any]] = []
     cycle: Optional[dict[str, Any]] = None
+    cycle_banner: Optional[dict[str, Any]] = None
+    """M3 (Batch 5): invest2 §5 逆向仓位法 — extreme_low/extreme_high 非阻塞 banner."""
     dividend_projection: Optional[dict[str, Any]] = None
     thesis_alerts: list[dict[str, Any]] = []
+    portfolio_risk: Optional[dict[str, Any]] = None
+    """D4: invest2 §7 平方差魔咒实时指标."""
+    psychology_alerts: list[dict[str, Any]] = []
+    """M1 (Batch 5): invest1 §13 回本强迫症嫌疑检测."""
+    serenity_summary: Optional[dict[str, Any]] = None
+    serenity_monthly_spend_cny: Optional[dict[str, Any]] = None
     errors: list[str] = []
