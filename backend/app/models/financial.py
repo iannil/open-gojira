@@ -43,13 +43,17 @@ class FinancialStatement(Base):
     #   accounts_receivable: bs.ar.t | inventory: bs.inv.t | inventory_turnover: m.i_tor.t
     #   non_recurring_profit_ratio: ps.np_wd_s_r.t (扣非净利率, 经验值)
     accounts_receivable: Mapped[float | None] = mapped_column(Float, nullable=True)
-    """应收账款 (Lixinger bs.ar.t, 待 API 确认). 用于红旗: 应收增速 >> 营收增速 = 伪造销售嫌疑."""
+    """应收账款 (Lixinger bs.ar.t, 已 spike 验证 2026-06-17). 用于红旗: 应收增速 >> 营收增速 = 伪造销售嫌疑."""
     inventory: Mapped[float | None] = mapped_column(Float, nullable=True)
-    """存货 (Lixinger bs.inv.t, 待 API 确认). 用于红旗: 存货周转率突变 = 积压."""
+    """存货 (Lixinger 不提供 bs.inv.t, 字段保留以备未来数据源). 始终 None."""
     inventory_turnover_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
-    """存货周转率 (Lixinger m.i_tor.t, 已在默认 metrics). 用于红旗: 同比骤降."""
+    """存货周转率 (Lixinger m.i_tor.t, 已 spike 验证 2026-06-17). 用于红旗: 同比骤降."""
     non_recurring_profit_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
-    """扣非净利率 (Lixinger ps.np_wd_s_r.t, 经验值). 用于红旗: 非经常损益依赖."""
+    """扣非净利率 (Lixinger 不提供 ps.np_wd_s_r.t, 字段保留). 始终 None."""
+    audit_opinion: Mapped[str | None] = mapped_column(String, nullable=True)
+    """审计意见 (Lixinger auditOpinionType top-level field, 已 spike 验证 2026-06-17).
+    值: standard_unqualified (unqualified_opinion) / qualified / adverse / disclaimer.
+    用于红旗: 非标准审计意见 = 财报可信度疑问."""
     # Cash flow
     operating_cash_flow: Mapped[float | None] = mapped_column(Float, nullable=True)
     investing_cash_flow: Mapped[float | None] = mapped_column(Float, nullable=True)

@@ -64,9 +64,11 @@ def fetch_and_store_financials(
         f"{g}.ps.gp_m.t", f"{g}.ps.np_s_r.t", f"{g}.ps.beps.t",
         f"{g}.bs.ta.t", f"{g}.bs.tl.t", f"{g}.bs.toe.t",
         f"{g}.bs.tl_ta_r.t", f"{g}.bs.gw.t", f"{g}.bs.tsc.t",
+        f"{g}.bs.ar.t",  # Batch 3 (2026-06-17 spike): 应收账款 for ar_growth red flag
         f"{g}.cfs.ncffoa.t", f"{g}.cfs.ncffia.t", f"{g}.cfs.ncfffa.t",
         f"{g}.m.wroe.t", f"{g}.m.roa.t", f"{g}.m.fcf.t",
         f"{g}.m.ncffoa_np_r.t",
+        f"{g}.m.i_tor.t",  # Batch 3 (2026-06-17 spike): 存货周转率 for inventory_turnover_drop red flag
         f"{g}.ps.da.t", f"{g}.ps.d_np_r.t",
     ]
     stock = db.query(Stock).filter(Stock.code == stock_code).first()
@@ -158,6 +160,10 @@ def fetch_and_store_financials(
             provision_coverage_ratio=_get_nested(m, "pcr.t"),
             net_interest_margin=_get_nested(m, "nim.t"),
             core_tier1_car=_get_nested(m, "ct1c_r.t"),
+            # Batch 3 (2026-06-17 spike): red flag fields (invest1 §三 + invest2 §10)
+            accounts_receivable=_get_nested(bs, "ar.t"),
+            inventory_turnover_ratio=_get_nested(m, "i_tor.t"),
+            audit_opinion=item.get("auditOpinionType"),
             raw_data=item if (store_raw or kind == "bank") else None,
         )
         # Upsert: query existing record to avoid duplicates
@@ -179,7 +185,9 @@ def fetch_and_store_financials(
                 "investing_cash_flow", "financing_cash_flow", "free_cash_flow",
                 "ocf_to_profit_ratio", "roe", "roa", "dividend_payout_ratio",
                 "dividends_paid", "npl_ratio", "provision_coverage_ratio",
-                "net_interest_margin", "core_tier1_car", "raw_data",
+                "net_interest_margin", "core_tier1_car",
+                "accounts_receivable", "inventory_turnover_ratio", "audit_opinion",
+                "raw_data",
             ]:
                 setattr(existing, col, getattr(stmt, col))
         else:

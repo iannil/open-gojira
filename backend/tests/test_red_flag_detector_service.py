@@ -42,6 +42,7 @@ def _add_stmt(
     operating_cash_flow=None,  # default = net_profit (健康)
     accounts_receivable=None, inventory=None,
     inventory_turnover_ratio=None, non_recurring_profit_ratio=None,
+    audit_opinion=None,
     net_margin=0.10,
 ):
     """Add one annual FinancialStatement row."""
@@ -61,6 +62,7 @@ def _add_stmt(
         inventory=inventory,
         inventory_turnover_ratio=inventory_turnover_ratio,
         non_recurring_profit_ratio=non_recurring_profit_ratio,
+        audit_opinion=audit_opinion,
         net_margin=net_margin,
     ))
     db.commit()
@@ -245,6 +247,47 @@ class TestNonRecurringFlag:
                   net_margin=0.10, non_recurring_profit_ratio=0.09)
         report = detect_financial_red_flags(db_session, "600519")
         assert "non_recurring_dominant" not in report.kinds
+
+
+# ---------------------------------------------------------------------------
+# Audit opinion flag (Batch 3 — 2026-06-17 spike)
+# ---------------------------------------------------------------------------
+
+
+class TestAuditOpinionFlag:
+    def test_qualified_opinion_triggers(self, db_session):
+        _add_stock(db_session, "600519")
+        _add_stmt(db_session, "600519", "2025-12-31",
+                  audit_opinion="qualified_opinion")
+        report = detect_financial_red_flags(db_session, "600519")
+        assert "non_standard_audit_opinion" in report.kinds
+
+    def test_adverse_opinion_triggers(self, db_session):
+        _add_stock(db_session, "600519")
+        _add_stmt(db_session, "600519", "2025-12-31",
+                  audit_opinion="adverse_opinion")
+        report = detect_financial_red_flags(db_session, "600519")
+        assert "non_standard_audit_opinion" in report.kinds
+
+    def test_disclaimer_opinion_triggers(self, db_session):
+        _add_stock(db_session, "600519")
+        _add_stmt(db_session, "600519", "2025-12-31",
+                  audit_opinion="disclaimer_of_opinion")
+        report = detect_financial_red_flags(db_session, "600519")
+        assert "non_standard_audit_opinion" in report.kinds
+
+    def test_standard_unqualified_no_flag(self, db_session):
+        _add_stock(db_session, "600519")
+        _add_stmt(db_session, "600519", "2025-12-31",
+                  audit_opinion="unqualified_opinion")
+        report = detect_financial_red_flags(db_session, "600519")
+        assert "non_standard_audit_opinion" not in report.kinds
+
+    def test_missing_opinion_skips_check(self, db_session):
+        _add_stock(db_session, "600519")
+        _add_stmt(db_session, "600519", "2025-12-31", audit_opinion=None)
+        report = detect_financial_red_flags(db_session, "600519")
+        assert "non_standard_audit_opinion" not in report.kinds
 
 
 # ---------------------------------------------------------------------------

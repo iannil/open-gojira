@@ -1,8 +1,8 @@
 # 投资体系对齐审计 (2026-06-17)
 
 > 日期: 2026-06-17
-> 状态: 已确认 (grill-me 会话产出, 11 项决策 + 1 项命名重构 + 两批 ship 计划)
-> 关联: `docs/progress/STATUS.md` | `docs/reference/invest{1,2,3}.md` | `docs/reference/specs/2026-06-14-comprehensive-audit.md`
+> 状态: 已确认 + 已验证 (Batch 3 grill-me 会话复核 Batch 1/2 ship 实际状态, 修正 78%→75% 对齐口径)
+> 关联: `docs/progress/STATUS.md` | `docs/reference/invest{1,2,3}.md` | `docs/reference/specs/2026-06-14-comprehensive-audit.md` | `docs/reports/completed/plan-invest-alignment-batch3-2026-06-17.md`
 
 ## 背景
 
@@ -282,25 +282,48 @@ invest1 §3 是"现金流为王"章节的辅助点 (1 个子弹点),优先级 P3
 
 ---
 
-## 投资体系对齐度评估 (实施后预期)
+## 投资体系对齐度评估 (Batch 3 验证后实际)
 
-| invest 维度 | 当前对齐度 | 实施后 |
+| invest 维度 | 当前对齐度 (Batch 3 后) | 说明 |
 |---|---|---|
-| invest1 第一性原理 | 80% | 85% (D6 加深禁投) |
-| invest1 求字→选择权理论 | 30% (字段空转) | 85% (D2 激活 + 命名重构) |
-| invest1 现金流为王 | 95% | 95% (已对齐) |
-| invest1 银行盲盒 | 60% (analyzer 有但策略未接) | 95% (D1 接入) |
-| invest1 估值锚 | 95% | 95% |
-| invest1 仓位管理 | 90% (extreme_high warning) | 100% (D5 blocker) |
-| invest1 30% 止盈 | 70% (仅 core_value) | 75% (D7 文档化) |
-| invest2 §10 财报避坑 | 30% | 95% (D3 完整版) |
-| invest2 §13 三类禁投 | 20% | 85% (D6 双管齐下) |
-| invest2 §7 平方差魔咒 | 50% (仅回测) | 85% (D4 实时) |
-| invest2 §23 资产配置 | 50% (仅加权 DYR) | 60% (D8 文档边界) |
-| invest2 §24 100 万门槛 | 0% | 10% (D9 跳过) |
-| invest1 §3 EPS 真相 | 0% | 10% (D10 跳过) |
+| invest1 第一性原理 | 80% | D6 加深禁投 |
+| invest1 求字→选择权理论 | 85% | D2 激活 + 命名重构 |
+| invest1 现金流为王 | 95% | 已对齐 |
+| invest1 银行盲盒 | 95% | D1 接入 |
+| invest1 估值锚 | 95% | 已对齐 |
+| invest1 仓位管理 | 100% | D5 blocker |
+| invest1 30% 止盈 | 75% | D7 文档化 |
+| invest2 §10 财报避坑 | 85% | D3 6/7 红旗生效 (spike 验证后); 扣非净利率红旗死代码 |
+| invest2 §13 三类禁投 | 80% | D6 双管齐下, midstream filter 在 plan_runner 而非 invalidation |
+| invest2 §7 平方差魔咒 | 85% | D4 实时 portfolio_risk_service |
+| invest2 §23 资产配置 | 60% | D8 文档边界 + Batch 3 决定 4 块分类不引入 Plan.cyclicality |
+| invest2 §24 100 万门槛 | 10% | D9 跳过 |
+| invest1 §3 EPS 真相 | 10% | D10 跳过 |
+| 进度条战法 (invest1 §一) | 0% | Batch 3 文档化为已知限制 (Lixinger 不提供矿权进度数据) |
+| 治理瑕疵逆向 (invest2 §十) | 0% | Batch 3 文档化为已知限制 (Lixinger 不提供减持公告) |
+| 60% 分红承诺 (invest2 §八) | 0% | Batch 3 文档化为已知限制 (Lixinger 不提供分红承诺数据) |
+| 数人头/数店面 (invest1 §一) | 30% | Batch 3 文档化:仅作 BusinessPattern.first_principle_variable 描述字符串 |
+| 个股周期拐点 (invest2 §五) | 0% | Batch 3 文档化为已知限制 (需商品价格 API) |
 
-**整体**: 从当前 ~58% → 实施后 ~78% (剩余的 22% 是 Lixinger 不支持的数据维度,文档化为已知限制)。
+**整体对齐度修正**: 原审计声称 58% → 78% 是过度乐观。Batch 3 grill 复核实际 ~75% (D3 红旗激活 + audit_opinion 新增 +5 missed 文档化)。剩余的 ~25% 是 Lixinger 不支持的数据维度,文档化为已知限制,符合 CLAUDE.md "架构尽可能简化" 原则。
+
+---
+
+## Batch 3 验证决策 (2026-06-17 grill-me 复核)
+
+Batch 1/2 ship 后用户再次 grill-me,对照实际代码核对 11 项决策的真实状态,产出 5 项新决策:
+
+1. **D3 Lixinger field keys 立即 spike**: 写 `spikes/probe_redflag_metrics.py` 调真实 API 验证 bs.ar.t / m.i_tor.t / ps.np_wd_s_r.t / auditOpinionType 4 候选。**结果**: bs.ar.t (4/4 股票有数据) + m.i_tor.t (4/4) + auditOpinionType (4/4 = unqualified_opinion) 全部生效; ps.np_wd_s_r.t + bs.inv.t 确认 400 ValidationError 不支持。spike artifact: `backend/spikes/output/probe_redflag_metrics_2026-06-17T08-27-18Z.json`。
+
+2. **D3+D6 invalidation 架构接受现状**: audit 原始决策说红旗 + 中游过滤走 `plan.invalidation:[]` schema,实际实施在 plan_runner 代码路径 (red_flag_count 检查 + `_should_filter_as_midstream_non_leader`)。决策: 不重构,改审计 spec 文字对齐代码 (invalidation 字段保留但不启用)。理由: 代码已 ship + 测试覆盖,重构 1-1.5 天且无功能增量。
+
+3. **5 missed 概念全部文档化为已知限制**: 进度条战法 / 治理瑕疵 / 60% 分红承诺 / 数人头量化 / 个股周期拐点。除"个股周期拐点"可能复用 PriceKline 推导外,其他 4 个需要新数据源 (公告/商品价格/业务运营)。按 CLAUDE.md "架构尽可能简化" 原则不扩数据源。
+
+4. **invest2 §23 4 块分类不引入 Plan.cyclicality**: 4 块 (顺周期/逆周期/困境反转/金融) 与现有 4 theme_id (能源/资源/金融/粮食安全) 维度正交但不冲突。文档化 `theme_id` 已足够,避免引入新字段 + alembic migration。
+
+5. **3 阶段执行顺序**: Phase 1 spike → Phase 2 接入 (条件性) → Phase 3 4 份文档同步 + 测试。Batch 3 commit。
+
+---
 
 ---
 

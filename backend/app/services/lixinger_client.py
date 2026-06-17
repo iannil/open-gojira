@@ -553,6 +553,7 @@ class LixingerClient:
                 f"{granularity}.bs.tca.t", f"{granularity}.bs.tcl.t",
                 f"{granularity}.bs.cabb.t", f"{granularity}.bs.gw.t",
                 f"{granularity}.bs.tsc.t", f"{granularity}.bs.mc.t",
+                f"{granularity}.bs.ar.t",  # Batch 3 (2026-06-17 spike): 应收账款 for ar_growth red flag
                 # Income statement
                 f"{granularity}.ps.toi.t", f"{granularity}.ps.oi.t",
                 f"{granularity}.ps.oc.t", f"{granularity}.ps.gp_m.t",

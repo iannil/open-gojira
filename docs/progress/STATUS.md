@@ -4,7 +4,7 @@
 >
 > | 字段 | 值 (实测于 2026-06-17) |
 > |---|---|
-> | 最后更新 | 2026-06-17 (invest1/2/3 对齐审计 Batch 2 ship: D2/D3/D4 拓 schema + 37 新测试) |
+> | 最后更新 | 2026-06-17 (invest1/2/3 对齐审计 Batch 3 ship: spike 验证 + 3 红旗激活 + 5 missed 文档化) |
 > | 分支 | `master` |
 > | 最新 commit | 258f750 (Batch 1 invest-alignment) + 本轮未提交 (Batch 2) |
 > | 测试 | **1121 passed**, 0 failed (`pytest`) |
@@ -228,7 +228,9 @@ Alembic 迁移链: 21 个版本文件,head = `s2_candidate_source_field`。
 
 ### 5.2 最近里程碑 (按时间倒序)
 
-**2026-06-17 (深夜)**: invest1/2/3 对齐审计 Batch 2 ship (拓 schema)。实施 3 项决策: D2 新增 optionality_leader 策略 + moat_leader plan 激活 power_tier (选择权位阶); D3 拓 FinancialStatement 4 字段 + alembic s6_1_red_flag_fields migration + red_flag_detector_service 6 红旗 (商誉/OCF/分红可持续/应收/存货周转/非经常损益) + plan_runner 集成过滤; D4 新增 portfolio_risk_service 从 historical_klines 推算年化波动率/30-90日回撤/夏普代理 + Cockpit "组合风险"卡片。1121 测试通过 (+37)。Lixinger 字段键未 spike 验证 → graceful degradation (现有字段红旗立即生效,新字段等用户 spike)。详见 `docs/reports/completed/plan-invest-alignment-batch2-2026-06-17.md`。
+**2026-06-17 (深夜)**: invest1/2/3 对齐审计 Batch 3 ship (spike 验证 + 文档对齐)。grill-me 会话验证 Batch 1/2 实施情况,发现 D3 6/7 红旗中 3/7 是死代码 + 5 missed 概念。spike `backend/spikes/probe_redflag_metrics.py` 用 4 真实股票 (宝丰能源/南山铝业/芭田股份/紫金矿业) 验证 Lixinger metric keys: `bs.ar.t` (应收账款) + `m.i_tor.t` (存货周转) + `auditOpinionType` (审计意见 top-level) 全部 4/4 股票 200 + 实际数据; `ps.np_wd_s_r.t` (扣非净利率) + `bs.inv.t` (存货绝对值) 确认 400 ValidationError 不支持。补 `models/financial.py` audit_opinion 字段 + `alembic s7_1_audit_opinion_field` migration + `financial_service.py` 3 字段映射 (含 metrics list 加 bs.ar.t + m.i_tor.t) + `red_flag_detector_service` 新增 `_check_non_standard_audit_opinion` 红旗 + `lixinger_client.get_financials` defaults 加 bs.ar.t。1126 测试通过 (+5)。原审计 78% 对齐度口径修正为 75% (3 红旗激活 + audit_opinion 新增,但 5 missed 概念文档化为限制)。详见 `docs/reports/completed/plan-invest-alignment-batch3-2026-06-17.md`。
+
+**2026-06-17 (夜)**: invest1/2/3 对齐审计 Batch 2 ship (拓 schema)。实施 3 项决策: D2 新增 optionality_leader 策略 + moat_leader plan 激活 power_tier (选择权位阶); D3 拓 FinancialStatement 4 字段 + alembic s6_1_red_flag_fields migration + red_flag_detector_service 6 红旗 (商誉/OCF/分红可持续/应收/存货周转/非经常损益) + plan_runner 集成过滤; D4 新增 portfolio_risk_service 从 historical_klines 推算年化波动率/30-90日回撤/夏普代理 + Cockpit "组合风险"卡片。1121 测试通过 (+37)。Lixinger 字段键未 spike 验证 → graceful degradation (现有字段红旗立即生效,新字段等用户 spike)。详见 `docs/reports/completed/plan-invest-alignment-batch2-2026-06-17.md`。
 
 **2026-06-17 (晚)**: invest1/2/3 对齐审计 Batch 1 ship。grill-me 会话对照 `docs/reference/invest{1,2,3}.md` 全面审计,产出 11 项决策 + 求字→选择权 命名重构 + 两批 ship 计划。Batch 1 (低风险高价值) 实施: D1 bank_select 加 bank_blind_box==可见 (顺带修 industry ["bank"]→["银行","bank"] 永不匹配 Lixinger 实际返回值的潜伏 bug) / D5 extreme_high 新开仓 warning→blocker (保留加仓赢家通道) / D6-A 新增 avoid_overvalued_tech 策略 + D6-B 验证中游 filter 已就绪 / D7-D10 文档化决策 / 命名重构 (字段名 power_tier 保留,UI/文档改"选择权位阶"文案)。1084 测试通过 (+9)。详见 `docs/reference/specs/2026-06-17-invest-system-alignment-audit.md` + `docs/reports/completed/plan-invest-alignment-batch1-2026-06-17.md`。
 
@@ -289,11 +291,13 @@ Alembic 迁移链: 21 个版本文件,head = `s2_candidate_source_field`。
 
 ### 已知限制 (D8/D9/D10 + Lixinger 字段键 — 2026-06-17 invest-alignment audit)
 
-- **D8 资产配置范围**: Gojira 定位为「个人**股票**自动驾驶舱」。房产/黄金实物/货币基金/债券基金**不在范围**。invest2 §23 加权 DYR 4-5% 已实现 (`holding_service.target_weighted_dyr=0.045`),是非股票资产可量化部分。
+- **D8 资产配置范围**: Gojira 定位为「个人**股票**自动驾驶舱」。房产/黄金实物/货币基金/债券基金**不在范围**。invest2 §23 加权 DYR 4-5% 已实现 (`holding_service.target_weighted_dyr=0.045`),是非股票资产可量化部分。invest2 §23 顺周期/逆周期/困境反转/金融 4 块分类**不引入 Plan.cyclicality 字段**——`Plan.theme_id` (能源/资源/金融/粮食安全) 已提供类似维度。
 - **D9 100 万门槛**: invest2 §24 是元层面建议 (劳动收入 vs 投资权重),非交易规则。不机械实现,用户自行判断本金状态。
 - **D10 EPS 真相 (永续债/优先股)**: Lixinger 标准 API 不提供永续债利息 / 优先股股息细分 (银行/地产年报附注才披露)。`adjusted_eps` 未实现。用户需手动查年报附注。
-- **D3 Lixinger 字段键未 spike 验证** (Batch 2 ship 后): D3 新增的 4 个 schema 字段对应的 Lixinger metric keys (bs.ar.t / bs.inv.t / ps.np_wd_s_r.t) 基于通用命名推断。`financial_service.py:130-160` 也未更新填充。Graceful degradation: 字段为 None 时红旗检测器跳过,现有 goodwill + OCF/NI + dividend_sustainability 三红旗基于已有字段立即生效。等用户跑 spike 验证键后,补 financial_service 字段映射可激活剩余 3 红旗。
-- **D3 audit_opinion 跳过**: Lixinger 标准 API 不提供审计意见,跳过该红旗。
+- **进度条战法 / 治理瑕疵 / 60% 分红承诺 / 数人头量化 / 个股周期拐点** (Batch 3 grill 2026-06-17): invest1/2/3 五大概念 Lixinger 不提供数据维度 (矿权进度/减持公告/分红承诺/门店数/商品价格)。架构尽可能简化原则下不扩数据源,文档化为已知限制。
+- **D3 红旗数据源 (Batch 3 ship 2026-06-17)**: spike `backend/spikes/probe_redflag_metrics.py` 验证后,6/7 红旗生效 (goodwill + OCF/NI + dividend_sustainability + **ar_growth + inventory_turnover_drop + non_standard_audit**)。`non_recurring_dominant` 红旗是死代码:Lixinger fs 端点不支持 `ps.np_wd_s_r.t` (扣非净利率) — 保留检测器作为设计意图。`auditOpinionType` 是 Lixinger top-level 字段 (非 metric key),`financial_service.py:164` 已映射到 `audit_opinion` 列。
+- **D6 invalidation 架构** (Batch 3 决策 2026-06-17): `plan.invalidation:[]` schema 字段保留但**不启用**。中游非成本龙头过滤走 `plan_runner._should_filter_as_midstream_non_leader` 代码路径 (line 127-151),`disable_midstream_filter=False` 默认开启。红旗过滤走 `plan_runner.red_flag_count > 0` 检查 (line 635/661)。两条代码路径而非 `invalidation` schema,因为代码已 ship 且测试覆盖;重构 schema 表达需 1-1.5 天且无功能增量。
+- **资源股 7 维实际 6 维**: `resource_hard_asset` 策略 6 个 condition 覆盖 invest3 §12 7 维中的 5 维 (资源禀赋/估值/股息/地缘/扩产)。缺成本 (cost_leader) 与管理 (management quality) 两个细分维度作为已知限制。
 
 ---
 

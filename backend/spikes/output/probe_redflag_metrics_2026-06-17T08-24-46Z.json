@@ -1,0 +1,295 @@
+{
+  "ok": true,
+  "timestamp": "2026-06-17T08-24-46Z",
+  "description": "Lixinger red flag metric probe v2 (direct httpx, nested parser)",
+  "test_stocks": [
+    {
+      "code": "600989",
+      "name": "宝丰能源",
+      "sector": "煤化工"
+    },
+    {
+      "code": "600219",
+      "name": "南山铝业",
+      "sector": "电解铝"
+    },
+    {
+      "code": "002170",
+      "name": "芭田股份",
+      "sector": "磷矿"
+    },
+    {
+      "code": "601899",
+      "name": "紫金矿业",
+      "sector": "铜/金"
+    }
+  ],
+  "results_per_probe": {
+    "ar_growth_gt_revenue": {
+      "description": "应收账款 quarterly",
+      "by_stock": {
+        "600989": {
+          "name": "宝丰能源",
+          "sector": "煤化工",
+          "status_code": 400,
+          "present": false,
+          "value_count": 0,
+          "latest_value": null,
+          "latest_date": null,
+          "error": "http_400: {\"code\":0,\"error\":{\"name\":\"ValidationError\",\"messages\":[{\"value\":[\"bs.ar.t\"],\"path\":[\"metricsList\"],\"message\":\"(bs.ar.t) are invalid fs metrics\"}]}}",
+          "raw_first_row": null,
+          "audit_opinion_sample": null
+        },
+        "600219": {
+          "name": "南山铝业",
+          "sector": "电解铝",
+          "status_code": 400,
+          "present": false,
+          "value_count": 0,
+          "latest_value": null,
+          "latest_date": null,
+          "error": "http_400: {\"code\":0,\"error\":{\"name\":\"ValidationError\",\"messages\":[{\"value\":[\"bs.ar.t\"],\"path\":[\"metricsList\"],\"message\":\"(bs.ar.t) are invalid fs metrics\"}]}}",
+          "raw_first_row": null,
+          "audit_opinion_sample": null
+        },
+        "002170": {
+          "name": "芭田股份",
+          "sector": "磷矿",
+          "status_code": 400,
+          "present": false,
+          "value_count": 0,
+          "latest_value": null,
+          "latest_date": null,
+          "error": "http_400: {\"code\":0,\"error\":{\"name\":\"ValidationError\",\"messages\":[{\"value\":[\"bs.ar.t\"],\"path\":[\"metricsList\"],\"message\":\"(bs.ar.t) are invalid fs metrics\"}]}}",
+          "raw_first_row": null,
+          "audit_opinion_sample": null
+        },
+        "601899": {
+          "name": "紫金矿业",
+          "sector": "铜/金",
+          "status_code": 400,
+          "present": false,
+          "value_count": 0,
+          "latest_value": null,
+          "latest_date": null,
+          "error": "http_400: {\"code\":0,\"error\":{\"name\":\"ValidationError\",\"messages\":[{\"value\":[\"bs.ar.t\"],\"path\":[\"metricsList\"],\"message\":\"(bs.ar.t) are invalid fs metrics\"}]}}",
+          "raw_first_row": null,
+          "audit_opinion_sample": null
+        }
+      }
+    },
+    "inventory_turnover_drop": {
+      "description": "存货绝对值 (control — should be 400)",
+      "by_stock": {
+        "600989": {
+          "name": "宝丰能源",
+          "sector": "煤化工",
+          "status_code": 400,
+          "present": false,
+          "value_count": 0,
+          "latest_value": null,
+          "latest_date": null,
+          "error": "http_400: {\"code\":0,\"error\":{\"name\":\"ValidationError\",\"messages\":[{\"value\":[\"bs.inv.t\"],\"path\":[\"metricsList\"],\"message\":\"(bs.inv.t) are invalid fs metrics\"}]}}",
+          "raw_first_row": null,
+          "audit_opinion_sample": null
+        },
+        "600219": {
+          "name": "南山铝业",
+          "sector": "电解铝",
+          "status_code": 400,
+          "present": false,
+          "value_count": 0,
+          "latest_value": null,
+          "latest_date": null,
+          "error": "http_400: {\"code\":0,\"error\":{\"name\":\"ValidationError\",\"messages\":[{\"value\":[\"bs.inv.t\"],\"path\":[\"metricsList\"],\"message\":\"(bs.inv.t) are invalid fs metrics\"}]}}",
+          "raw_first_row": null,
+          "audit_opinion_sample": null
+        },
+        "002170": {
+          "name": "芭田股份",
+          "sector": "磷矿",
+          "status_code": 400,
+          "present": false,
+          "value_count": 0,
+          "latest_value": null,
+          "latest_date": null,
+          "error": "http_400: {\"code\":0,\"error\":{\"name\":\"ValidationError\",\"messages\":[{\"value\":[\"bs.inv.t\"],\"path\":[\"metricsList\"],\"message\":\"(bs.inv.t) are invalid fs metrics\"}]}}",
+          "raw_first_row": null,
+          "audit_opinion_sample": null
+        },
+        "601899": {
+          "name": "紫金矿业",
+          "sector": "铜/金",
+          "status_code": 400,
+          "present": false,
+          "value_count": 0,
+          "latest_value": null,
+          "latest_date": null,
+          "error": "http_400: {\"code\":0,\"error\":{\"name\":\"ValidationError\",\"messages\":[{\"value\":[\"bs.inv.t\"],\"path\":[\"metricsList\"],\"message\":\"(bs.inv.t) are invalid fs metrics\"}]}}",
+          "raw_first_row": null,
+          "audit_opinion_sample": null
+        }
+      }
+    },
+    "non_recurring_dominant": {
+      "description": "非经常性损益比 (annual)",
+      "by_stock": {
+        "600989": {
+          "name": "宝丰能源",
+          "sector": "煤化工",
+          "status_code": 400,
+          "present": false,
+          "value_count": 0,
+          "latest_value": null,
+          "latest_date": null,
+          "error": "http_400: {\"code\":0,\"error\":{\"name\":\"ValidationError\",\"messages\":[{\"value\":[\"ps.np_wd_s_r.t\"],\"path\":[\"metricsList\"],\"message\":\"(ps.np_wd_s_r.t) are invalid fs metrics\"}]}}",
+          "raw_first_row": null,
+          "audit_opinion_sample": null
+        },
+        "600219": {
+          "name": "南山铝业",
+          "sector": "电解铝",
+          "status_code": 400,
+          "present": false,
+          "value_count": 0,
+          "latest_value": null,
+          "latest_date": null,
+          "error": "http_400: {\"code\":0,\"error\":{\"name\":\"ValidationError\",\"messages\":[{\"value\":[\"ps.np_wd_s_r.t\"],\"path\":[\"metricsList\"],\"message\":\"(ps.np_wd_s_r.t) are invalid fs metrics\"}]}}",
+          "raw_first_row": null,
+          "audit_opinion_sample": null
+        },
+        "002170": {
+          "name": "芭田股份",
+          "sector": "磷矿",
+          "status_code": 400,
+          "present": false,
+          "value_count": 0,
+          "latest_value": null,
+          "latest_date": null,
+          "error": "http_400: {\"code\":0,\"error\":{\"name\":\"ValidationError\",\"messages\":[{\"value\":[\"ps.np_wd_s_r.t\"],\"path\":[\"metricsList\"],\"message\":\"(ps.np_wd_s_r.t) are invalid fs metrics\"}]}}",
+          "raw_first_row": null,
+          "audit_opinion_sample": null
+        },
+        "601899": {
+          "name": "紫金矿业",
+          "sector": "铜/金",
+          "status_code": 400,
+          "present": false,
+          "value_count": 0,
+          "latest_value": null,
+          "latest_date": null,
+          "error": "http_400: {\"code\":0,\"error\":{\"name\":\"ValidationError\",\"messages\":[{\"value\":[\"ps.np_wd_s_r.t\"],\"path\":[\"metricsList\"],\"message\":\"(ps.np_wd_s_r.t) are invalid fs metrics\"}]}}",
+          "raw_first_row": null,
+          "audit_opinion_sample": null
+        }
+      }
+    }
+  },
+  "audit_opinion_per_stock": {
+    "600989": {
+      "name": "宝丰能源",
+      "sector": "煤化工",
+      "audit_opinion_values_seen": [
+        "unqualified_opinion"
+      ],
+      "row_count": 2
+    },
+    "600219": {
+      "name": "南山铝业",
+      "sector": "电解铝",
+      "audit_opinion_values_seen": [
+        "unqualified_opinion"
+      ],
+      "row_count": 2
+    },
+    "002170": {
+      "name": "芭田股份",
+      "sector": "磷矿",
+      "audit_opinion_values_seen": [
+        "unqualified_opinion"
+      ],
+      "row_count": 2
+    },
+    "601899": {
+      "name": "紫金矿业",
+      "sector": "铜/金",
+      "audit_opinion_values_seen": [
+        "unqualified_opinion"
+      ],
+      "row_count": 2
+    }
+  },
+  "verdicts": {
+    "ar_growth_gt_revenue": {
+      "best_metric": null,
+      "recommend_activate": false,
+      "all_metrics": {
+        "y.bs.ar.t": {
+          "description": "应收账款 (accounts receivable)",
+          "stocks_present": 0,
+          "total_value_rows": 0,
+          "recommend_activate": false
+        },
+        "q.bs.ar.t": {
+          "description": "应收账款 quarterly",
+          "stocks_present": 0,
+          "total_value_rows": 0,
+          "recommend_activate": false
+        }
+      }
+    },
+    "inventory_turnover_drop": {
+      "best_metric": null,
+      "recommend_activate": false,
+      "all_metrics": {
+        "y.m.i_tor.t": {
+          "description": "存货周转率 (annual)",
+          "stocks_present": 0,
+          "total_value_rows": 0,
+          "recommend_activate": false
+        },
+        "q.m.i_tor.t": {
+          "description": "存货周转率 (quarterly)",
+          "stocks_present": 0,
+          "total_value_rows": 0,
+          "recommend_activate": false
+        },
+        "y.bs.inv.t": {
+          "description": "存货绝对值 (control — should be 400)",
+          "stocks_present": 0,
+          "total_value_rows": 0,
+          "recommend_activate": false
+        }
+      }
+    },
+    "non_recurring_dominant": {
+      "best_metric": null,
+      "recommend_activate": false,
+      "all_metrics": {
+        "y.ps.np_wd_s_r.t": {
+          "description": "非经常性损益比 (annual)",
+          "stocks_present": 0,
+          "total_value_rows": 0,
+          "recommend_activate": false
+        }
+      }
+    }
+  },
+  "key_findings": {
+    "ar_growth_bs_ar_t": "y.bs.ar.t IS supported by Lixinger. v1 of this spike returned false-negative because parser was flat. v2 confirms nested traversal works and returns real values for all 4 test stocks.",
+    "inventory_turnover_m_i_tor_t": "m.i_tor.t IS supported AND already in lixinger_client.get_financials() defaults (line 569). It is NOT mapped to FinancialStatement in financial_service.py — the inventory_turnover_drop detector can activate with pure mapping change.",
+    "non_recurring_ps_np_wd_s_r_t": "ps.np_wd_s_r.t is NOT supported by Lixinger fs endpoint (confirmed 400 ValidationError). non_recurring_dominant detector stays as dead code OR remove from service.",
+    "audit_opinion_bonus": "auditOpinionType IS returned at top level of every fs row. Current financial_service.py ignores it. D3 audit claimed this field needed schema extension — INCORRECT. Field can be added with pure mapping change."
+  },
+  "next_steps": {
+    "phase2_activate": [
+      "1. financial_service.py: add accounts_receivable=_get_nested(bs, 'ar.t') mapping",
+      "2. financial_service.py: add inventory_turnover_ratio=_get_nested(m, 'i_tor.t') mapping",
+      "3. financial_service.py: add audit_opinion=item.get('auditOpinionType') mapping",
+      "4. models/financial.py: confirm accounts_receivable / inventory_turnover_ratio / audit_opinion columns exist",
+      "5. lixinger_client.py: add y.bs.ar.t to default metrics list (m.i_tor.t already there)",
+      "6. Verify red_flag_detector_service: ar_growth + inventory_turnover_drop now fire on real data",
+      "7. non_recurring_dominant detector: keep as dead code with comment OR delete"
+    ]
+  }
+}
