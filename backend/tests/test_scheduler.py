@@ -51,3 +51,54 @@ def test_start_scheduler_disabled_by_default(monkeypatch):
     sched_module._scheduler = None
     out = sched_module.start_scheduler()
     assert out is None
+
+
+def test_thesis_evaluation_job_invokes_both_checks(monkeypatch):
+    """v2 Q6'-A2: independent thesis_evaluation_job must call both
+    check_held_stocks (legacy thesis_variables_json) and check_claim_variables
+    (new research_claim_variables)."""
+    from app.services import thesis_monitor_service
+
+    legacy_calls = []
+    claim_calls = []
+
+    def fake_legacy(db):
+        legacy_calls.append(db)
+        return []  # no legacy alerts
+
+    def fake_claim(db):
+        from app.services.thesis_monitor_service import ClaimVariableMonitorSummary
+        claim_calls.append(db)
+        return ClaimVariableMonitorSummary(checked=1, breached=0)
+
+    monkeypatch.setattr(thesis_monitor_service, "check_held_stocks", fake_legacy)
+    monkeypatch.setattr(thesis_monitor_service, "check_claim_variables", fake_claim)
+
+    result = sched_module.thesis_evaluation_job()
+
+    assert len(legacy_calls) == 1
+    assert len(claim_calls) == 1
+    assert result["legacy_alerts"] == 0
+    assert result["checked"] == 1
+    assert result["breached"] == 0
+
+
+def test_run_job_now_thesis_evaluation_executes(monkeypatch):
+    """run_job_now('thesis_evaluation') must dispatch to thesis_evaluation_job."""
+    from app.services import thesis_monitor_service
+
+    monkeypatch.setattr(
+        thesis_monitor_service, "check_held_stocks", lambda db: []
+    )
+    monkeypatch.setattr(
+        thesis_monitor_service, "check_claim_variables",
+        lambda db: thesis_monitor_service.ClaimVariableMonitorSummary(),
+    )
+
+    result = sched_module.run_job_now("thesis_evaluation")
+    assert result["job"] == "thesis_evaluation"
+    assert "result" in result
+    inner = result["result"]
+    assert "checked" in inner
+    assert "breached" in inner
+    assert "legacy_alerts" in inner

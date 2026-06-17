@@ -160,6 +160,98 @@ class TestSourceRouting:
         s = svc.check_claim_variables(db)
         assert s.breached == 1
 
+    def test_financial_revenue_growth(self, db_session):
+        """v2 source routing: financial:revenue_growth → revenue_growth column."""
+        db = db_session
+        run = _make_theme_run(db)
+        c = ResearchClaim(
+            research_run_id=run.id, type="failure_condition", position=0,
+            subject="x", predicate="y", signal="营收增长<-10%", outcome="z",
+            stock_codes_json='["600519"]',
+        )
+        db.add(c); db.flush()
+        _make_stock(db, "600519")
+        _make_holding(db, "600519")
+        _add_annual_financial(db, stock_code="600519", year=2024, revenue_growth=-15.0)
+        _make_active_cv(
+            db, claim_id=c.id, stock_code="600519", source="financial:revenue_growth",
+            threshold=-10.0, breach_when="lt", variable_name="营收增长",
+        )
+        s = svc.check_claim_variables(db)
+        assert s.breached == 1
+        assert s.alerts[0]["current_value"] == -15.0
+
+    def test_financial_margin(self, db_session):
+        """v2 source routing: financial:margin → gross_margin column."""
+        db = db_session
+        run = _make_theme_run(db)
+        c = ResearchClaim(
+            research_run_id=run.id, type="failure_condition", position=0,
+            subject="x", predicate="y", signal="毛利率<30%", outcome="z",
+            stock_codes_json='["000651"]',
+        )
+        db.add(c); db.flush()
+        _make_stock(db, "000651")
+        _make_holding(db, "000651")
+        _add_annual_financial(db, stock_code="000651", year=2024, gross_margin=25.0)
+        _make_active_cv(
+            db, claim_id=c.id, stock_code="000651", source="financial:margin",
+            threshold=30.0, breach_when="lt", variable_name="毛利率",
+        )
+        s = svc.check_claim_variables(db)
+        assert s.breached == 1
+
+    def test_valuation_PB_percentile(self, db_session):
+        """v2 source routing: valuation:PB_percentile → pb_percentile_10y column."""
+        db = db_session
+        run = _make_theme_run(db)
+        c = ResearchClaim(
+            research_run_id=run.id, type="failure_condition", position=0,
+            subject="x", predicate="y", signal="PB>85%", outcome="z",
+            stock_codes_json='["000001"]',
+        )
+        db.add(c); db.flush()
+        _make_stock(db, "000001")
+        _make_holding(db, "000001")
+        _add_valuation(db, stock_code="000001", pb_p10=92.0)
+        _make_active_cv(
+            db, claim_id=c.id, stock_code="000001", source="valuation:PB_percentile",
+            threshold=85.0, breach_when="gt", variable_name="PB 分位",
+        )
+        s = svc.check_claim_variables(db)
+        assert s.breached == 1
+
+    def test_kline_price_drop_52w(self, db_session):
+        """v2 source routing: kline:price_drop_52w → computed from PriceKline."""
+        from datetime import date as _date
+        from app.models.price_kline import PriceKline
+        db = db_session
+        run = _make_theme_run(db)
+        c = ResearchClaim(
+            research_run_id=run.id, type="failure_condition", position=0,
+            subject="x", predicate="y", signal="52周跌幅>40%", outcome="z",
+            stock_codes_json='["000001"]',
+        )
+        db.add(c); db.flush()
+        _make_stock(db, "000001")
+        _make_holding(db, "000001")
+        # Construct klines: peak high=15 in past, current close=8 → drop = 46.67%
+        for i, (h, c_price) in enumerate([(15, 14), (14, 13), (12, 11), (10, 9), (8, 8)]):
+            db.add(PriceKline(
+                stock_code="000001",
+                date=_date(2024, 1, 1 + i),
+                freq="day", open=c_price, high=h, low=c_price - 0.5, close=c_price,
+            ))
+        db.flush()
+        _make_active_cv(
+            db, claim_id=c.id, stock_code="000001", source="kline:price_drop_52w",
+            threshold=40.0, breach_when="gt", variable_name="52周跌幅",
+        )
+        s = svc.check_claim_variables(db)
+        assert s.breached == 1
+        # drop = (15 - 8) / 15 * 100 ≈ 46.67
+        assert 46.0 < s.alerts[0]["current_value"] < 47.0
+
 
 # ── Multi-period ───────────────────────────────────────────────────────
 
@@ -338,3 +430,120 @@ class TestCheckBreachUnit:
     def test_multi_period_consecutive(self):
         assert svc._check_breach([1.2, 1.25], 1.3, "lt", 2) is True
         assert svc._check_breach([1.4, 1.25], 1.3, "lt", 2) is False
+
+
+# ── EventBus emit (v2 Q-new) ──────────────────────────────────────────
+
+
+class TestEventBusEmit:
+    """v2: on fresh breach, check_claim_variables must emit ThesisAlertTriggered
+    so the event_handlers.py notification chain can dispatch alerts."""
+
+    def test_breach_emits_thesis_alert_triggered(self, db_session, monkeypatch):
+        from app.core import events as events_mod
+        from app.core.events import ThesisAlertTriggered
+
+        db = db_session
+        run = _make_theme_run(db)
+        c = ResearchClaim(
+            research_run_id=run.id, type="failure_condition", position=0,
+            subject="x", predicate="y", signal="NIM<1.3", outcome="z",
+            stock_codes_json='["601398"]',
+        )
+        db.add(c); db.flush()
+        _make_stock(db, "601398", "工商银行")
+        _make_holding(db, "601398")
+        _add_annual_financial(db, stock_code="601398", year=2024, nim=1.2)
+        _make_active_cv(
+            db, claim_id=c.id, stock_code="601398", source="financial:NIM",
+            threshold=1.3, breach_when="lt",
+        )
+
+        emitted: list[ThesisAlertTriggered] = []
+        events_mod.bus.subscribe(ThesisAlertTriggered, emitted.append)
+        try:
+            svc.check_claim_variables(db)
+        finally:
+            events_mod.bus._handlers[ThesisAlertTriggered] = [
+                h for h in events_mod.bus._handlers.get(ThesisAlertTriggered, [])
+                if h is not emitted.append
+            ]
+
+        assert len(emitted) == 1
+        ev = emitted[0]
+        assert ev.claim_var_id is not None
+        assert ev.code == "601398"
+        assert ev.stock_name == "工商银行"
+        assert ev.variable_name == "净息差"
+        assert ev.current_value == 1.2
+        assert ev.threshold_value == 1.3
+        assert ev.breach_when == "lt"
+
+    def test_no_breach_no_emit(self, db_session, monkeypatch):
+        from app.core import events as events_mod
+        from app.core.events import ThesisAlertTriggered
+
+        db = db_session
+        run = _make_theme_run(db)
+        c = ResearchClaim(
+            research_run_id=run.id, type="failure_condition", position=0,
+            subject="x", predicate="y", signal="NIM<1.3", outcome="z",
+            stock_codes_json='["601398"]',
+        )
+        db.add(c); db.flush()
+        _make_stock(db, "601398")
+        _make_holding(db, "601398")
+        _add_annual_financial(db, stock_code="601398", year=2024, nim=1.5)  # healthy
+        _make_active_cv(
+            db, claim_id=c.id, stock_code="601398", source="financial:NIM",
+            threshold=1.3, breach_when="lt",
+        )
+
+        emitted: list[ThesisAlertTriggered] = []
+        events_mod.bus.subscribe(ThesisAlertTriggered, emitted.append)
+        try:
+            svc.check_claim_variables(db)
+        finally:
+            events_mod.bus._handlers[ThesisAlertTriggered] = [
+                h for h in events_mod.bus._handlers.get(ThesisAlertTriggered, [])
+                if h is not emitted.append
+            ]
+
+        assert len(emitted) == 0
+
+    def test_dedup_blocks_second_emit(self, db_session):
+        """7-day dedup window: second consecutive check does NOT re-emit."""
+        from app.core import events as events_mod
+        from app.core.events import ThesisAlertTriggered
+
+        db = db_session
+        run = _make_theme_run(db)
+        c = ResearchClaim(
+            research_run_id=run.id, type="failure_condition", position=0,
+            subject="x", predicate="y", signal="NIM<1.3", outcome="z",
+            stock_codes_json='["601398"]',
+        )
+        db.add(c); db.flush()
+        _make_stock(db, "601398")
+        _make_holding(db, "601398")
+        _add_annual_financial(db, stock_code="601398", year=2024, nim=1.2)
+        cv = _make_active_cv(
+            db, claim_id=c.id, stock_code="601398", source="financial:NIM",
+            threshold=1.3, breach_when="lt",
+        )
+
+        emitted: list[ThesisAlertTriggered] = []
+        events_mod.bus.subscribe(ThesisAlertTriggered, emitted.append)
+        try:
+            s1 = svc.check_claim_variables(db)
+            s2 = svc.check_claim_variables(db)
+        finally:
+            events_mod.bus._handlers[ThesisAlertTriggered] = [
+                h for h in events_mod.bus._handlers.get(ThesisAlertTriggered, [])
+                if h is not emitted.append
+            ]
+
+        assert s1.breached == 1
+        assert s2.breached == 0
+        assert s2.suppressed == 1
+        assert len(emitted) == 1  # only first run emits
