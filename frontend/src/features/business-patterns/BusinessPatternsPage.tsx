@@ -41,10 +41,10 @@ import type {
 } from '../../api/types';
 
 const TIER_LABELS: Record<number, { label: string; color: string }> = {
-  0: { label: '0 求(地狱)', color: 'red' },
-  1: { label: '1 求(普通)', color: 'default' },
-  2: { label: '2 求(优质)', color: 'blue' },
-  3: { label: '3 求(顶级)', color: 'gold' },
+  0: { label: '0 层选择权(被选择)', color: 'red' },
+  1: { label: '1 层选择权(双向)', color: 'default' },
+  2: { label: '2 层选择权(稀缺)', color: 'blue' },
+  3: { label: '3 层选择权(垄断)', color: 'gold' },
 };
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -154,7 +154,7 @@ export default function BusinessPatternsPage() {
       <PageHeader
         title="商业模式"
         enLabel="Business Patterns"
-        purpose="商业模式 = 一类生意的「核心变量 + 话语权位阶 + 论点变量」模板(煤化工/电解铝/药店零售/银行...)。基于 invest1/2/3 文档方法论。"
+        purpose="商业模式 = 一类生意的「核心变量 + 选择权位阶 + 论点变量」模板(煤化工/电解铝/药店零售/银行...)。基于 invest1/2/3 文档方法论。"
         flow={[
           { label: '商业模式' },
           { to: '/review', label: '审计' },

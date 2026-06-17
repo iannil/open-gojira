@@ -167,6 +167,51 @@ class TestCheckBeforeDraft:
     @patch("app.services.position_advisor_service._open_holdings")
     @patch("app.services.position_advisor_service._pending_buy_drafts")
     @patch("app.services.position_advisor_service._industry_weights")
+    def test_buy_blocked_in_extreme_high_new_stock(
+        self, mock_ind, mock_pending, mock_holdings
+    ):
+        """D5: extreme_high blocks BUY for NEW stock (invest2 §5 极高高空仓)."""
+        mock_holdings.return_value = [self._make_holding(code="601398", industry="银行")]
+        mock_pending.return_value = []
+        mock_ind.return_value = {"银行": 0.10}
+
+        db = MagicMock()
+        mock_stock = MagicMock()
+        mock_stock.industry = "煤炭"
+        db.get.return_value = mock_stock
+
+        advice = check_before_draft(db, "601088", "BUY", cycle_position="extreme_high")
+        assert not advice.can_open_new  # BLOCKED
+        assert any("极高" in b or "extreme_high" in b for b in advice.blockers)
+
+    @patch("app.services.position_advisor_service._open_holdings")
+    @patch("app.services.position_advisor_service._pending_buy_drafts")
+    @patch("app.services.position_advisor_service._industry_weights")
+    def test_buy_allowed_in_extreme_high_already_held(
+        self, mock_ind, mock_pending, mock_holdings
+    ):
+        """D5: extreme_high does NOT block BUY when adding to existing winner.
+
+        invest1 §二 去弱留强: 加仓赢家在任何位置都应保留。
+        """
+        mock_holdings.return_value = [self._make_holding(code="601398", industry="银行")]
+        mock_pending.return_value = []
+        mock_ind.return_value = {"银行": 1.0}  # 100% in banking
+
+        db = MagicMock()
+        mock_stock = MagicMock()
+        mock_stock.industry = "银行"
+        db.get.return_value = mock_stock
+
+        advice = check_before_draft(db, "601398", "BUY", cycle_position="extreme_high")
+        assert advice.can_open_new  # Allowed: adding to existing
+        assert len(advice.blockers) == 0
+        # Should still have a warning noting the special通道
+        assert any("去弱留强" in w or "赢家" in w for w in advice.diversification_warnings)
+
+    @patch("app.services.position_advisor_service._open_holdings")
+    @patch("app.services.position_advisor_service._pending_buy_drafts")
+    @patch("app.services.position_advisor_service._industry_weights")
     def test_industry_near_limit_warns(
         self, mock_ind, mock_pending, mock_holdings
     ):

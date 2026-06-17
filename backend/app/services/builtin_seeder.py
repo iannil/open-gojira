@@ -69,12 +69,17 @@ BUILTIN_STRATEGIES = [
     {
         "slug": "bank_select",
         "name": "银行业精选",
-        "description": "银行行业、股息率≥5%",
+        "description": "银行行业、股息率≥5%、盲盒可视化=可见 (invest2 §11 三维: 股息+地域+现金流)",
         "rule": {
             "logic": "AND",
             "conditions": [
-                {"field": "industry_in", "op": "in", "value": ["bank"]},
+                # D1 修复: Lixinger 实际返回 industry="银行" (中文),
+                # 旧值 ["bank"] 永不匹配。补 "bank" 兼容未来数据源变更。
+                {"field": "industry_in", "op": "in", "value": ["银行", "bank"]},
                 {"field": "dyr_fwd", "op": ">=", "value": 0.05},
+                # D1 新增: 接入 bank_analyzer_service 的 blind_box_verdict,
+                # 严格对齐 invest2 §11 "挑能看见东西的"。
+                {"field": "bank_blind_box", "op": "==", "value": "可见"},
             ],
         },
     },
@@ -101,6 +106,21 @@ BUILTIN_STRATEGIES = [
                 {"field": "price_drop_pct", "op": ">=", "value": 0.20},
                 {"field": "dyr_fwd", "op": ">=", "value": 0.04},
                 {"field": "dividend_sustainability", "op": ">=", "value": 50},
+            ],
+        },
+    },
+    {
+        # D6-A (2026-06-17 invest-alignment audit): invest2 §13 三类禁投之一。
+        # 此为"标记型"策略 — 命中即 suspect, 用户在 UI 上看到应警惕。
+        # 不直接进 plan composition (plan DSL 是正向逻辑), 用作 /strategies/test 单股检测。
+        "slug": "avoid_overvalued_tech",
+        "name": "回避高估值题材",
+        "description": "PE 10年分位≥90% 或 预期股息率<2% (invest2 §13 高估值科技/题材股红旗)",
+        "rule": {
+            "logic": "OR",
+            "conditions": [
+                {"field": "pe_pct_10y", "op": ">=", "value": 0.90},
+                {"field": "dyr_fwd", "op": "<", "value": 0.02},
             ],
         },
     },
@@ -366,6 +386,20 @@ BUILTIN_BUSINESS_PATTERNS: list[dict] = [
 
 # ── Builtin plans ────────────────────────────────────────────────────
 # strategy_ids resolved dynamically by slug after seeding strategies
+#
+# 止盈规则说明 (D7 — 2026-06-17 invest-alignment audit):
+#   invest1 §13 原文是"**新手**可以设 30% 左右作为基本止盈线",
+#   言下之意: 老手可按标的性质调整。各 plan 选择理由:
+#     - core_value 30%:    严格贴 invest1 §13 新手基础值
+#     - resource_macro 50%: 资源股周期弹性大 (铜/铝/磷肥常超 50%)
+#     - bank_anchor DYR≤3%: invest2 §8 更高级 ("用股息率做买卖决策")
+#     - contrarian_scan 无交易规则: 纯筛选, 留给用户判断
+#   强行统一反而偏离 invest1/2 分类施策思想。
+#
+# 中游非 cost_leader 排除 (D6-B):
+#   invest2 §13 三类禁投之一。已通过 plan_runner._should_filter_as_midstream_non_leader
+#   实现,4 plan 默认 disable_midstream_filter=False 即 filter 启用。
+#   BFNY/NSLY 等成本龙头 (Stock.is_cost_leader=True) 不受影响。
 
 BUILTIN_PLANS = [
     {
@@ -414,7 +448,7 @@ BUILTIN_PLANS = [
         "description": "银行业精选，DYR触发的买卖策略",
         "strategy_slugs": ["bank_select"],
         "logic": "AND",
-        "scan_scope": {"type": "industries", "values": ["bank"]},
+        "scan_scope": {"type": "industries", "values": ["银行", "bank"]},
         "schedule_cron": "0 18 * * 1-5",
         "trading_rules": {
             "buy_ladder": [

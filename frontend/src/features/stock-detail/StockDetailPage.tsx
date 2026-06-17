@@ -200,7 +200,7 @@ export default function StockDetailPage() {
           加入自选
         </Button>
         <Button onClick={() => setQiuModalOpen(true)}>
-          求评分 (<span className="num">{stock.qiu_score ?? 0}</span>/3)
+          选择权评分 (<span className="num">{stock.qiu_score ?? 0}</span>/3)
         </Button>
         <Button onClick={() => setThesisModalOpen(true)}>编辑变量</Button>
         <Link to="/plans">

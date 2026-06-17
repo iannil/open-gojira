@@ -72,6 +72,45 @@ class TestBuiltinStrategiesUseDyrFwd:
                 )
 
 
+class TestBankSelectUsesBlindBoxVerdict:
+    """D1 (2026-06-17 invest-alignment audit): bank_select 接入 bank_analyzer 三维。
+
+    invest2 §11 银行盲盒可视化: 股息 + 地域 + 长周期现金流匹配。bank_analyzer
+    输出 blind_box_verdict ("可见"|"模糊"|"不可见"),策略层需以此为 hard filter。
+    顺便修复 industry_in ["bank"] 永不匹配 Lixinger "银行" 的 bug。
+    """
+
+    def test_bank_select_has_blind_box_condition(self):
+        s = _strategy_by_slug("bank_select")
+        rule = s["rule"]
+        bb_conds = [
+            c for c in rule["conditions"]
+            if c["field"] == "bank_blind_box"
+            and c["op"] == "=="
+            and c["value"] == "可见"
+        ]
+        assert len(bb_conds) == 1, (
+            "bank_select 必须包含 bank_blind_box=='可见' (invest2 §11)"
+        )
+
+    def test_bank_select_industry_includes_chinese(self):
+        s = _strategy_by_slug("bank_select")
+        rule = s["rule"]
+        ind_conds = [c for c in rule["conditions"] if c["field"] == "industry_in"]
+        assert len(ind_conds) == 1
+        values = ind_conds[0]["value"]
+        assert "银行" in values, (
+            "industry_in 必须包含 '银行' (Lixinger 实际返回值,非 'bank')"
+        )
+
+    def test_bank_anchor_scan_scope_includes_chinese(self):
+        p = _plan_by_slug("bank_anchor")
+        values = p["scan_scope"]["values"]
+        assert "银行" in values, (
+            "bank_anchor scan_scope 必须包含 '银行' (Lixinger 实际返回值)"
+        )
+
+
 class TestResourceHardAssetG4Rules:
     """G4: resource_hard_asset must require has_mine + domestic_leader (invest3 §12)."""
 
@@ -92,6 +131,45 @@ class TestResourceHardAssetG4Rules:
             if c["field"] == "domestic_leader" and c["op"] == "==" and c["value"] is True
         ]
         assert len(dom_conds) == 1, "resource_hard_asset must require domestic_leader=True"
+
+
+class TestAvoidOvervaluedTechStrategy:
+    """D6-A (2026-06-17 invest-alignment audit): invest2 §13 高估值科技/题材股禁投标记。
+
+    此策略是"标记型" — 命中即 suspect。用户在 /strategies/test 单股检测,
+    或未来 plan DSL 支持 NOT 逻辑后用于反向 filter。
+    """
+
+    def test_avoid_overvalued_tech_exists(self):
+        s = _strategy_by_slug("avoid_overvalued_tech")
+        assert s is not None
+
+    def test_avoid_overvalued_tech_uses_or(self):
+        s = _strategy_by_slug("avoid_overvalued_tech")
+        assert s["rule"]["logic"] == "OR"
+
+    def test_avoid_overvalued_tech_conditions(self):
+        """任一红旗即标记: PE 历史高位 或 极低股息率。"""
+        s = _strategy_by_slug("avoid_overvalued_tech")
+        conds = s["rule"]["conditions"]
+        fields = {(c["field"], c["op"]) for c in conds}
+        assert ("pe_pct_10y", ">=") in fields
+        assert ("dyr_fwd", "<") in fields
+
+
+class TestMidstreamFilterIsActive:
+    """D6-B (2026-06-17 invest-alignment audit): invest2 §13 无优势中游禁投。
+
+    plan_runner._should_filter_as_midstream_non_leader 已实现,验证 4 个内置
+    plan 的 disable_midstream_filter 默认 False (即 filter 启用)。
+    """
+
+    def test_all_builtin_plans_have_midstream_filter_active(self):
+        for p in BUILTIN_PLANS:
+            # disable_midstream_filter not set in BUILTIN_PLANS → defaults False at ORM
+            assert p.get("disable_midstream_filter", False) is False, (
+                f"plan {p['slug']} should not disable midstream filter"
+            )
 
 
 class TestBankAnchorPlanUsesDyrFwdTriggers:

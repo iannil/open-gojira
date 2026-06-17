@@ -195,8 +195,22 @@ def check_before_draft(
                 f"接近 {MAX_INDUSTRY_WEIGHT:.0%} 上限"
             )
 
-    # 3. Cycle-based position check
-    if cycle_position in ("high", "extreme_high"):
+    # 3. Cycle-based position check (invest2 §5 硬纪律)
+    # D5 (2026-06-17 invest-alignment): extreme_high 升级为 blocker,
+    # 但保留加仓赢家通道 (invest1 §二 "去弱留强"在任何位置都应保留强者)。
+    # high 仍 warning,留给用户判断。
+    if cycle_position == "extreme_high":
+        if already_held:
+            warnings.append(
+                f"市场周期处于 '{cycle_position}',新信号保留加仓赢家通道 "
+                f"(invest1 §二 去弱留强)"
+            )
+        else:
+            blockers.append(
+                f"市场极度高估 (cycle='{cycle_position}'),不开新仓 "
+                f"(invest2 §5 '极高高位尽量空仓' 硬纪律)"
+            )
+    elif cycle_position == "high":
         warnings.append(
             f"市场周期处于 '{cycle_position}'，不建议开新仓"
         )

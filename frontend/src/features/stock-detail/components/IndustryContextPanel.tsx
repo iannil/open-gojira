@@ -15,10 +15,10 @@ const TIER_COLOR: Record<number, string> = {
   3: 'gold',
 };
 const TIER_LABEL: Record<number, string> = {
-  0: '0 求(地狱)',
-  1: '1 求(普通)',
-  2: '2 求(优质)',
-  3: '3 求(顶级)',
+  0: '0 层选择权(被选择)',
+  1: '1 层选择权(双向)',
+  2: '2 层选择权(稀缺)',
+  3: '3 层选择权(垄断)',
 };
 
 interface Props {

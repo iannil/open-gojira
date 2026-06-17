@@ -2,7 +2,7 @@
 
 Maps to invest1/2/3 methodology:
 - first_principle_variable: invest1 第二章 第一性原理 (each business has one core driver)
-- power_tier_baseline: invest1 第二章 "求"字理论 (话语权 0-3)
+- power_tier_baseline: invest1 第二章 选择权理论 (选择权位阶 0-3, 谁决定选择谁)
 - thesis_variables_json: invest1 第三章 论点变量
 - lixinger_industries_json: auto-association from Stock.industry string
 - source_ref: docs reference (e.g., "invest3 §12") for builtin patterns
@@ -11,6 +11,9 @@ Maps to invest1/2/3 methodology:
 Context-type, not decision-type: this table holds methodology templates, not
 buy/sell decisions. Downstream consumers (UI / Review / future strategy_engine)
 read these attributes; the human + Strategy rules make decisions.
+
+注: 字段名 power_tier / power_tier_baseline 为内部稳定 ID (改字段需 alembic migration);
+UI/文档统一使用"选择权理论 / 选择权位阶"文案 (2026-06-17 invest-alignment audit)。
 """
 
 from datetime import datetime
@@ -51,7 +54,10 @@ class BusinessPattern(Base):
     power_tier_baseline: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0
     )
-    """invest1 第二章 "求"字理论位阶基线:0=地狱(两头受气)/1=普通/2=优质/3=顶级。可被 Stock.qiu_detail_json 覆盖。"""
+    """invest1 第二章 选择权位阶基线 (字段名 power_tier_baseline 为内部 ID):
+    0=0 层选择权 (被单向选择, 两头受气) / 1=1 层 (双向选择) /
+    2=2 层 (对稀缺资源/核心技术的选择权) / 3=3 层 (对三方完全选择权, 定价权垄断)。
+    可被 Stock.qiu_detail_json 覆盖。"""
 
     is_midstream: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="0"
