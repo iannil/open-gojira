@@ -28,6 +28,8 @@ StrategyField = Literal[
     "expansion_outlook",
     "geo_risk",
     "power_tier",
+    # B4-4 N4 (invest3 §八第2节): forward 分红承诺
+    "dividend_payout_commitment_pct",
 ]
 
 ComparisonOp = Literal[">=", "<=", "==", "in"]

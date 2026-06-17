@@ -26,6 +26,7 @@ class StockUpdate(BaseModel):
     qiu_score: Optional[int] = Field(default=None, ge=0, le=3)
     security_theme: Optional[str] = None
     tier: Optional[str] = None
+    dividend_payout_commitment_pct: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     notes: Optional[str] = None
 
 
@@ -52,6 +53,7 @@ class StockResponse(BaseModel):
     qiu_detail: Optional[dict] = None
     security_theme: Optional[str] = None
     tier: Optional[str] = None
+    dividend_payout_commitment_pct: Optional[float] = None
     notes: Optional[str] = None
     thesis_variables: Optional[list[dict]] = None
     business_pattern_id: Optional[int] = None

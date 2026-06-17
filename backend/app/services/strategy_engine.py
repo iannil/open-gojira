@@ -54,6 +54,8 @@ class StockContext:
     market_temperature: float | None = None
     # D3 (2026-06-17 invest-alignment): 财报红旗数 (invest1 §三 + invest2 §10)
     red_flag_count: int | None = None
+    # B4-4 N4 (invest3 §八第2节): forward 分红承诺
+    dividend_payout_commitment_pct: float | None = None
 
 
 def _resolve_field(ctx: StockContext, field: str) -> Any:
@@ -78,6 +80,7 @@ def _resolve_field(ctx: StockContext, field: str) -> Any:
         "geo_risk": ctx.geo_risk,
         "power_tier": ctx.power_tier,
         "red_flag_count": ctx.red_flag_count,
+        "dividend_payout_commitment_pct": ctx.dividend_payout_commitment_pct,
     }
     return mapping.get(field)
 

@@ -893,6 +893,7 @@ export interface CandidateResponse {
   stock_tier: string | null;
   stock_qiu_score: number;
   stock_hq_region: string | null;
+  dividend_payout_commitment_pct: number | null;
   status: 'active' | 'removed';
   first_seen_at: string | null;
   last_confirmed_at: string | null;

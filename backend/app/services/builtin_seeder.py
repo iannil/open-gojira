@@ -139,6 +139,21 @@ BUILTIN_STRATEGIES = [
             ],
         },
     },
+    {
+        # B4-4 N4 (2026-06-17 invest-alignment audit Batch 4): 分红承诺龙头。
+        # invest3 §八第2节 "纯粹赚钱机器" — 公司明示 forward 分红承诺 ≥ 60%.
+        # 数据源: 用户从年报 "未来分红规划" 章节手动录入 dividend_payout_commitment_pct.
+        # 注意: 与 FinancialStatement.dividend_payout_ratio (actual) 不同概念.
+        "slug": "dividend_commitment_leader",
+        "name": "分红承诺龙头",
+        "description": "公司明示 forward 分红承诺 ≥ 60% (invest3 §八 纯粹赚钱机器)",
+        "rule": {
+            "logic": "AND",
+            "conditions": [
+                {"field": "dividend_payout_commitment_pct", "op": ">=", "value": 0.60},
+            ],
+        },
+    },
 ]
 
 # ── Builtin business patterns ─────────────────────────────────────────
@@ -161,6 +176,9 @@ BUILTIN_BUSINESS_PATTERNS: list[dict] = [
             {"name": "煤油比", "unit": "", "source": "manual"},
             {"name": "烯烃吨成本", "unit": "元/吨", "source": "manual"},
             {"name": "产能利用率", "unit": "%", "source": "manual"},
+            # B4-3 N3: invest3 §九 进度条战法 + §五 个股周期拐点
+            {"name": "烯烃市场价", "unit": "元/吨", "source": "manual"},
+            {"name": "新产能投产进度", "unit": "%", "source": "manual"},
         ],
         "lixinger_industries": ["化学原料", "化学制品", "煤化工"],
         "source_ref": "invest1 第二章; invest2 BFNY; invest3 §12",
@@ -175,6 +193,9 @@ BUILTIN_BUSINESS_PATTERNS: list[dict] = [
             {"name": "吨煤售价", "unit": "元/吨", "source": "manual"},
             {"name": "单位生产成本", "unit": "元/吨", "source": "manual"},
             {"name": "可采储量", "unit": "亿吨", "source": "manual"},
+            # B4-3 N3
+            {"name": "动力煤期货价", "unit": "元/吨", "source": "manual"},
+            {"name": "新增产能审批进度", "unit": "%", "source": "manual"},
         ],
         "lixinger_industries": ["煤炭开采", "煤炭"],
         "source_ref": "invest3 §12",
@@ -190,6 +211,9 @@ BUILTIN_BUSINESS_PATTERNS: list[dict] = [
             {"name": "电价成本", "unit": "元/度", "source": "manual"},
             {"name": "氧化铝价格", "unit": "元/吨", "source": "manual"},
             {"name": "电解铝产能", "unit": "万吨", "source": "manual"},
+            # B4-3 N3
+            {"name": "电解铝现货价", "unit": "元/吨", "source": "manual"},
+            {"name": "印尼项目投产进度", "unit": "%", "source": "manual"},
         ],
         # 注意:"铝"行业同时包含电解铝和铝上游,1:多歧义 → 留 null 手标
         "lixinger_industries": ["工业金属", "有色冶炼"],
@@ -205,6 +229,9 @@ BUILTIN_BUSINESS_PATTERNS: list[dict] = [
             {"name": "铝土矿自给率", "unit": "%", "source": "manual"},
             {"name": "氧化铝售价", "unit": "元/吨", "source": "manual"},
             {"name": "海外项目产能", "unit": "万吨", "source": "manual"},
+            # B4-3 N3
+            {"name": "铝土矿进口价", "unit": "元/吨", "source": "manual"},
+            {"name": "海外矿权获取进度", "unit": "%", "source": "manual"},
         ],
         "lixinger_industries": ["工业金属", "有色冶炼"],
         "source_ref": "invest3 §12",
@@ -219,6 +246,9 @@ BUILTIN_BUSINESS_PATTERNS: list[dict] = [
             {"name": "磷矿价格", "unit": "元/吨", "source": "manual"},
             {"name": "磷矿石自给率", "unit": "%", "source": "manual"},
             {"name": "磷酸一铵价格", "unit": "元/吨", "source": "manual"},
+            # B4-3 N3
+            {"name": "新矿投产进度 (如牛牛寨)", "unit": "%", "source": "manual"},
+            {"name": "磷肥出口关税", "unit": "%", "source": "manual"},
         ],
         "lixinger_industries": ["化学原料", "化学制品"],
         "source_ref": "invest2 BTGF/CHGF; invest3 §12",
@@ -233,6 +263,9 @@ BUILTIN_BUSINESS_PATTERNS: list[dict] = [
             {"name": "氯化钾售价", "unit": "元/吨", "source": "manual"},
             {"name": "钾矿品位", "unit": "%", "source": "manual"},
             {"name": "产能", "unit": "万吨", "source": "manual"},
+            # B4-3 N3
+            {"name": "国际钾肥 CFR 价", "unit": "美元/吨", "source": "manual"},
+            {"name": "海外钾矿投产进度", "unit": "%", "source": "manual"},
         ],
         "lixinger_industries": ["化学原料", "化学制品"],
         "source_ref": "invest3 §12",
@@ -247,6 +280,9 @@ BUILTIN_BUSINESS_PATTERNS: list[dict] = [
             {"name": "铜价", "unit": "元/吨", "source": "manual"},
             {"name": "铜储量", "unit": "万吨", "source": "manual"},
             {"name": "单位采铜成本", "unit": "元/吨", "source": "manual"},
+            # B4-3 N3
+            {"name": "LME 铜期货价", "unit": "美元/吨", "source": "manual"},
+            {"name": "海外铜矿投产进度", "unit": "%", "source": "manual"},
         ],
         "lixinger_industries": ["工业金属", "有色金属"],
         "source_ref": "invest3 §12",
@@ -261,6 +297,9 @@ BUILTIN_BUSINESS_PATTERNS: list[dict] = [
             {"name": "锡价", "unit": "元/吨", "source": "manual"},
             {"name": "锡储量", "unit": "万吨", "source": "manual"},
             {"name": "单位采锡成本", "unit": "元/吨", "source": "manual"},
+            # B4-3 N3
+            {"name": "LME 锡期货价", "unit": "美元/吨", "source": "manual"},
+            {"name": "新矿勘探进度", "unit": "%", "source": "manual"},
         ],
         "lixinger_industries": ["有色金属"],
         "source_ref": "invest3 §12",
@@ -275,6 +314,9 @@ BUILTIN_BUSINESS_PATTERNS: list[dict] = [
             {"name": "金均价", "unit": "元/克", "source": "manual"},
             {"name": "金储量", "unit": "吨", "source": "manual"},
             {"name": "单位采金成本", "unit": "元/克", "source": "manual"},
+            # B4-3 N3
+            {"name": "London 金现价", "unit": "美元/盎司", "source": "manual"},
+            {"name": "新金矿投产进度", "unit": "%", "source": "manual"},
         ],
         "lixinger_industries": ["黄金", "有色金属"],
         "source_ref": "invest3 §12",
@@ -348,6 +390,9 @@ BUILTIN_BUSINESS_PATTERNS: list[dict] = [
             {"name": "利用小时数", "unit": "小时", "source": "manual"},
             {"name": "上网电价", "unit": "元/度", "source": "manual"},
             {"name": "装机容量", "unit": "GW", "source": "manual"},
+            # B4-3 N3
+            {"name": "电力现货价", "unit": "元/兆瓦时", "source": "manual"},
+            {"name": "新增装机审批进度", "unit": "%", "source": "manual"},
         ],
         "lixinger_industries": ["电力", "电力Ⅱ"],
         "source_ref": "invest3 §13 公用事业",
@@ -435,6 +480,28 @@ BUILTIN_PLANS = [
             ],
             "invalidation": [],
             "cooldown_days": 5,
+        },
+    },
+    {
+        # B4-4 N4 (2026-06-17): invest3 §八 纯粹赚钱机器 plan
+        # 与 core_value 互补: 不卡估值/股息率 (因为承诺期长,估值短期可高),
+        # 只看 forward 分红承诺 ≥ 60%. 用户读年报录入 commitment_pct.
+        "slug": "pure_cash_machine",
+        "name": "纯粹赚钱机器",
+        "description": "invest3 §八 分红承诺≥60% 的纯粹赚钱机器 (用户录入 commitment_pct)",
+        "strategy_slugs": ["dividend_commitment_leader"],
+        "logic": "AND",
+        "scan_scope": {"type": "all_stocks", "values": []},
+        "schedule_cron": "0 18 * * 1-5",
+        "trading_rules": {
+            "buy_ladder": [
+                {"trigger": {"kind": "dyr_fwd_ge", "value": 0.04}, "add_pct": 0.3},
+            ],
+            "sell_ladder": [
+                {"trigger": {"kind": "profit_pct_ge", "value": 0.50}, "reduce_pct_of_position": 0.5},
+            ],
+            "invalidation": [],
+            "cooldown_days": 10,
         },
     },
     {
@@ -780,6 +847,86 @@ def seed_resource_leaders(db: Session) -> int:
     return updated
 
 
+# ── B4-4 N4: invest3 §八第2节 已知分红承诺 ────────────────────────────
+# 投资体系原文案例 (invest3 §八第2节):
+# - 芭田股份 (BTGF 002170): 承诺 60% 分红比率 (公开年报披露)
+# 其他公司若有公开承诺,可手动通过 UI 补充.
+# 数据源: 年报 "未来分红规划" 章节; Lixinger 不提供.
+BUILTIN_DIVIDEND_COMMITMENTS: dict[str, float] = {
+    "002170": 0.60,  # 芭田股份 — invest3 §八第2节 明示 60% 承诺
+}
+
+
+def seed_dividend_commitments(db: Session) -> int:
+    """B4-4 N4: pre-fill Stock.dividend_payout_commitment_pct for known commitments.
+
+    Idempotent — only updates rows that already exist in stocks table.
+    Skips rows already set (preserves user overrides).
+    """
+    updated = 0
+    for code, pct in BUILTIN_DIVIDEND_COMMITMENTS.items():
+        existing = db.get(Stock, code)
+        if existing is None:
+            continue
+        if existing.dividend_payout_commitment_pct != pct:
+            existing.dividend_payout_commitment_pct = pct
+            updated += 1
+    if updated:
+        db.flush()
+        logger.info("Seeded %d dividend_payout_commitment_pct overrides", updated)
+    return updated
+
+
+# ── B4-1 N1: invest3 天阶/玄阶 标记 (2026-06-17 Batch 4) ───────────────
+# invest3 §五-八章 天阶 = 高确定性核心持仓 → tier='core' (复用现有"核心"语义)
+# invest3 §九-十一章 玄阶 = 投机卫星 (invest2 §13 "邪修可小仓位玩预期差") → tier='watch' (复用现有"关注"语义)
+# 决策依据: 用户 2026-06-17 指示 "保留核心、关注,替代天阶玄阶" — 避免引入冗余 tier 值
+# Codes verified by spikes/probe_stock_codes.py (artifact probe_stock_codes_2026-06-17T12-11-27Z.json)
+BUILTIN_HEAVEN_TIER_CODES: dict[str, str] = {
+    "600989": "宝丰能源 (BFNY) 煤化工 — invest3 §五",
+    "600219": "南山铝业 (NSLY) 电解铝出海 — invest3 §六",
+    "002170": "芭田股份 (BTGF) 磷矿 — invest3 §八",
+    "002895": "川恒股份 (CHGF) 磷化工 — invest3 §八",
+    "603233": "大参林 (DSL) 药店规模效应 — invest3 §七",
+    "600015": "华夏银行 (HXYH) 银行盲盒可视化 — invest3 §银行",
+    "605599": "菜百股份 黄金金融安全 — invest3 §七",
+}
+
+BUILTIN_MYSTIC_TIER_CODES: dict[str, str] = {
+    "002749": "国光股份 (GGGF) 植物生长调节剂 + 治理瑕疵 — invest3 §十",
+    "600096": "云天化 (YTKG) 磷矿 '吃饼' 进度条 — invest3 §九",
+    "603199": "九华旅游 消费降级 + 数人头 — invest3 §十一",
+}
+
+
+def seed_tier(db: Session) -> int:
+    """B4-1 N1: pre-fill Stock.tier for invest3 case studies.
+
+    invest3 天阶 → tier='core' (核心), 玄阶 → tier='watch' (关注).
+    Idempotent — only updates rows that already exist in stocks table.
+    Skips rows already set (preserves user overrides).
+    """
+    updated = 0
+    for code, _desc in BUILTIN_HEAVEN_TIER_CODES.items():
+        existing = db.get(Stock, code)
+        if existing is None:
+            continue
+        if existing.tier != "core":
+            existing.tier = "core"
+            updated += 1
+    for code, _desc in BUILTIN_MYSTIC_TIER_CODES.items():
+        existing = db.get(Stock, code)
+        if existing is None:
+            continue
+        if existing.tier != "watch":
+            existing.tier = "watch"
+            updated += 1
+    if updated:
+        db.flush()
+        logger.info("Seeded %d tier overrides (core/watch)", updated)
+    return updated
+
+
 def seed_all(db: Session) -> dict:
     """Seed all built-in data. Called from main.py lifespan."""
     f = seed_default_fee_config(db)
@@ -789,6 +936,8 @@ def seed_all(db: Session) -> dict:
     bp = seed_business_patterns(db)
     cl = seed_cost_leaders(db)
     rl = seed_resource_leaders(db)
+    ti = seed_tier(db)
+    dc = seed_dividend_commitments(db)
     db.commit()
     return {
         "fee_config_inserted": f,
@@ -798,4 +947,6 @@ def seed_all(db: Session) -> dict:
         "business_patterns": bp,
         "cost_leaders": cl,
         "resource_leaders": rl,
+        "tier_overrides": ti,
+        "dividend_commitments": dc,
     }

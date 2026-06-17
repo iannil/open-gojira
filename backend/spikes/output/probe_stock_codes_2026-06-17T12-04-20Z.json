@@ -1,0 +1,260 @@
+{
+  "ok": true,
+  "timestamp": "2026-06-17T12-04-20Z",
+  "description": "Batch 4 invest-alignment: verify 6 stock codes for tier seeding",
+  "test_stocks": [
+    {
+      "code": "603233",
+      "expected_keyword": "大参林",
+      "role": "天阶 (药店规模效应)",
+      "section": "invest3 §七章 §医药零售"
+    },
+    {
+      "code": "600015",
+      "expected_keyword": "华夏银行",
+      "role": "天阶 (银行盲盒可视化)",
+      "section": "invest3 §银行 案例"
+    },
+    {
+      "code": "605599",
+      "expected_keyword": "菜百",
+      "role": "天阶 (黄金金融安全)",
+      "section": "invest3 §七章 §黄金"
+    },
+    {
+      "code": "002749",
+      "expected_keyword": "国光",
+      "role": "玄阶 (植物生长调节剂 + 治理瑕疵)",
+      "section": "invest3 §十章 §效率革命"
+    },
+    {
+      "code": "600096",
+      "expected_keyword": "云天化",
+      "role": "玄阶 (磷矿 '吃饼' 预期)",
+      "section": "invest3 §九章 §进度条战法"
+    },
+    {
+      "code": "603199",
+      "expected_keyword": "九华",
+      "role": "玄阶 (消费降级 + 数人头)",
+      "section": "invest3 §十一章 §寺庙游"
+    },
+    {
+      "code": "600989",
+      "expected_keyword": "宝丰",
+      "role": "天阶 (煤化工)",
+      "section": "invest3 §五章 §煤化工"
+    },
+    {
+      "code": "600219",
+      "expected_keyword": "南山",
+      "role": "天阶 (电解铝出海)",
+      "section": "invest3 §六章 §铝业"
+    },
+    {
+      "code": "002170",
+      "expected_keyword": "芭田",
+      "role": "天阶 (磷矿)",
+      "section": "invest3 §八章 §磷矿"
+    },
+    {
+      "code": "002895",
+      "expected_keyword": "川恒",
+      "role": "天阶 (磷化工)",
+      "section": "invest3 §八章 §磷化工"
+    }
+  ],
+  "results": {
+    "603233": {
+      "expected_keyword": "大参林",
+      "role": "天阶 (药店规模效应)",
+      "section": "invest3 §七章 §医药零售",
+      "status_code": 200,
+      "code_resolves": true,
+      "returned_name": "",
+      "name_matches": false,
+      "error": null,
+      "raw": {
+        "stockCode": "603233"
+      }
+    },
+    "600015": {
+      "expected_keyword": "华夏银行",
+      "role": "天阶 (银行盲盒可视化)",
+      "section": "invest3 §银行 案例",
+      "status_code": 200,
+      "code_resolves": true,
+      "returned_name": "",
+      "name_matches": false,
+      "error": null,
+      "raw": {
+        "stockCode": "600015"
+      }
+    },
+    "605599": {
+      "expected_keyword": "菜百",
+      "role": "天阶 (黄金金融安全)",
+      "section": "invest3 §七章 §黄金",
+      "status_code": 200,
+      "code_resolves": true,
+      "returned_name": "",
+      "name_matches": false,
+      "error": null,
+      "raw": {
+        "stockCode": "605599"
+      }
+    },
+    "002749": {
+      "expected_keyword": "国光",
+      "role": "玄阶 (植物生长调节剂 + 治理瑕疵)",
+      "section": "invest3 §十章 §效率革命",
+      "status_code": 200,
+      "code_resolves": true,
+      "returned_name": "",
+      "name_matches": false,
+      "error": null,
+      "raw": {
+        "stockCode": "002749"
+      }
+    },
+    "600096": {
+      "expected_keyword": "云天化",
+      "role": "玄阶 (磷矿 '吃饼' 预期)",
+      "section": "invest3 §九章 §进度条战法",
+      "status_code": 200,
+      "code_resolves": true,
+      "returned_name": "",
+      "name_matches": false,
+      "error": null,
+      "raw": {
+        "stockCode": "600096"
+      }
+    },
+    "603199": {
+      "expected_keyword": "九华",
+      "role": "玄阶 (消费降级 + 数人头)",
+      "section": "invest3 §十一章 §寺庙游",
+      "status_code": 200,
+      "code_resolves": true,
+      "returned_name": "",
+      "name_matches": false,
+      "error": null,
+      "raw": {
+        "stockCode": "603199"
+      }
+    },
+    "600989": {
+      "expected_keyword": "宝丰",
+      "role": "天阶 (煤化工)",
+      "section": "invest3 §五章 §煤化工",
+      "status_code": 200,
+      "code_resolves": true,
+      "returned_name": "",
+      "name_matches": false,
+      "error": null,
+      "raw": {
+        "stockCode": "600989"
+      }
+    },
+    "600219": {
+      "expected_keyword": "南山",
+      "role": "天阶 (电解铝出海)",
+      "section": "invest3 §六章 §铝业",
+      "status_code": 200,
+      "code_resolves": true,
+      "returned_name": "",
+      "name_matches": false,
+      "error": null,
+      "raw": {
+        "stockCode": "600219"
+      }
+    },
+    "002170": {
+      "expected_keyword": "芭田",
+      "role": "天阶 (磷矿)",
+      "section": "invest3 §八章 §磷矿",
+      "status_code": 200,
+      "code_resolves": true,
+      "returned_name": "",
+      "name_matches": false,
+      "error": null,
+      "raw": {
+        "stockCode": "002170"
+      }
+    },
+    "002895": {
+      "expected_keyword": "川恒",
+      "role": "天阶 (磷化工)",
+      "section": "invest3 §八章 §磷化工",
+      "status_code": 200,
+      "code_resolves": true,
+      "returned_name": "",
+      "name_matches": false,
+      "error": null,
+      "raw": {
+        "stockCode": "002895"
+      }
+    }
+  },
+  "summary": {
+    "six_to_verify_pass": 0,
+    "six_to_verify_total": 6,
+    "four_controls_pass": 0,
+    "four_controls_total": 4,
+    "all_pass": false
+  },
+  "mismatches": [
+    {
+      "code": "603233",
+      "expected_keyword": "大参林",
+      "returned_name": "",
+      "role": "天阶 (药店规模效应)"
+    },
+    {
+      "code": "600015",
+      "expected_keyword": "华夏银行",
+      "returned_name": "",
+      "role": "天阶 (银行盲盒可视化)"
+    },
+    {
+      "code": "605599",
+      "expected_keyword": "菜百",
+      "returned_name": "",
+      "role": "天阶 (黄金金融安全)"
+    },
+    {
+      "code": "002749",
+      "expected_keyword": "国光",
+      "returned_name": "",
+      "role": "玄阶 (植物生长调节剂 + 治理瑕疵)"
+    },
+    {
+      "code": "600096",
+      "expected_keyword": "云天化",
+      "returned_name": "",
+      "role": "玄阶 (磷矿 '吃饼' 预期)"
+    },
+    {
+      "code": "603199",
+      "expected_keyword": "九华",
+      "returned_name": "",
+      "role": "玄阶 (消费降级 + 数人头)"
+    }
+  ],
+  "unresolved": [],
+  "key_findings": {
+    "all_codes_valid": false,
+    "ytkg_clarification": "invest3 文本对 YTKG 含歧义 ('云天化/云图?')。若 600096 返回 '云天化' 则锁定。"
+  },
+  "next_steps_if_all_pass": [
+    "1. backend/app/services/builtin_seeder.py: add BUILTIN_HEAVEN_TIER_CODES = [600989, 600219, 002170, 603233, 600015, 605599, 002895]",
+    "2. backend/app/services/builtin_seeder.py: add BUILTIN_MYSTIC_TIER_CODES = [002749, 600096, 603199]",
+    "3. backend/app/services/builtin_seeder.py: add seed_tier() function",
+    "4. backend/app/services/builtin_seeder.py: call seed_tier() from seed_all()"
+  ],
+  "next_steps_if_mismatch": [
+    "1. For each code in mismatches: investigate returned name, possibly correct expected_keyword",
+    "2. If code itself wrong: search Lixinger company list for the right code",
+    "3. Re-run spike after correction"
+  ]
+}

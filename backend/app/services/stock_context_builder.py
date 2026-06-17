@@ -240,6 +240,7 @@ def build_context(db: Session, code: str) -> StockContext:
         geo_risk=stock.geo_risk,
         power_tier=power_tier,
         red_flag_count=red_flag_count,
+        dividend_payout_commitment_pct=stock.dividend_payout_commitment_pct,
     )
 
 
@@ -327,6 +328,7 @@ def build_contexts_batch(db: Session, codes: list[str]) -> dict[str, StockContex
                 bank_blind_box=bank_verdict,
                 market_temperature=market_temp,
                 red_flag_count=red_flag_count,
+                dividend_payout_commitment_pct=s.dividend_payout_commitment_pct if s else None,
             )
         except Exception as e:
             logger.warning("Failed to build context for %s: %s", code, e)

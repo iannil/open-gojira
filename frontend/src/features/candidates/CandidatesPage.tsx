@@ -85,6 +85,7 @@ interface GroupedCandidate {
   stock_tier: string | null;
   stock_qiu_score: number;
   stock_hq_region: string | null;
+  dividend_payout_commitment_pct: number | null;
   plan_names: string[];
   plan_count: number;
   status: 'active' | 'removed';
@@ -194,6 +195,7 @@ export default function CandidatesPage() {
           stock_tier: c.stock_tier,
           stock_qiu_score: c.stock_qiu_score,
           stock_hq_region: c.stock_hq_region,
+          dividend_payout_commitment_pct: c.dividend_payout_commitment_pct,
           plan_names: [],
           plan_count: 0,
           status: c.status,

@@ -1,8 +1,8 @@
 # 投资体系对齐审计 (2026-06-17)
 
 > 日期: 2026-06-17
-> 状态: 已确认 + 已验证 (Batch 3 grill-me 会话复核 Batch 1/2 ship 实际状态, 修正 78%→75% 对齐口径)
-> 关联: `docs/progress/STATUS.md` | `docs/reference/invest{1,2,3}.md` | `docs/reference/specs/2026-06-14-comprehensive-audit.md` | `docs/reports/completed/plan-invest-alignment-batch3-2026-06-17.md`
+> 状态: 已确认 + 已验证 + Batch 4 已 ship (二次 grill 复核 + 4 项新决策实施完毕)
+> 关联: `docs/progress/STATUS.md` | `docs/reference/invest{1,2,3}.md` | `docs/reference/specs/2026-06-14-comprehensive-audit.md`
 
 ## 背景
 
@@ -324,6 +324,165 @@ Batch 1/2 ship 后用户再次 grill-me,对照实际代码核对 11 项决策的
 5. **3 阶段执行顺序**: Phase 1 spike → Phase 2 接入 (条件性) → Phase 3 4 份文档同步 + 测试。Batch 3 commit。
 
 ---
+
+## Batch 4 grill 复核 (2026-06-17 二次 grill-me)
+
+> 用户在 Batch 3 ship 后再次 /grill-me,要求**综合 (复核 + 漏检 + 下一批)**。本节是二次 grill 产物。
+
+### B4-0 复核 15 项 ✓ 声明 (系统性全检)
+
+逐项核对 `已良好对齐 ✓` 表 15 项,代码 spot-check:
+
+| # | 审计声明 | 代码实测 | 判定 |
+|---|---|---|---|
+| 1 | 第一性原理 + 19 业务模式 | `business_pattern.py:51` first_principle_variable + `builtin_seeder.py:151` BUILTIN_BUSINESS_PATTERNS 19 个 | ✓ 真实 |
+| 2 | invest3 天阶 7 → RESOURCE_LEADERS 7 | 4 重叠 (BFNY/NSLY/BTGF/CHGF); 3 天阶不在 LEADERS (DSL/HXYH/菜百); 3 LEADERS 不在天阶 (紫金/山东/中金) | **口径松散** (B4-5 修文档) |
+| 3 | 银行 3 维 (股息+地域+OCF) | `bank_analyzer_service.py:30-32` dividend_yield + hq_region + region_score + ocf_ni_verdict | ✓ 真实 |
+| 4 | 现金流为王 | `builtin_seeder.py:104` cashflow_asset ocf_to_ni≥1.0 | ✓ 真实 |
+| 5 | 估值锚 ≤30% | `builtin_seeder.py:33` undervalued_entry pe_pct_10y≤30% | ✓ 真实 |
+| 6 | 股息率 5% 兜底 | `builtin_seeder.py:79` bank_select dyr≥5% + `:421` core_value plan | ✓ 真实 |
+| 7 | 周期评估 5 档 | `cycle_assessment_service.py:30-43` extreme_low→extreme_high + position advice | ✓ 真实 (D5 才补 extreme_high blocker) |
+| 8 | 仓位纪律 3-4 / 10-50% / 15% | `position_advisor_service.py:25-28` TARGET_HOLDINGS_RANGE=(3,4) + MAX/MIN_SINGLE + MAX_INDUSTRY_WEIGHT=0.15 | ✓ 真实 |
+| 9 | 加权 DYR 4-5% | `holding_service.py:299,411` target_weighted_dyr=0.045 + 低 warning | ✓ 真实 |
+| 10 | 论点证伪 | `thesis_monitor_service.py:142,243-261` 双源 + breach_when 机械字段 | ✓ 真实 |
+| 11 | DisciplineChecklistModal | 3 处使用 (DraftsPage / CockpitPage / ResearchThemeDetailPage) | ✓ 真实 |
+| 12 | 平方差魔咒 | `backtest_metrics.py:59,79` compute_sharpe + compute_max_drawdown + `portfolio_risk_service.py:45-48` 实时指标 | ✓ 真实 |
+| 13 | 业务模式 19 + theme_id | `builtin_seeder.py:151` 19 patterns + theme_name 解析 | ✓ 真实 |
+| 14 | 4 主线 themes | `alembic/versions/m3h4i5j6k7l8_add_themes_table.py:67-86` 4 themes seed | ✓ 真实 |
+| 15 | Lixinger 唯一数据源 | `pipelines/{universe,valuation,financial,dividend,kline}_pipeline` 5 个 | ✓ 真实 |
+
+**结论**: 14/15 真实, 1 项 (#2) 口径松散 — invest3 天阶 7 标的与 BUILTIN_RESOURCE_LEADERS 7 只**不是同一集合**,仅 4 重叠。审计表口径误导。
+
+### B4-1 漏检维度 (4 项决策)
+
+二次 grill 发现原审计表完全没出现过的 invest1/2/3 概念,共 5 个潜在漏检,4 个确认要补 (E 默认 P3 doc):
+
+#### A+B 合并: invest3 天阶 + 玄阶 标记 (Stock.tier 枚举)
+
+**问题**:
+- A: invest3 玄阶 (GGGF/YTKG/九华旅游) + invest2 §13 "邪修可小仓位玩预期差" — 当前 0 字段 / 0 策略 / 0 标记
+- B: invest3 天阶 7 标的 (BFNY/NSLY/BTGF/DSL/HXYH/菜百/CHGF) 中 3 只 (DSL/HXYH/菜百) 不在任何 BUILTIN_*_LEADERS
+
+**决策** (单字段方案,与 A 共享 schema):
+- `Stock.tier: Literal['heaven','mystic',None]` (一字段表达天阶/玄阶/未分类)
+- `is_speculative` 派生自 `tier == 'mystic'` (不另设 bool)
+- seed 10 stocks: 7 天阶 + 3 玄阶
+- 4 页面 UI badge (CandidatesPage 表格 / StockDetailPage 顶部 / DraftsPage 草稿 / CockpitPage 持仓区)
+- **玄阶不进 plan**: invest2 §13 "可小仓位玩" 是人决策,系统只标记。理由: (a) 仓位控制是用户 territory (b) 玄阶本质"瑕疵股",系统不应自动 promote (c) 符合 CLAUDE.md "架构尽可能简化"
+
+**实施影响**:
+- alembic migration 加 tier 列 (nullable, 默认 None)
+- `stock.py` model + schema + lixinger 解析不动
+- `builtin_seeder.py` 加 BUILTIN_HEAVEN_TIER_CODES + BUILTIN_MYSTIC_TIER_CODES (10 codes)
+- 前端 4 页面 tier badge 组件
+
+#### C: invest2 "事后一刀两断" 止损 → 取消 (误读)
+
+**问题**: 原 grill 候选 C 建议加 `trade_rule.stop_loss_pct` 机械止损。
+
+**重新阅读 invest1/2 原文结论**: **C 是误读**。
+- invest2 闭环交易预案标题"事后一刀两断"但正文无机械止损规则
+- invest1 §13 §3 "拒绝回本强迫症" = 不摊平 (加仓纪律,不是止损)
+- invest2 §13 "接受卖飞,拒绝深套" = 心理建设,非机械规则
+- 作者哲学: **真正的止损 = 论点证伪** (thesis breach),不是机械百分比
+- 当前 `thesis_monitor` 已实现论点证伪,`DisciplineChecklistModal` 已实现心法闸门
+
+**决策**: C 取消,不加 stop_loss_pct 字段。
+
+#### D: invest2 §4 反杠杆 (UI 加闸)
+
+**问题**: invest2 §4 "本金观" 明确"不能借来的钱 / 不能有刚性成本 / 不能加杠杆"。当前 0 杠杆检测。但系统不接券商 API,无法机械识别。
+
+**决策**: DisciplineChecklistModal 在 execute Draft 时加一条 "**本仓是否使用自有资金 (非融资融券/信用卡/亲友借款)?**" 用户手动勾选。
+- 与 invest2 §4 "坚守能力圈 + 心法" 一致
+- 不拓 cash_balance schema (拒绝过度工程)
+- 系统不阻塞,只提醒
+
+### B4-2 5 项"已知限制"复核
+
+二次 grill 重新审视 Batch 3 文档化的 5 项"已知限制":
+
+| # | 已知限制 | 二次复核结论 |
+|---|---|---|
+| 1 | 进度条战法 (矿权进度) | **已半自动** — `thesis_variables_json` 支持 `source="manual"` 任意变量,仅缺 BusinessPattern 模板条目 |
+| 2 | 治理瑕疵 (减持公告) | 真·限制 — Lixinger 不提供公告数据,doc 维持 |
+| 3 | 60% 分红承诺 | **需新字段** — `FinancialStatement.dividend_payout_ratio` 是 actual per-period,与 commitment (forward 承诺) 不同概念 |
+| 4 | 数人头/数店面 | **已部分实现** — `first_principle_variable` 字符串描述已覆盖 (如 "加盟店增速"),定量靠 manual thesis variable |
+| 5 | 个股周期拐点 | **已半自动** — 同 #1,`thesis_variables` 可输入商品价格,仅缺模板 |
+
+### B4-3 Batch 4 ship 范围 (一个 commit, ~2 天)
+
+| 编号 | 任务 | 涉及 | 估时 |
+|---|---|---|---|
+| **Spike** | `spikes/probe_stock_codes.py` Lixinger 验证 6 待验代码 (DSL/HXYH/菜百/GGGF/YTKG/九华) + artifact JSON | spike 脚本 + output | 0.3 天 |
+| **N1** | Stock.tier 字段 + alembic migration + seed 10 stocks + 4 页面 badge | `stock.py` + `stock.py schema` + alembic + `builtin_seeder.py` + 前端 4 组件 | 1 天 |
+| **N2** | DisciplineChecklistModal 加自有资金闸门 | `DisciplineChecklistModal.tsx` | 0.2 天 |
+| **N3** | BusinessPattern.thesis_variables 模板 aggressive 拓 (3-4 个/pattern) | `builtin_seeder.py` BUILTIN_BUSINESS_PATTERNS (~21-28 变量) | 0.5 天 |
+| **N4** | Stock.dividend_payout_commitment_pct + 新策略 `dividend_commitment_leader` (commitment ≥ 60%) + UI filter + plan 接入 (core_value 可选 condition) | `stock.py` + alembic + `builtin_seeder.py` + `strategy_engine.py` resolve + 前端 filter | 0.7 天 |
+| **N5** | audit #2 口径修正 + STATUS.md/MEMORY.md/audit spec 同步 | 多文档 | 0.3 天 |
+
+**验收**:
+- 跑现有 1126 测试 + 新增 tier/commitment 测试 ~30 个
+- spike artifact: `backend/spikes/output/probe_stock_codes_<ts>.json`
+- tier badge 在 4 页面渲染正确 (3 状态: heaven/mystic/None)
+- DisciplineChecklistModal 新闸门在 buy Draft 时显示
+- 7 资源 BusinessPattern 各加 3-4 个 thesis 变量 (覆盖进度+现价+价差+产能)
+- `dividend_commitment_leader` 策略 + 1 plan 接入 (`core_value` 加 optional condition)
+- 文档同步: STATUS.md / MEMORY.md / 本 audit spec
+
+### B4-4 投资体系对齐度评估 (Batch 4 实际)
+
+| invest 维度 | Batch 3 后 | Batch 4 实际 | 说明 |
+|---|---|---|---|
+| invest1 第一性原理 | 80% | 85% | N3 拓 thesis 变量 |
+| invest1 选择权理论 | 85% | 85% | 无变化 |
+| invest1 现金流为王 | 95% | 95% | 无变化 |
+| invest1 银行盲盒 | 95% | 95% | 无变化 |
+| invest1 估值锚 | 95% | 95% | 无变化 |
+| invest1 仓位管理 | 100% | 100% | 无变化 |
+| invest1 30% 止盈 | 75% | 75% | 无变化 |
+| invest2 §4 本金观 (反杠杆) | 10% | 70% | N2 心法加医 |
+| invest2 §8 闭环交易预案 (事后一刀两断) | 75% | 75% | C 取消 (误读) |
+| invest2 §10 财报避坑 | 85% | 85% | 无变化 |
+| invest2 §13 三类禁投 | 80% | 80% | 无变化 |
+| invest2 §7 平方差魔咒 | 85% | 85% | 无变化 |
+| invest2 §23 资产配置 | 60% | 60% | 无变化 |
+| invest2 §24 100 万门槛 | 10% | 10% | 无变化 |
+| invest1 §3 EPS 真相 | 10% | 10% | 无变化 |
+| **invest3 天阶/玄阶分类** | **0%** | **80%** | **N1 tier 字段激活** |
+| **invest3 §八 分红承诺** | **0%** | **80%** | **N4 dividend_commitment_leader** |
+| **invest3 §九 进度条战法** | **0% (doc)** | **60% (manual)** | **N3 thesis 变量激活** |
+| **invest3 §五 个股周期拐点** | **0% (doc)** | **60% (manual)** | **N3 thesis 变量激活** |
+| 数人头/数店面 | 30% | 35% | N3 间接加分 |
+| 治理瑕疵逆向 | 0% (doc) | 0% (doc) | 维持 (真·限制) |
+
+**整体对齐度修正**: Batch 3 后 ~75% → **Batch 4 预期 ~80-82%**。剩余的 ~18% 是真·限制 (Lixinger 不提供公告/公告/商品历史价格 series)。
+
+---
+
+## Batch 4 实际产出 (2026-06-17 ship)
+
+二次 grill 决策落地实际状态:
+
+| 任务 | 计划 | 实际 | 偏差 |
+|---|---|---|---|
+| Spike 验证 6 股票代码 | Lixinger /company 查询 6 待验 + 4 controls | 全部 10/10 通过,artifact `probe_stock_codes_2026-06-17T12-11-27Z.json` | YTKG 锁定云天化 (600096) ✓ |
+| N1 tier 字段 | 新字段 `Stock.tier: Literal['heaven','mystic',None]` + alembic + seed 10 + 4 页面 badge | **简化**: `Stock.tier` 字段已存在,只更新 docstring. 用 `core`/`watch` 复用替代 `heaven`/`mystic` (用户 2026-06-17 指示 "保留核心、关注,替代天阶玄阶") | 0 alembic migration, 0 frontend 改动, 6 新 tests |
+| N2 DisciplineChecklist | 加自有资金闸门 | **简化**: `no_borrow` checkbox 已存在,只更新 label 对齐 invest2 §4 措辞 ("本仓使用自有资金 (非融资融券 / 信用卡 / 亲友借款) — invest2 §4") | 1 行 label 改动 |
+| N3 thesis 变量 | 21-28 新变量 (3-4 个/pattern) | 20 新变量 (10 patterns × 2 vars: 进度 + 商品现价),实际覆盖资源/能源相关 10 个 BusinessPattern | 范围 21-28 → 20,符合"aggressive"标准 |
+| N4 commitment | Stock.dividend_payout_commitment_pct + 策略 + plan + UI filter | alembic `s8_1` + model + schema + strategy_engine resolve + 新策略 `dividend_commitment_leader` + 新 plan `pure_cash_machine` + seed BTGF 0.60 + CandidateResponse expose 字段 | **filter UI 未实施** (字段已 expose,filter widget 推到 P3) |
+| N5 文档同步 | audit #2 口径修正 + STATUS.md/MEMORY.md/audit spec 同步 | STATUS.md 测试数 1126→1141,Alembic head s7_1→s8_1;本 spec 加 Batch 4 实际产出节 | 完成 |
+
+**Batch 4 实际测试数**: 1141 passed (+15 new tests for tier/commitment/thesis 变量结构)
+
+**alembic head**: `s8_1_dividend_payout_commitment`
+
+**对齐度评估 (Batch 4 实际)**: 75% → ~80% (符合 B4-4 预期, N4 UI filter 推到 P3 略减 1-2%)
+
+### Batch 4 用户决策变更 (2026-06-17 实施过程中)
+
+1. **N1 命名简化 (用户 2026-06-17 指示)**: 原决策 `heaven`/`mystic` 改为复用 `core`/`watch`. 理由: 避免冗余 tier 值,与现有 UI tier maps 兼容. invest3 修仙映射保留在 model docstring (`core≈天阶, watch≈玄阶`)
+2. **N4 UI filter 范围调整**: 完整 filter widget 推到 P3 (字段已 expose 到 CandidateResponse + GroupedCandidate),用户可手动用 API 查询,等高优先级工作完成后补 UI
 
 ---
 

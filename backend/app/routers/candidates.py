@@ -34,6 +34,7 @@ def _to_response(c: Candidate) -> CandidateResponse:
         stock_tier=stock.tier if stock else None,
         stock_qiu_score=stock.qiu_score if stock else 0,
         stock_hq_region=stock.hq_region if stock else None,
+        dividend_payout_commitment_pct=stock.dividend_payout_commitment_pct if stock else None,
         status=c.status,
         first_seen_at=c.first_seen_at,
         last_confirmed_at=c.last_confirmed_at,

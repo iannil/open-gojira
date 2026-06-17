@@ -25,7 +25,18 @@ class Stock(Base):
     quadrant: Mapped[str | None] = mapped_column(String, nullable=True)
     """资产四象限：procyclical | countercyclical | distressed_reversal | financial | None"""
     tier: Mapped[str | None] = mapped_column(String, nullable=True)
-    """Investment tier: 'core' (high-certainty core) | 'watch' (satellite) | None"""
+    """Investment tier (通用分级 + invest3 修仙映射,Batch 4 2026-06-17 复用):
+    'core' = 核心 ≈ invest3 天阶 (高确定性核心持仓,如 BFNY/NSLY/HXYH — invest3 §五-八章)
+    'watch' = 关注 ≈ invest3 玄阶 (投机卫星,可小仓位玩预期差,如 GGGF/YTKG/九华 — invest3 §九-十一章 + invest2 §13 '邪修')
+    'focus' = 重点 (介于核心与关注之间)
+    None = 未分类 (默认).
+    is_speculative 派生: tier == 'watch' (invest2 §13 '可小仓位玩' = 玄阶语义,系统标记不进 plan)."""
+    dividend_payout_commitment_pct: Mapped[float | None] = mapped_column(
+        Float, nullable=True
+    )
+    """B4-4 N4 (invest3 §八第2节): 公司明示的 forward 分红承诺比率 (0.0 ~ 1.0).
+    与 FinancialStatement.dividend_payout_ratio (actual per-period) 不同.
+    Lixinger 不提供,需用户读年报录入. null = 未承诺或未录入."""
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     thesis_variables_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     """JSON string of thesis variables for this stock."""

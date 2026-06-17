@@ -33,7 +33,7 @@ const AUTO_ITEMS = [
 ];
 
 const MANUAL_ITEMS = [
-  { key: 'no_borrow', label: '未使用借来的资金' },
+  { key: 'no_borrow', label: '本仓使用自有资金 (非融资融券 / 信用卡 / 亲友借款) — invest2 §4' },
   { key: 'not_emotion', label: '非因恐惧卖出/因贪婪买入' },
   { key: 'read_report', label: '已阅读最新财报' },
   { key: 'stay_boundary', label: '坚守能力圈，不追热点' },
