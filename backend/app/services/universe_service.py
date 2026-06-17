@@ -84,6 +84,7 @@ def build_universe_view(db: Session) -> list[UniverseItem]:
             code=code,
             name=s.name,
             tier=s.tier,
+            in_circle=s.in_circle,
             security_theme=s.security_theme,
             industry=s.industry,
             qiu_score=s.qiu_score,

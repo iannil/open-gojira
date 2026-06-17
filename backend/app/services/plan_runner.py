@@ -68,6 +68,9 @@ class PlanRunResult:
     filtered_red_flags: int = 0
     """D3 (2026-06-17): count of candidates suppressed by red_flag_count > 0
     (invest1 §三 + invest2 §10 财报避坑)."""
+    filtered_out_of_circle: int = 0
+    """M2 (2026-06-17 Batch 5): count of stocks suppressed by Stock.in_circle=False
+    (invest3 第四层 + 核心十诫 #9 坚守边界)."""
     cycle_position: str | None = None
     """G1: current cycle position when plan ran (extreme_low/low/mid/high/extreme_high)."""
     cycle_buy_blocked: int = 0
@@ -278,6 +281,23 @@ def _filter_suspended(db: Session, codes: list[str]) -> list[str]:
     return [r.code for r in rows if not is_suspended(r.listing_status)]
 
 
+def _filter_out_of_circle(db: Session, codes: list[str]) -> tuple[list[str], int]:
+    """M2 (invest3 第四层 + 核心十诫 #9 坚守边界): drop codes whose Stock.in_circle=False.
+
+    invest1/2/3 反复强调"不懂不做". 此 filter stage 在扫描后立即剔除用户未标记
+    为"在我的能力圈内"的股票,避免候选池纳入用户不懂的股票.
+
+    Returns (kept_codes, dropped_count).
+    """
+    if not codes:
+        return [], 0
+    rows = db.execute(
+        select(Stock.code, Stock.in_circle).where(Stock.code.in_(codes))
+    ).all()
+    kept = [r.code for r in rows if r.in_circle]
+    return kept, len(codes) - len(kept)
+
+
 def _get_active_fee_config(
     db: Session, moment: datetime
 ) -> BrokerFeeConfig | None:
@@ -341,11 +361,27 @@ def _compute_suggested_buy_quantity(
     Returns None when inputs are insufficient (no prev_close / no add_pct /
     no fee config / cash balance missing) so the caller can skip populating
     the field without raising.
+
+    M5 (Batch 5): clamps add_pct to MAX_SINGLE_BY_TIER for the stock's tier,
+    so satellite stocks (tier='satellite') never get a suggested quantity
+    exceeding 10% of NAV (invest2 §1.3 "小仓位玩预期差").
     """
     if not add_pct or add_pct <= 0:
         return None
     if not prev_close or prev_close <= 0:
         return None
+
+    # M5: tier-aware clamp
+    stock = db.get(Stock, code)
+    if stock is not None:
+        from app.services.position_advisor_service import MAX_SINGLE_BY_TIER
+        tier_cap = MAX_SINGLE_BY_TIER.get(stock.tier, MAX_SINGLE_BY_TIER[None])
+        if add_pct > tier_cap:
+            logger.info(
+                "M5 tier clamp: code=%s tier=%s add_pct=%.3f → %.3f (cap)",
+                code, stock.tier, add_pct, tier_cap,
+            )
+            add_pct = tier_cap
 
     cfg = _get_active_fee_config(db, moment)
     if cfg is None:
@@ -564,6 +600,13 @@ def run_plan(db: Session, plan: Plan) -> PlanRunResult:
     # 1b. Filter out suspended stocks (S2.5) — they cannot be traded so they
     # should never enter the candidate pool or produce a Draft.
     codes = _filter_suspended(db, codes)
+
+    # 1c. M2 (Batch 5): drop stocks outside user's circle of competence.
+    # invest3 第四层 + 核心十诫 #9 "坚守边界: 不懂不做".
+    # Escape hatch: plan.disable_in_circle_filter=True bypasses (for全市场扫描).
+    if not plan.disable_in_circle_filter:
+        codes, dropped = _filter_out_of_circle(db, codes)
+        result.filtered_out_of_circle = dropped
 
     # 2. Load strategies
     from app.schemas.plan import StrategyComposition
@@ -786,6 +829,11 @@ def run_plan(db: Session, plan: Plan) -> PlanRunResult:
         "new": result.new,
         "drafts": result.drafts_emitted,
         "drafts_superseded": result.drafts_superseded,
+        "filtered_midstream_non_leader": result.filtered_midstream_non_leader,
+        "filtered_red_flags": result.filtered_red_flags,
+        "filtered_out_of_circle": result.filtered_out_of_circle,
+        "cycle_position": result.cycle_position,
+        "cycle_buy_blocked": result.cycle_buy_blocked,
         "errors": result.errors[:10],
     })
 

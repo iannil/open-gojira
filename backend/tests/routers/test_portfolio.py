@@ -21,7 +21,7 @@ _STOCK_B = {
     "code": "000858",
     "name": "五粮液",
     "industry": "白酒",
-    "tier": "watch",
+    "tier": "satellite",
 }
 
 

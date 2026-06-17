@@ -6,6 +6,8 @@ from unittest.mock import patch, MagicMock
 from app.services.position_advisor_service import (
     TARGET_HOLDINGS_RANGE,
     MAX_INDUSTRY_WEIGHT,
+    MAX_SINGLE_BY_TIER,
+    TOTAL_SATELLITE_MAX,
     check_before_draft,
     PositionAdvice,
 )
@@ -212,13 +214,15 @@ class TestCheckBeforeDraft:
     @patch("app.services.position_advisor_service._open_holdings")
     @patch("app.services.position_advisor_service._pending_buy_drafts")
     @patch("app.services.position_advisor_service._industry_weights")
+    @patch("app.services.position_advisor_service._current_satellite_weight")
     def test_industry_near_limit_warns(
-        self, mock_ind, mock_pending, mock_holdings
+        self, mock_sat, mock_ind, mock_pending, mock_holdings
     ):
         """Warning when buying a NEW stock and industry weight is >80% of limit."""
         mock_holdings.return_value = [self._make_holding(code="601398", industry="银行")]
         mock_pending.return_value = []
         mock_ind.return_value = {"银行": MAX_INDUSTRY_WEIGHT * 0.85}
+        mock_sat.return_value = 0.0
 
         db = MagicMock()
         mock_stock = MagicMock()
@@ -228,3 +232,82 @@ class TestCheckBeforeDraft:
         # Buying a different stock in same industry triggers warning
         advice = check_before_draft(db, "600000", "BUY")
         assert any("接近" in w for w in advice.diversification_warnings)
+
+    # ── M5 (Batch 5): tier-aware position caps ────────────────────────────
+
+    @patch("app.services.position_advisor_service._open_holdings")
+    @patch("app.services.position_advisor_service._pending_buy_drafts")
+    @patch("app.services.position_advisor_service._industry_weights")
+    @patch("app.services.position_advisor_service._current_satellite_weight")
+    def test_m5_satellite_blocked_when_total_exceeds_cap(
+        self, mock_sat, mock_ind, mock_pending, mock_holdings
+    ):
+        """M5: BUY new satellite stock blocked when total satellite ≥ 20%."""
+        mock_holdings.return_value = [self._make_holding(code="600000", industry="银行")]
+        mock_pending.return_value = []
+        mock_ind.return_value = {"银行": 0.05}
+        mock_sat.return_value = TOTAL_SATELLITE_MAX  # exactly at cap
+
+        db = MagicMock()
+        mock_stock = MagicMock()
+        mock_stock.industry = "医药"
+        mock_stock.tier = "satellite"
+        db.get.return_value = mock_stock
+
+        advice = check_before_draft(db, "002749", "BUY")
+        assert not advice.can_open_new
+        assert any("卫星" in b and "invest2 §1.3" in b for b in advice.blockers)
+
+    @patch("app.services.position_advisor_service._open_holdings")
+    @patch("app.services.position_advisor_service._pending_buy_drafts")
+    @patch("app.services.position_advisor_service._industry_weights")
+    @patch("app.services.position_advisor_service._current_satellite_weight")
+    def test_m5_satellite_warns_when_near_cap(
+        self, mock_sat, mock_ind, mock_pending, mock_holdings
+    ):
+        """M5: BUY new satellite stock warns when total satellite > 16%."""
+        mock_holdings.return_value = [self._make_holding(code="600000", industry="银行")]
+        mock_pending.return_value = []
+        mock_ind.return_value = {"银行": 0.05}
+        mock_sat.return_value = TOTAL_SATELLITE_MAX * 0.9  # 18%
+
+        db = MagicMock()
+        mock_stock = MagicMock()
+        mock_stock.industry = "医药"
+        mock_stock.tier = "satellite"
+        db.get.return_value = mock_stock
+
+        advice = check_before_draft(db, "002749", "BUY")
+        assert advice.can_open_new
+        assert any("卫星" in w and "invest2 §1.3" in w for w in advice.diversification_warnings)
+
+    @patch("app.services.position_advisor_service._open_holdings")
+    @patch("app.services.position_advisor_service._pending_buy_drafts")
+    @patch("app.services.position_advisor_service._industry_weights")
+    @patch("app.services.position_advisor_service._current_satellite_weight")
+    def test_m5_core_stock_unaffected_by_satellite_cap(
+        self, mock_sat, mock_ind, mock_pending, mock_holdings
+    ):
+        """M5: core tier stock NOT affected by satellite cap."""
+        mock_holdings.return_value = [self._make_holding(code="600000", industry="银行")]
+        mock_pending.return_value = []
+        mock_ind.return_value = {"银行": 0.05}
+        mock_sat.return_value = TOTAL_SATELLITE_MAX  # at cap
+
+        db = MagicMock()
+        mock_stock = MagicMock()
+        mock_stock.industry = "煤炭"
+        mock_stock.tier = "core"
+        db.get.return_value = mock_stock
+
+        advice = check_before_draft(db, "601088", "BUY")
+        # core stock should not see satellite-related blockers
+        assert not any("卫星" in b for b in advice.blockers)
+
+
+def test_m5_max_single_by_tier_constants():
+    """M5: sanity-check tier cap constants match invest2 §1.3."""
+    assert MAX_SINGLE_BY_TIER["core"] == 0.50
+    assert MAX_SINGLE_BY_TIER["satellite"] == 0.10
+    assert MAX_SINGLE_BY_TIER[None] == 0.50
+    assert TOTAL_SATELLITE_MAX == 0.20

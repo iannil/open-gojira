@@ -53,8 +53,8 @@ const SECURITY_THEME_OPTIONS = [
 ];
 
 const TIER_OPTIONS = [
-  { value: 'core', label: '核心' },
-  { value: 'watch', label: '关注' },
+  { value: 'core', label: '核心 (Core)' },
+  { value: 'satellite', label: '卫星 (Satellite)' },
 ];
 
 const QIU_SCORE_OPTIONS = [0, 1, 2, 3].map((v) => ({ value: v, label: String(v) }));

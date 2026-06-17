@@ -39,8 +39,8 @@ const TIER_CONFIG: Record<string, { label: string; color: string }> = {
 };
 
 const TIER_OPTIONS = [
-  { value: 'core', label: '核心' },
-  { value: 'watch', label: '关注' },
+  { value: 'core', label: '核心 (Core)' },
+  { value: 'satellite', label: '卫星 (Satellite)' },
   { value: 'none', label: '未设' },
 ];
 
@@ -421,11 +421,11 @@ export default function UniversePage() {
   // Stat cards for My Universe summary
   const mySummary = useMemo(() => {
     const coreCount = filteredMyData.filter((d) => d.tier === 'core').length;
-    const watchCount = filteredMyData.filter((d) => d.tier === 'watch').length;
+    const satelliteCount = filteredMyData.filter((d) => d.tier === 'satellite').length;
     const noTier = filteredMyData.filter((d) => !d.tier).length;
     const noPlan = filteredMyData.filter((d) => !d.has_plan).length;
     const heldCount = filteredMyData.filter((d) => d.is_held).length;
-    return { coreCount, watchCount, noTier, noPlan, heldCount };
+    return { coreCount, satelliteCount, noTier, noPlan, heldCount };
   }, [filteredMyData]);
 
   return (
@@ -791,7 +791,7 @@ export default function UniversePage() {
                       hint={myFilterCount > 0 ? `筛选自 ${data.length}` : undefined}
                     />
                     <StatCard label="核心" value={mySummary.coreCount} />
-                    <StatCard label="关注" value={mySummary.watchCount} />
+                    <StatCard label="卫星" value={mySummary.satelliteCount} />
                     <StatCard label="已持仓" value={mySummary.heldCount} />
                     {mySummary.noPlan > 0 && (
                       <StatCard

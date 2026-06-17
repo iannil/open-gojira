@@ -39,6 +39,13 @@ const MANUAL_ITEMS = [
   { key: 'stay_boundary', label: '坚守能力圈，不追热点' },
   { key: 'reverse_thinking', label: '逆向思考：敢于低位买、高位卖' },
   { key: 'slow_is_fast', label: '慢即是快：追求长期复利而非短期暴利' },
+  // ── M1 (Batch 5 2026-06-17): invest1 第13章 "人之道" 加减仓纪律 ──
+  { key: 'm1a_no_dip_buy', label: '本股跌幅 < 10% 时未补仓 (invest1 §13 "拉开价格梯度")' },
+  { key: 'm1b_no_loss_avg', label: '本股不在亏损中加仓 (反 "回本强迫症", invest1 §13)' },
+  { key: 'm1c_winner_add', label: '盈利股已加仓或在加仓计划中 (invest1 §13 "加仓赢家")' },
+  // ── M3 (Batch 5 2026-06-17): invest1 第12章 "破除三大妄念" ──
+  { key: 'm3d_no_loss_aversion', label: '未因亏损就死守不卖 (反损失厌恶, invest1 §12)' },
+  { key: 'm3e_no_anchor', label: '未以历史最高/最低价为决策锚 (反锚定效应, invest1 §12)' },
 ];
 
 export default function DisciplineChecklistModal({
@@ -70,7 +77,7 @@ export default function DisciplineChecklistModal({
     onConfirm(checked, { price: price!, quantity: quantity! });
   };
 
-  const tierLabel = tier === 'core' ? '核心' : tier === 'watch' ? '关注' : null;
+  const tierLabel = tier === 'core' ? '核心' : tier === 'satellite' ? '卫星' : null;
 
   return (
     <Modal

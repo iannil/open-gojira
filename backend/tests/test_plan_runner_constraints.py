@@ -104,11 +104,13 @@ def setup(db_session):
         code="600519", name="贵州茅台", exchange="sh",
         listing_status="normally_listed", prev_close=100.0,
         industry="白酒",
+        in_circle=True,
     ))
     db_session.add(Stock(
         code="600002", name="暂停上市", exchange="sh",
         listing_status="ipo_suspension", prev_close=50.0,
         industry="银行",
+        in_circle=True,
     ))
     # Valuation snapshots (source of ctx.dyr / ctx.pe_pct_10y)
     for code in ("600519", "600002"):

@@ -877,10 +877,10 @@ def seed_dividend_commitments(db: Session) -> int:
     return updated
 
 
-# ── B4-1 N1: invest3 天阶/玄阶 标记 (2026-06-17 Batch 4) ───────────────
-# invest3 §五-八章 天阶 = 高确定性核心持仓 → tier='core' (复用现有"核心"语义)
-# invest3 §九-十一章 玄阶 = 投机卫星 (invest2 §13 "邪修可小仓位玩预期差") → tier='watch' (复用现有"关注"语义)
-# 决策依据: 用户 2026-06-17 指示 "保留核心、关注,替代天阶玄阶" — 避免引入冗余 tier 值
+# ── B4-1 N1 + B5 Q2: invest3 天阶/玄阶 标记 (2026-06-17 Batch 4 → 5 命名重构) ───────────────
+# invest3 §五-八章 天阶 = 高确定性核心持仓 → tier='core' (核心仓位, Core-Satellite Model)
+# invest3 §九-十一章 玄阶 = 投机卫星 (invest2 §13 "邪修可小仓位玩预期差") → tier='satellite' (卫星仓位)
+# 命名演变: B4 'watch' (复用"关注") → B5 Q2 'satellite' (专业金融名词 Core-Satellite Model)
 # Codes verified by spikes/probe_stock_codes.py (artifact probe_stock_codes_2026-06-17T12-11-27Z.json)
 BUILTIN_HEAVEN_TIER_CODES: dict[str, str] = {
     "600989": "宝丰能源 (BFNY) 煤化工 — invest3 §五",
@@ -900,9 +900,9 @@ BUILTIN_MYSTIC_TIER_CODES: dict[str, str] = {
 
 
 def seed_tier(db: Session) -> int:
-    """B4-1 N1: pre-fill Stock.tier for invest3 case studies.
+    """B4-1 N1 + B5 Q2: pre-fill Stock.tier for invest3 case studies.
 
-    invest3 天阶 → tier='core' (核心), 玄阶 → tier='watch' (关注).
+    invest3 天阶 → tier='core' (核心仓位), 玄阶 → tier='satellite' (卫星仓位).
     Idempotent — only updates rows that already exist in stocks table.
     Skips rows already set (preserves user overrides).
     """
@@ -918,12 +918,12 @@ def seed_tier(db: Session) -> int:
         existing = db.get(Stock, code)
         if existing is None:
             continue
-        if existing.tier != "watch":
-            existing.tier = "watch"
+        if existing.tier != "satellite":
+            existing.tier = "satellite"
             updated += 1
     if updated:
         db.flush()
-        logger.info("Seeded %d tier overrides (core/watch)", updated)
+        logger.info("Seeded %d tier overrides (core/satellite)", updated)
     return updated
 
 

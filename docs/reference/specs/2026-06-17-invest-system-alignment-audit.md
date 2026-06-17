@@ -486,6 +486,123 @@ Batch 1/2 ship 后用户再次 grill-me,对照实际代码核对 11 项决策的
 
 ---
 
+## Batch 5 (2026-06-17 invest-alignment 3rd grill) — 漏检深挖
+
+> 用户在 Batch 4 ship 后第 5 次跑同一 prompt "梳理 docs/reference/* 内容,审计是否对照实现"。前 4 批覆盖 invest3 五层 + 核心十诫部分 + invest2 §1-13。本轮聚焦"4 批都没碰过的漏检维度"。
+
+### 漏检清单 (7 项识别)
+
+| # | 漏检项 | 来源 | Batch 1-4 状态 |
+|---|---|---|---|
+| M1 | "人之道" 加减仓纪律 (加仓盈利/砍亏损/补仓拉开梯度) | invest1 第13章 + invest2 §3 + invest3 第三层 | **0 实现** |
+| M2 | 能力圈边界 (Stock 字段表达"在我的能力圈内") | invest3 第四层 + 核心十诫 #9 | **0 实现** |
+| M3 | "破除三大妄念" 心法闸门 (损失厌恶/从众/锚定) | invest1 第12章 + invest2 §2 | 仅自有资金闸门 |
+| M4 | "渣男理论" 组合换股机制 (不谈恋爱只谈逻辑) | invest1 第13章 + invest2 §3 | thesis_monitor 部分对应 |
+| M5 | 投机与投资界限 (玄阶/satellite 仓位上限) | invest1 第9章 + invest2 §1.3 + invest3 第四层 | **0 实现** |
+| M6 | "煤油比价" 行业第一性原理公式化 | invest1 第5章 | 字符串描述 |
+| M7 | 避坑指南的"伪逻辑识破" | invest1 附录 | 元层面 |
+
+### Batch 5 决策清单 (8 项: 6 实质 + 1 命名重构 + 1 ship 计划)
+
+#### Q2: tier 命名重构 (专业金融名词)
+
+Batch 4 用 `core/watch`,但 `watch` 是"自选股"语义,与 invest2 §13/invest3 玄阶"卫星/投机小仓位"语义不匹配。
+
+**决策**: 改用 Core-Satellite Model 行业标准术语:
+- `core` = 核心仓位 (≈ invest3 天阶,高确定性核心持仓)
+- `satellite` = 卫星仓位 (≈ invest3 玄阶,可小仓位玩预期差)
+
+`focus` / `None` 不变。alembic s9_1 UPDATE 已 seed 的 3 元组 (`watch` → `satellite`)。
+
+#### M1: "人之道" 加减仓纪律 + psychology_alerts
+
+invest1 第13章 + invest3 第三层 反复强调:
+- 反直觉加减仓: 加仓盈利股,砍掉亏损股 (违反"补亏损"天道)
+- 补仓纪律: 跌幅未到 10% 不考虑补仓,拒绝"回本强迫症"
+
+**决策**:
+- DisciplineChecklistModal 加 3 条心法闸门 (a/b/c)
+- cockpit_service.psychology_alerts 字段: 持仓现价 < cost × 0.9 且最近 30 天有 BUY trade → "回本强迫症嫌疑"
+
+#### M2: 能力圈边界 (Stock.in_circle)
+
+invest3 第四层 + 核心十诫 #9 "坚守边界: 不懂不做"。
+
+**决策**:
+- 新增 `Stock.in_circle: bool` (默认 False)
+- UI toggle (UniversePage / StockDetailPage)
+- plan_runner filter stage 过滤 (`_filter_out_of_circle`)
+- `Plan.disable_in_circle_filter` 逃生口 (默认 False)
+- CandidatesPage filter "仅能力圈内"
+
+#### M3: "破除三大妄念" 心法扩到 5 条 + extreme_low banner
+
+invest1 第12章三大妄念: 损失厌恶 / 从众 / 锚定。
+
+**决策**:
+- DisciplineChecklist 从 M1 的 3 条扩到 5 条 (加 d 反损失厌恶 / e 反锚定)
+- cockpit_service.cycle_banner 字段: extreme_low → "建议布局" / extreme_high → "建议空仓" 非阻塞 banner
+
+#### M4: thesis breach 自动 SELL draft (渣男理论)
+
+invest1 "论点没了就换,不恋战" 是 CLAUDE.md 三原则 1 (全自动化) 的核心承诺。
+
+**决策**:
+- thesis breach → EventBus → `draft_service.create_thesis_breach_sell_draft`
+- 自动生成 SELL draft (plan_id=NULL, step_kind='thesis_breach', source='system')
+- 同时 supersede 该 stock 的所有 pending BUY drafts
+- 半自动平衡点: 自动 draft,不自动 execute (用户仍是最后闸门)
+
+#### M5: tier-aware 仓位上限 (Core-Satellite 单只+总仓位)
+
+invest2 §1.3 "可小仓位玩" 是硬约束,但 position_advisor MAX_SINGLE_POSITION=0.5 一视同仁。
+
+**决策**:
+- `MAX_SINGLE_BY_TIER = {'core':0.5, 'satellite':0.1, 'focus':0.5, None:0.5}`
+- `TOTAL_SATELLITE_MAX = 0.20` (组合总卫星仓位上限)
+- `check_before_draft` 加 satellite 分支 (blocker / warning)
+- `_compute_suggested_buy_quantity` 加 tier-aware clamp
+
+#### M6+M7: 跳过 + 文档化
+
+- M6 (行业公式化): Lixinger 不提供商品价格 series,Batch 4 N3 thesis_variables 已部分覆盖
+- M7 (避坑指南伪逻辑): 元层面心法,无机械规则,D3 + D6 部分覆盖
+
+#### Q9: ship 计划
+
+单 Batch 5 一个 commit,7 步实施,~3-4 天。
+
+### Batch 5 实际产出 (2026-06-17 ship)
+
+| 任务 | 计划 | 实际 |
+|---|---|---|
+| Q2 tier rename | alembic UPDATE + model docstring + 4 处 frontend | ✓ alembic s9_1 + model + builtin_seeder + 4 frontend (CandidatesPage/UniversePage/DisciplineChecklistModal) |
+| M1 心法闸门 + psychology_alerts | DisciplineChecklist 3 条 + cockpit_service 字段 | ✓ 3 条 + cockpit_service `_compute_psychology_alerts` 回本强迫症检测 |
+| M2 in_circle | Stock 字段 + UI + plan_runner filter + CandidatesPage filter | ✓ Stock.in_circle + UniversePage toggle + plan_runner `_filter_out_of_circle` + Plan.disable_in_circle_filter 逃生口 |
+| M3 心法扩到 5 条 + extreme_low banner | DisciplineChecklist 加 d/e + cycle_assessment banner | ✓ 5 条 + cockpit_service.cycle_banner (extreme_low/extreme_high) |
+| M4 thesis breach → sell draft | EventBus handler + draft_service 新方法 + supersede | ✓ on_thesis_alert_triggered 扩展 + `create_thesis_breach_sell_draft` + `_supersede_pending_buys_for_stock` + alembic s9_2 (plan_id nullable) |
+| M5 tier-aware 仓位上限 | position_advisor 加 caps + check 分支 | ✓ `MAX_SINGLE_BY_TIER` + `TOTAL_SATELLITE_MAX` + `_current_satellite_weight` + `_compute_suggested_buy_quantity` clamp |
+| M6+M7 文档化 | STATUS.md 已知限制 | ✓ |
+| 测试 | +9 新测试 | ✓ +14 (M2 filter 4 + M4 thesis breach 6 + M5 tier-aware 4) |
+| alembic head | s9_2 | ✓ |
+
+### Batch 5 对齐度评估
+
+| invest 维度 | Batch 4 后 | Batch 5 实际 |
+|---|---|---|
+| invest1 第一性原理 | 85% | 88% (M2 能力圈) |
+| invest1 仓位管理 | 100% | 100% (M5 补) |
+| invest1 §三 心法 (三大妄念) | 50% | 80% (M3) |
+| invest1 §三 仓位管理"人之道" | 30% | 80% (M1) |
+| invest2 §5 极低布局提示 | 0% | 80% (M3 extreme_low banner) |
+| invest2 §13 邪修投机小仓位 | 0% | 90% (M5) |
+| invest1 第13章 渣男理论 | 50% | 90% (M4) |
+| invest3 核心十诫 #9 坚守边界 | 0% | 90% (M2) |
+
+**整体对齐度修正**: Batch 4 后 ~80% → **Batch 5 后 ~86-88%**。剩余的 ~12% 是真·限制 (Lixinger 不提供公告/商品价格 series) + 元层面心法 (M7)。
+
+---
+
 ## 参考
 
 - 项目快照: `docs/progress/STATUS.md`

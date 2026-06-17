@@ -38,6 +38,7 @@ def _setup(db, code: str, *, trigger_goodwill_red_flag: bool = False):
         code=code, name=f"测试 {code}", exchange="sh",
         listing_status="normally_listed", prev_close=100.0,
         industry="白酒",
+        in_circle=True,
     ))
     db.add(ValuationSnapshot(
         stock_code=code, date=today,

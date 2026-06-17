@@ -39,6 +39,7 @@ def setup(db_session):
         code="600519", name="贵州茅台", exchange="sh",
         listing_status="normally_listed", prev_close=100.0,
         industry="白酒",
+        in_circle=True,
     ))
     db_session.add(ValuationSnapshot(
         stock_code="600519", date=today,

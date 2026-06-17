@@ -217,6 +217,25 @@ def build(db: Session) -> dict:
         {},
         errors,
     )
+
+    # M3 (Batch 5 2026-06-17): invest2 §5 逆向仓位法 — 极低/极高位置非阻塞 banner.
+    # extreme_low: "市场极度低估, invest2 §5 建议布局 (反从众心理)"
+    # extreme_high: "市场极度高估, invest2 §5 建议空仓 (反从众心理)"
+    # 其他位置: None (Cockpit 不显示 banner)
+    cycle_position = cycle.get("cycle_position") if isinstance(cycle, dict) else None
+    cycle_banner = None
+    if cycle_position == "extreme_low":
+        cycle_banner = {
+            "level": "info",
+            "text": "市场极度低估 (PE 分位 ≤ 10%), invest2 §5 建议布局 (反从众心理, invest1 §12)",
+            "position_advice": cycle.get("position_advice") if isinstance(cycle, dict) else None,
+        }
+    elif cycle_position == "extreme_high":
+        cycle_banner = {
+            "level": "warning",
+            "text": "市场极度高估 (PE 分位 ≥ 90%), invest2 §5 建议空仓 (反从众心理, invest1 §12)",
+            "position_advice": cycle.get("position_advice") if isinstance(cycle, dict) else None,
+        }
     from app.services.dividend_projector_service import project as project_dividends
     dividend_projection = _safe(
         "dividend_projection",
@@ -246,6 +265,14 @@ def build(db: Session) -> dict:
         holdings_payload = holdings_summary.get("holdings") or []
         holdings_warnings = holdings_summary.get("warnings") or []
 
+    # M1 (Batch 5): psychology_alerts — 回本强迫症嫌疑检测
+    psychology_alerts = _safe(
+        "psychology_alerts",
+        lambda: _compute_psychology_alerts(db, holdings_payload),
+        [],
+        errors,
+    )
+
     return {
         "as_of": _now_iso(),
         "cashflow": cashflow,
@@ -268,13 +295,78 @@ def build(db: Session) -> dict:
         "theme_exposure": theme_exposure,
         "rebalance_suggestions": rebalance_suggestions,
         "cycle": cycle,
+        "cycle_banner": cycle_banner,
         "dividend_projection": dividend_projection,
         "thesis_alerts": thesis_alerts,
         "portfolio_risk": portfolio_risk,
+        "psychology_alerts": psychology_alerts,
         "serenity_summary": _get_latest_serenity_summary(db),
         "serenity_monthly_spend_cny": _get_monthly_serenity_spend(db),
         "errors": errors,
     }
+
+
+def _compute_psychology_alerts(db: Session, holdings: list[dict]) -> list[dict]:
+    """M1 (Batch 5 2026-06-17): invest1 第13章 "回本强迫症" 检测.
+
+    检测: 持仓现价 < cost × 0.9 (亏 10%+) 且最近 30 天有 BUY trade → 标记嫌疑.
+    invest1 §13 + invest2 §3 "拒绝回本强迫症": 用户在亏损股上反复加仓是典型心理偏差.
+
+    Returns list of {stock_code, stock_name, loss_pct, last_buy_days_ago, alert_type}.
+    Empty list when no holdings or no triggers.
+    """
+    if not holdings:
+        return []
+    from datetime import datetime, timedelta
+    from sqlalchemy import select
+    from app.models.stock import Stock
+    from app.models.trade import Trade
+
+    cutoff = datetime.now() - timedelta(days=30)
+    alerts: list[dict] = []
+    for h in holdings:
+        code = h.get("stock_code")
+        cost = float(h.get("avg_cost_basis") or 0.0)
+        qty = int(h.get("total_quantity") or 0)
+        if not code or cost <= 0 or qty <= 0:
+            continue
+        # Best-effort current price from cached price service
+        try:
+            from app.services.holding_service import _get_cached_price
+            price = _get_cached_price(code)
+            if not price:
+                price = cost  # fallback: assume no change
+        except Exception:
+            price = cost
+        loss_pct = (cost - price) / cost if cost > 0 else 0.0
+        if loss_pct < 0.10:
+            continue
+        # Check recent BUY trades within 30 days
+        recent_buys = db.execute(
+            select(Trade).where(
+                Trade.stock_code == code,
+                Trade.side == "BUY",
+                Trade.filled_at >= cutoff,
+            )
+        ).scalars().all()
+        if not recent_buys:
+            continue
+        last_buy = max(t.filled_at for t in recent_buys)
+        days_ago = (datetime.now() - last_buy).days
+        stock = db.get(Stock, code)
+        stock_name = stock.name if stock else code
+        alerts.append({
+            "stock_code": code,
+            "stock_name": stock_name,
+            "loss_pct": round(loss_pct, 3),
+            "last_buy_days_ago": days_ago,
+            "alert_type": "cost_averaging_compulsion",
+            "hint": (
+                f"亏损 {loss_pct:.0%}, 最近 30 天内仍有 {len(recent_buys)} 笔加仓 — "
+                f"invest1 §13 '拒绝回本强迫症'"
+            ),
+        })
+    return alerts
 
 
 def _get_monthly_serenity_spend(db: Session) -> dict | None:

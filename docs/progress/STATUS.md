@@ -2,17 +2,17 @@
 
 > **此文档是项目当前状态的真实来源。AI 代理应首先阅读此文件。**
 >
-> | 字段 | 值 (实测于 2026-06-17 Batch 4 ship) |
+> | 字段 | 值 (实测于 2026-06-17 Batch 5 ship) |
 > |---|---|
-> | 最后更新 | 2026-06-17 (invest1/2/3 对齐审计 Batch 4 ship: Stock.tier 复用 core/watch + DisciplineChecklist 加 invest2 §4 闸门 + thesis 模板拓 20 变量 + dividend_payout_commitment_pct 全链路) |
+> | 最后更新 | 2026-06-17 (invest1/2/3 对齐审计 Batch 5 ship: tier=core/satellite 专业金融名词 + Stock.in_circle 能力圈 + 心法闸门 5 条 (M1+M3) + psychology_alerts 回本强迫症检测 + thesis breach 自动 SELL draft (M4 渣男理论) + tier-aware 仓位上限 (M5) + extreme_low cycle banner) |
 > | 分支 | `master` |
-> | 最新 commit | 待提交 (Batch 4) / b2bed4a (Batch 3 drift 收尾) / ec5ccfc (Batch 3) |
-> | 测试 | **1141 passed**, 0 failed (`pytest`) |
-> | 测试函数数 | 1141 (1126 Batch 3 + 15 Batch 4) |
-> | Alembic head | `s8_1_dividend_payout_commitment` |
-> | Alembic 版本文件数 | 47 |
-> | 后端代码 | ~32,500 行 (app/) + ~19,500 行 (tests/) |
-> | 前端代码 | ~18,400 行 (src/) |
+> | 最新 commit | 待提交 (Batch 5) / a125b6f (Batch 4 drift) / 87a8d66 (Batch 4) |
+> | 测试 | **1155 passed**, 0 failed (`pytest`) |
+> | 测试函数数 | 1155 (1141 Batch 4 + 14 Batch 5) |
+> | Alembic head | `s9_2_draft_plan_id_nullable` |
+> | Alembic 版本文件数 | 49 |
+> | 后端代码 | ~33,000 行 (app/) + ~20,000 行 (tests/) |
+> | 前端代码 | ~18,500 行 (src/) |
 > | 远程仓库 | 暂无 (`git remote -v` 为空) |
 > | 真实使用 | **1 holdings / 6 trades / 220 drafts (218 pending + 2 executed/cancelled) / 264 active candidates / 8 research_runs (含 Phase 2 #9 阶段 A + B + Phase 2 #10 ship) / 3 backtests / 9 research_claim_variables (6 active / 2 proposed / 1 rejected) / 1 真实 thesis 告警已触发 (601398 NIM 1.2% 持续 2 期)** |
 
@@ -298,6 +298,27 @@ Alembic 迁移链: 21 个版本文件,head = `s2_candidate_source_field`。
 - **D3 红旗数据源 (Batch 3 ship 2026-06-17)**: spike `backend/spikes/probe_redflag_metrics.py` 验证后,6/7 红旗生效 (goodwill + OCF/NI + dividend_sustainability + **ar_growth + inventory_turnover_drop + non_standard_audit**)。`non_recurring_dominant` 红旗是死代码:Lixinger fs 端点不支持 `ps.np_wd_s_r.t` (扣非净利率) — 保留检测器作为设计意图。`auditOpinionType` 是 Lixinger top-level 字段 (非 metric key),`financial_service.py:164` 已映射到 `audit_opinion` 列。
 - **D6 invalidation 架构** (Batch 3 决策 2026-06-17): `plan.invalidation:[]` schema 字段保留但**不启用**。中游非成本龙头过滤走 `plan_runner._should_filter_as_midstream_non_leader` 代码路径 (line 127-151),`disable_midstream_filter=False` 默认开启。红旗过滤走 `plan_runner.red_flag_count > 0` 检查 (line 635/661)。两条代码路径而非 `invalidation` schema,因为代码已 ship 且测试覆盖;重构 schema 表达需 1-1.5 天且无功能增量。
 - **资源股 7 维实际 6 维**: `resource_hard_asset` 策略 6 个 condition 覆盖 invest3 §12 7 维中的 5 维 (资源禀赋/估值/股息/地缘/扩产)。缺成本 (cost_leader) 与管理 (management quality) 两个细分维度作为已知限制。
+- **M6 行业第一性原理公式化** (Batch 5 grill 2026-06-17): invest1 第5-8章 行业公式 (煤油比价/铝产业链期权价值/磷矿景气度) 未公式化,`BusinessPattern.first_principle_variable` 仅字符串描述。Lixinger 不提供商品价格 series;Batch 4 N3 thesis_variables 已部分覆盖 (煤价/油价/磷矿价 manual 变量)。用户读字符串自行判断阈值。
+- **M7 避坑指南伪逻辑识破** (Batch 5 grill 2026-06-17): invest1 附录"利用常识识破高大上的伪逻辑"是元层面心法,无机械规则。已被 D3 财报红旗 + D6 中游排除覆盖部分,剩余"高大上叙事"属纯认知问题,跳过。
+
+### Batch 5 ship (2026-06-17 invest-alignment 3rd grill) — 6 项实质 + 1 命名重构
+
+3rd grill-me 聚焦"前 4 批漏检项",产出 8 项决策:
+
+| ID | 决策 | 涉及 |
+|---|---|---|
+| **Q2** | `Stock.tier` 字段值 `watch` → `satellite` (专业金融名词,Core-Satellite Model) | `stock.py` + alembic s9_1 + `builtin_seeder.py` + 前端 4 处 |
+| **M1** | DisciplineChecklist 加 3 条心法闸门 (a/b/c) + `cockpit_service.psychology_alerts` 回本强迫症检测 | 前端 DisciplineChecklistModal + cockpit_service |
+| **M2** | 新增 `Stock.in_circle: bool` (默认 False) + UI toggle + plan_runner filter + `Plan.disable_in_circle_filter` 逃生口 | `stock.py` + alembic s9_1 + `plan_runner.py` + `plan.py` model + 前端 |
+| **M3** | DisciplineChecklist 扩到 5 条 (加 d 反损失厌恶 / e 反锚定) + `cycle_assessment.extreme_low/extreme_high` 非阻塞 banner | 前端 + cockpit_service |
+| **M4** | thesis breach → EventBus → `draft_service.create_thesis_breach_sell_draft` 自动 SELL draft + supersede 该 stock pending BUY drafts (渣男理论) | event_handlers + draft_service + Draft.plan_id nullable (alembic s9_2) |
+| **M5** | `position_advisor` 加 `MAX_SINGLE_BY_TIER={'core':0.5,'satellite':0.1,None:0.5}` + `TOTAL_SATELLITE_MAX=0.20` | position_advisor_service + plan_runner `_compute_suggested_buy_quantity` tier-clamp |
+| **M6+M7** | 跳过 + 文档化 (见上) | STATUS.md |
+| **Q9** | 单 Batch 5 一个 commit,7 步实施 | — |
+
+**Batch 5 新增测试**: 14 个 (M2 filter 4 / M4 thesis breach 6 / M5 tier-aware 4)
+
+**对齐度评估**: Batch 4 后 ~80% → Batch 5 后 ~86-88% (3 个新维度激活: 心法 / 能力圈 / 渣男换股 + 2 个补齐: extreme_low 布局 / satellite 仓位上限)
 
 ---
 

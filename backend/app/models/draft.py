@@ -30,9 +30,10 @@ class Draft(Base):
     __tablename__ = "drafts"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    plan_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("plans.id"), nullable=False, index=True
+    plan_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("plans.id"), nullable=True, index=True
     )
+    """NULL for system-generated drafts (M4 thesis_breach sells); otherwise FK to plans.id."""
     code: Mapped[str] = mapped_column(
         String, ForeignKey("stocks.code"), nullable=False, index=True
     )

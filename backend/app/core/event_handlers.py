@@ -349,10 +349,14 @@ def on_research_run_propose_claim_variables(event: ResearchRunCompleted) -> None
 
 
 def on_thesis_alert_triggered(event: ThesisAlertTriggered) -> None:
-    """Thesis monitor breach → audit_log + notification dispatch.
+    """Thesis monitor breach → audit_log + notification dispatch + M4 sell draft.
 
     v2: dedup is enforced upstream via last_alerted_at. This handler
     always fires for fresh breaches only.
+
+    M4 (Batch 5 2026-06-17): invest1 第13章 + invest2 §3 "渣男理论"
+    论点证伪 → 自动生成 SELL draft (plan_id=NULL, step_kind='thesis_breach')
+    + supersede 该 stock 的所有 pending BUY drafts.
     """
     from app.db.session import SessionLocal
     from app.services import audit_log_service
@@ -403,6 +407,37 @@ def on_thesis_alert_triggered(event: ThesisAlertTriggered) -> None:
             logger.exception(
                 "thesis alert notification dispatch failed cv_id=%s",
                 event.claim_var_id,
+            )
+
+        # M4: auto-generate SELL draft + supersede pending BUYs (渣男理论)
+        try:
+            from app.services.draft_service import create_thesis_breach_sell_draft
+            reason = (
+                f"论点证伪: {event.variable_name} {event.breach_when} "
+                f"{event.threshold_value} (current={event.current_value})"
+            )
+            draft = create_thesis_breach_sell_draft(
+                db,
+                stock_code=event.code,
+                reason=reason,
+                claim_var_id=event.claim_var_id,
+                reduce_pct_of_position=1.0,  # 全部卖出
+            )
+            if draft:
+                logger.info(
+                    "M4 thesis_breach SELL draft created: id=%s code=%s cv_id=%s",
+                    draft.id, event.code, event.claim_var_id,
+                )
+                db.commit()
+            else:
+                logger.info(
+                    "M4 thesis_breach: no open holding for code=%s, no SELL draft created",
+                    event.code,
+                )
+        except Exception:
+            logger.exception(
+                "M4 thesis_breach sell draft creation failed cv_id=%s code=%s",
+                event.claim_var_id, event.code,
             )
 
 

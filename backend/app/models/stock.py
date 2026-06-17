@@ -25,12 +25,19 @@ class Stock(Base):
     quadrant: Mapped[str | None] = mapped_column(String, nullable=True)
     """资产四象限：procyclical | countercyclical | distressed_reversal | financial | None"""
     tier: Mapped[str | None] = mapped_column(String, nullable=True)
-    """Investment tier (通用分级 + invest3 修仙映射,Batch 4 2026-06-17 复用):
-    'core' = 核心 ≈ invest3 天阶 (高确定性核心持仓,如 BFNY/NSLY/HXYH — invest3 §五-八章)
-    'watch' = 关注 ≈ invest3 玄阶 (投机卫星,可小仓位玩预期差,如 GGGF/YTKG/九华 — invest3 §九-十一章 + invest2 §13 '邪修')
-    'focus' = 重点 (介于核心与关注之间)
-    None = 未分类 (默认).
-    is_speculative 派生: tier == 'watch' (invest2 §13 '可小仓位玩' = 玄阶语义,系统标记不进 plan)."""
+    """Investment tier (Core-Satellite Model — Batch 5 Q2 2026-06-17 改用专业金融名词):
+    'core' = 核心仓位 ≈ invest3 天阶 (高确定性核心持仓,如 BFNY/NSLY/HXYH — invest3 §五-八章); 单只上限 50%
+    'satellite' = 卫星仓位 ≈ invest3 玄阶 (投机卫星,可小仓位玩预期差,如 GGGF/YTKG/九华 — invest3 §九-十一章 + invest2 §13 '邪修'); 单只上限 10%, 组合总卫星仓位 ≤ 20%
+    'focus' = 重点 (介于核心与卫星之间,罕见)
+    None = 未分类 (默认,按 core 处理).
+    is_speculative 派生: tier == 'satellite' (invest2 §13 '可小仓位玩' = 玄阶语义,系统标记不进 plan)."""
+    in_circle: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0"
+    )
+    """M2 (invest3 第四层 + 核心十诫 #9 坚守边界): 是否在用户能力圈内.
+    False (默认): 不在能力圈内, plan_runner filter stage 剔除.
+    True: 用户主动 toggle 标记为"我能看懂", 候选池放行.
+    invest1/2/3 三本反复强调"不懂不做", 此字段补齐该维度."""
     dividend_payout_commitment_pct: Mapped[float | None] = mapped_column(
         Float, nullable=True
     )

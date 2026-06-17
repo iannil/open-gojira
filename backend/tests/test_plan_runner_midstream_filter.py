@@ -227,20 +227,20 @@ class TestSeedTier:
         # invest3 天阶 → core, 玄阶 → watch
         db_session.add(Stock(code="600989", name="宝丰能源"))   # 天阶 (BFNY) → core
         db_session.add(Stock(code="603233", name="大参林"))     # 天阶 (DSL) → core
-        db_session.add(Stock(code="002749", name="国光股份"))   # 玄阶 (GGGF) → watch
-        db_session.add(Stock(code="603199", name="九华旅游"))   # 玄阶 (九华) → watch
+        db_session.add(Stock(code="002749", name="国光股份"))   # 玄阶 (GGGF) → satellite
+        db_session.add(Stock(code="603199", name="九华旅游"))   # 玄阶 (九华) → satellite
         db_session.add(Stock(code="000001", name="平安银行"))   # unclassified
         db_session.flush()
 
         updated = seed_tier(db_session)
         db_session.flush()
 
-        # 4 stocks updated (2 core + 2 watch); unclassified untouched
+        # 4 stocks updated (2 core + 2 satellite); unclassified untouched
         assert updated == 4
         assert db_session.get(Stock, "600989").tier == "core"
         assert db_session.get(Stock, "603233").tier == "core"
-        assert db_session.get(Stock, "002749").tier == "watch"
-        assert db_session.get(Stock, "603199").tier == "watch"
+        assert db_session.get(Stock, "002749").tier == "satellite"
+        assert db_session.get(Stock, "603199").tier == "satellite"
         assert db_session.get(Stock, "000001").tier is None
 
     def test_seed_tier_is_idempotent(self, db_session):

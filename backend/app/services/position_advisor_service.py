@@ -27,6 +27,17 @@ MAX_SINGLE_POSITION = 0.50   # 50%
 MIN_SINGLE_POSITION = 0.10   # 10%
 MAX_INDUSTRY_WEIGHT = 0.15   # 15%
 
+# M5 (Batch 5 2026-06-17): tier-aware position caps (Core-Satellite Model).
+# invest2 §1.3 / invest3 第四层 "对待投机: 懂投机但视为'邪修', 可小仓位玩预期差,
+# 但绝不把别人出高价的理由, 当成自己重仓高位接盘的理由".
+MAX_SINGLE_BY_TIER: dict[str | None, float] = {
+    "core": 0.50,        # 核心仓位单只上限 50%
+    "satellite": 0.10,   # 卫星仓位单只上限 10% (invest2 §1.3 "小仓位")
+    "focus": 0.50,       # 重点按 core 处理
+    None: 0.50,          # 未分类按 core 处理
+}
+TOTAL_SATELLITE_MAX = 0.20  # 组合内 satellite 总仓位 ≤ 20% (invest2 §1.3 "绝不重仓接盘")
+
 
 @dataclass
 class PositionAdvice:
@@ -108,6 +119,35 @@ def _industry_weights(holdings: list[dict], db: Session) -> dict[str, float]:
         return {}
 
     return {ind: v / total_value for ind, v in by_industry.items()}
+
+
+def _current_satellite_weight(holdings: list[dict], db: Session) -> float:
+    """M5: sum of portfolio weight held in tier='satellite' stocks.
+
+    Used for TOTAL_SATELLITE_MAX check (invest2 §1.3 组合级卫星仓位上限).
+    Returns 0.0 if no holdings or no satellite stocks held.
+    """
+    if not holdings:
+        return 0.0
+    codes = [h["stock_code"] for h in holdings]
+    stocks_map = {
+        s.code: s
+        for s in db.execute(select(Stock).where(Stock.code.in_(codes))).scalars().all()
+    }
+    total_value = 0.0
+    satellite_value = 0.0
+    for h in holdings:
+        stock = stocks_map.get(h["stock_code"])
+        if not stock:
+            continue
+        price = _latest_price_for_code(h["stock_code"], h, db)
+        value = price * h["total_quantity"]
+        total_value += value
+        if stock.tier == "satellite":
+            satellite_value += value
+    if total_value == 0:
+        return 0.0
+    return satellite_value / total_value
 
 
 def _latest_price_for_code(
@@ -193,6 +233,26 @@ def check_before_draft(
             warnings.append(
                 f"行业 '{stock.industry}' 当前权重 {current_ind_weight:.0%}，"
                 f"接近 {MAX_INDUSTRY_WEIGHT:.0%} 上限"
+            )
+
+    # 2b. M5 (Batch 5): tier-aware position caps.
+    # invest2 §1.3 + invest3 第四层: satellite 标的"小仓位玩预期差".
+    if stock and stock.tier == "satellite":
+        # Single satellite position hard cap 10%
+        # (We don't know the proposed weight at this stage — the caller will
+        # surface this constraint when computing suggested_quantity. The
+        # blocker here fires conservatively if any satellite already held.)
+        current_sat = _current_satellite_weight(holdings, db)
+        if not already_held and current_sat >= TOTAL_SATELLITE_MAX:
+            blockers.append(
+                f"卫星仓位 (satellite tier) 当前总权重 {current_sat:.0%}，"
+                f"已达到组合上限 {TOTAL_SATELLITE_MAX:.0%} "
+                f"(invest2 §1.3 '绝不重仓接盘')"
+            )
+        elif not already_held and current_sat > TOTAL_SATELLITE_MAX * 0.8:
+            warnings.append(
+                f"卫星仓位当前总权重 {current_sat:.0%}，"
+                f"接近组合上限 {TOTAL_SATELLITE_MAX:.0%} (invest2 §1.3)"
             )
 
     # 3. Cycle-based position check (invest2 §5 硬纪律)
