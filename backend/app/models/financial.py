@@ -38,6 +38,18 @@ class FinancialStatement(Base):
     debt_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
     goodwill: Mapped[float | None] = mapped_column(Float, nullable=True)
     total_shares: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # D3 (2026-06-17 invest-alignment audit): 财报红旗字段 (invest1 §三 + invest2 §10)
+    # Lixinger metric keys (best-effort, may need API verification):
+    #   accounts_receivable: bs.ar.t | inventory: bs.inv.t | inventory_turnover: m.i_tor.t
+    #   non_recurring_profit_ratio: ps.np_wd_s_r.t (扣非净利率, 经验值)
+    accounts_receivable: Mapped[float | None] = mapped_column(Float, nullable=True)
+    """应收账款 (Lixinger bs.ar.t, 待 API 确认). 用于红旗: 应收增速 >> 营收增速 = 伪造销售嫌疑."""
+    inventory: Mapped[float | None] = mapped_column(Float, nullable=True)
+    """存货 (Lixinger bs.inv.t, 待 API 确认). 用于红旗: 存货周转率突变 = 积压."""
+    inventory_turnover_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
+    """存货周转率 (Lixinger m.i_tor.t, 已在默认 metrics). 用于红旗: 同比骤降."""
+    non_recurring_profit_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
+    """扣非净利率 (Lixinger ps.np_wd_s_r.t, 经验值). 用于红旗: 非经常损益依赖."""
     # Cash flow
     operating_cash_flow: Mapped[float | None] = mapped_column(Float, nullable=True)
     investing_cash_flow: Mapped[float | None] = mapped_column(Float, nullable=True)

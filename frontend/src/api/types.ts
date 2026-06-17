@@ -418,8 +418,24 @@ export interface CockpitResponse {
   theme_exposure?: ThemeExposureItem[];
   dividend_projection?: DividendProjection;
   thesis_alerts?: ThesisAlert[];
+  portfolio_risk?: PortfolioRisk;
   serenity_summary?: SerenityCockpitSummary | null;
   serenity_monthly_spend_cny?: SerenityMonthlySpend | null;
+}
+
+/**
+ * D4 (2026-06-17 invest-alignment audit): invest2 §7 平方差魔咒实时指标。
+ * Cockpit "组合风险" 卡片数据源。has_holdings=false 时其他字段为 null。
+ */
+export interface PortfolioRisk {
+  has_holdings: boolean;
+  holdings_count: number;
+  window_days: number;
+  annual_volatility: number | null;
+  max_drawdown_30d: number | null;
+  max_drawdown_90d: number | null;
+  sharpe_proxy: number | null;
+  errors: string[];
 }
 
 export interface SerenityMonthlySpend {

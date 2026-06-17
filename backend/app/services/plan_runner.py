@@ -65,6 +65,9 @@ class PlanRunResult:
     by the current run — either the stock dropped out of candidates or
     trading rules no longer fire."""
     filtered_midstream_non_leader: int = 0
+    filtered_red_flags: int = 0
+    """D3 (2026-06-17): count of candidates suppressed by red_flag_count > 0
+    (invest1 §三 + invest2 §10 财报避坑)."""
     cycle_position: str | None = None
     """G1: current cycle position when plan ran (extreme_low/low/mid/high/extreme_high)."""
     cycle_buy_blocked: int = 0
@@ -628,6 +631,11 @@ def run_plan(db: Session, plan: Plan) -> PlanRunResult:
                 result.filtered_midstream_non_leader += 1
                 continue
 
+            # D3 (2026-06-17): 财报红旗 filter (invest1 §三 + invest2 §10)
+            if ctx.red_flag_count is not None and ctx.red_flag_count > 0:
+                result.filtered_red_flags += 1
+                continue
+
             passed_codes.append(code)
             _upsert_candidate(db, plan, code, strategy_results, result)
     else:
@@ -647,6 +655,11 @@ def run_plan(db: Session, plan: Plan) -> PlanRunResult:
             stock = db.get(Stock, code)
             if stock is not None and _should_filter_as_midstream_non_leader(db, stock, plan):
                 result.filtered_midstream_non_leader += 1
+                continue
+
+            # D3 (2026-06-17): 财报红旗 filter (invest1 §三 + invest2 §10)
+            if ctx.red_flag_count is not None and ctx.red_flag_count > 0:
+                result.filtered_red_flags += 1
                 continue
 
             passed_codes.append(code)

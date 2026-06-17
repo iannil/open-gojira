@@ -52,6 +52,8 @@ class StockContext:
     # Special
     bank_blind_box: str | None = None  # "可见" | "模糊" | "不可见"
     market_temperature: float | None = None
+    # D3 (2026-06-17 invest-alignment): 财报红旗数 (invest1 §三 + invest2 §10)
+    red_flag_count: int | None = None
 
 
 def _resolve_field(ctx: StockContext, field: str) -> Any:
@@ -75,6 +77,7 @@ def _resolve_field(ctx: StockContext, field: str) -> Any:
         "expansion_outlook": ctx.expansion_outlook,
         "geo_risk": ctx.geo_risk,
         "power_tier": ctx.power_tier,
+        "red_flag_count": ctx.red_flag_count,
     }
     return mapping.get(field)
 

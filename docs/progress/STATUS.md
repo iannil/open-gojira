@@ -4,13 +4,13 @@
 >
 > | 字段 | 值 (实测于 2026-06-17) |
 > |---|---|
-> | 最后更新 | 2026-06-17 (invest1/2/3 对齐审计 Batch 1 ship + 求字→选择权 命名重构 + 9 新测试) |
+> | 最后更新 | 2026-06-17 (invest1/2/3 对齐审计 Batch 2 ship: D2/D3/D4 拓 schema + 37 新测试) |
 > | 分支 | `master` |
-> | 最新 commit | a0c4644 (Phase 2 #9 阶段 B v2 thesis monitor 验收收尾) + 本轮未提交 (Batch 1 invest-alignment) |
-> | 测试 | **1084 passed**, 0 failed (`pytest`) |
-> | 测试函数数 | 1084 (1075 baseline + 本轮新增 9: 3 D1 bank_select + 2 D5 extreme_high + 3 D6 avoid_overvalued + 1 D6 midstream filter) |
-> | Alembic head | `s5_3_claim_variables` |
-> | Alembic 版本文件数 | 24 |
+> | 最新 commit | 258f750 (Batch 1 invest-alignment) + 本轮未提交 (Batch 2) |
+> | 测试 | **1121 passed**, 0 failed (`pytest`) |
+> | 测试函数数 | 1121 (1084 Batch 1 + 37 Batch 2: 4 D2 optionality + 20 D3 红旗检测器+集成 + 13 D4 portfolio_risk) |
+> | Alembic head | `s6_1_red_flag_fields` |
+> | Alembic 版本文件数 | 25 |
 > | 后端代码 | ~23,700 行 (app/) + ~10,100 行 (tests/) |
 > | 前端代码 | ~12,200 行 (src/) |
 > | 远程仓库 | 暂无 (`git remote -v` 为空) |
@@ -228,6 +228,8 @@ Alembic 迁移链: 21 个版本文件,head = `s2_candidate_source_field`。
 
 ### 5.2 最近里程碑 (按时间倒序)
 
+**2026-06-17 (深夜)**: invest1/2/3 对齐审计 Batch 2 ship (拓 schema)。实施 3 项决策: D2 新增 optionality_leader 策略 + moat_leader plan 激活 power_tier (选择权位阶); D3 拓 FinancialStatement 4 字段 + alembic s6_1_red_flag_fields migration + red_flag_detector_service 6 红旗 (商誉/OCF/分红可持续/应收/存货周转/非经常损益) + plan_runner 集成过滤; D4 新增 portfolio_risk_service 从 historical_klines 推算年化波动率/30-90日回撤/夏普代理 + Cockpit "组合风险"卡片。1121 测试通过 (+37)。Lixinger 字段键未 spike 验证 → graceful degradation (现有字段红旗立即生效,新字段等用户 spike)。详见 `docs/reports/completed/plan-invest-alignment-batch2-2026-06-17.md`。
+
 **2026-06-17 (晚)**: invest1/2/3 对齐审计 Batch 1 ship。grill-me 会话对照 `docs/reference/invest{1,2,3}.md` 全面审计,产出 11 项决策 + 求字→选择权 命名重构 + 两批 ship 计划。Batch 1 (低风险高价值) 实施: D1 bank_select 加 bank_blind_box==可见 (顺带修 industry ["bank"]→["银行","bank"] 永不匹配 Lixinger 实际返回值的潜伏 bug) / D5 extreme_high 新开仓 warning→blocker (保留加仓赢家通道) / D6-A 新增 avoid_overvalued_tech 策略 + D6-B 验证中游 filter 已就绪 / D7-D10 文档化决策 / 命名重构 (字段名 power_tier 保留,UI/文档改"选择权位阶"文案)。1084 测试通过 (+9)。详见 `docs/reference/specs/2026-06-17-invest-system-alignment-audit.md` + `docs/reports/completed/plan-invest-alignment-batch1-2026-06-17.md`。
 
 **2026-06-17**: Phase 2 #9 阶段 B v2 thesis monitor ship + Bug 1/2/3 修复。grill-me 会话产出 9 项决策 (严格 ship 口径 + 4 项产出物 + 4 source 单测补齐 + EventBus/handler/scheduler 3 项测试补齐 + Bug 1 P0 notification 修复 + Bug 2 dedup 干净验证 + dev server 3 场景截图 + STATUS/ADR/spec/reports/MEMORY 同步)。实施: Bug 1 (event_handlers.py 3 处 SystemAlert 字段不存在) 修复 → SystemAlert thesis 行 0→22 / Bug 2 不复现 (spike/dev 残留) / Bug 3 (cockpit theme_exposure schema mismatch 顺带修)。1075 测试通过 (+12)。真实生产链路跑通: 工商银行 NIM 持续 2 期 1.2% < 1.3% → audit + EventBus + SystemAlert + dispatch_alert。详见 `docs/reports/completed/plan-thesis-monitor-v2-2026-06-17.md` + `docs/reports/thesis-monitor-v2-acceptance-2026-06-17.md`。
@@ -285,14 +287,13 @@ Alembic 迁移链: 21 个版本文件,head = `s2_candidate_source_field`。
 
 **P3 (技术债)**: holding_service 拆纯计算+持久查询两层、datetime.utcnow() → datetime.now(UTC)、前端 bundle 分块、STATUS.md 自动化生成
 
-### 已知限制 (D8/D9/D10 — 2026-06-17 invest-alignment audit)
+### 已知限制 (D8/D9/D10 + Lixinger 字段键 — 2026-06-17 invest-alignment audit)
 
 - **D8 资产配置范围**: Gojira 定位为「个人**股票**自动驾驶舱」。房产/黄金实物/货币基金/债券基金**不在范围**。invest2 §23 加权 DYR 4-5% 已实现 (`holding_service.target_weighted_dyr=0.045`),是非股票资产可量化部分。
 - **D9 100 万门槛**: invest2 §24 是元层面建议 (劳动收入 vs 投资权重),非交易规则。不机械实现,用户自行判断本金状态。
 - **D10 EPS 真相 (永续债/优先股)**: Lixinger 标准 API 不提供永续债利息 / 优先股股息细分 (银行/地产年报附注才披露)。`adjusted_eps` 未实现。用户需手动查年报附注。
-- **D3 财报红旗 (待 Batch 2)**: 当前 0 红旗检测。完整版需拓 `FinancialStatement` schema 加 `accounts_receivable` / `inventory` / `non_recurring_profit` / `audit_opinion` 字段 + Lixinger endpoint 调研。
-- **D4 平方差魔咒实时指标 (待 Batch 2)**: 当前 `max_drawdown` 仅在 backtest 路径。实时组合波动率需新增 `portfolio_risk_service`。
-- **D2 optionality_leader 策略 (待 Batch 2)**: power_tier / 选择权位阶 字段已建,激活策略待 Batch 2。
+- **D3 Lixinger 字段键未 spike 验证** (Batch 2 ship 后): D3 新增的 4 个 schema 字段对应的 Lixinger metric keys (bs.ar.t / bs.inv.t / ps.np_wd_s_r.t) 基于通用命名推断。`financial_service.py:130-160` 也未更新填充。Graceful degradation: 字段为 None 时红旗检测器跳过,现有 goodwill + OCF/NI + dividend_sustainability 三红旗基于已有字段立即生效。等用户跑 spike 验证键后,补 financial_service 字段映射可激活剩余 3 红旗。
+- **D3 audit_opinion 跳过**: Lixinger 标准 API 不提供审计意见,跳过该红旗。
 
 ---
 

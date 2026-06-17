@@ -124,6 +124,21 @@ BUILTIN_STRATEGIES = [
             ],
         },
     },
+    {
+        # D2 (2026-06-17 invest-alignment audit): 激活 power_tier (选择权位阶) 字段。
+        # invest1 §二 选择权理论: 2 层及以上 = 对稀缺资源/核心技术的选择权 = 反脆弱性强。
+        # 配合 dyr_fwd≥4% 安全垫。配套 plan: moat_leader (纯筛选,用户自行决定交易)。
+        "slug": "optionality_leader",
+        "name": "选择权龙头",
+        "description": "选择权位阶≥2 (上游+政府求你) 且 预期股息率≥4% (invest1 §二 选择权理论)",
+        "rule": {
+            "logic": "AND",
+            "conditions": [
+                {"field": "power_tier", "op": ">=", "value": 2},
+                {"field": "dyr_fwd", "op": ">=", "value": 0.04},
+            ],
+        },
+    },
 ]
 
 # ── Builtin business patterns ─────────────────────────────────────────
@@ -467,6 +482,19 @@ BUILTIN_PLANS = [
         "name": "超跌逆向",
         "description": "超跌逆向机会 + 现金流资产，纯筛选无交易规则",
         "strategy_slugs": ["contrarian_oversold", "cashflow_asset"],
+        "logic": "AND",
+        "scan_scope": {"type": "all_stocks", "values": []},
+        "schedule_cron": "0 18 * * 1-5",
+        "trading_rules": None,
+    },
+    {
+        # D2 (2026-06-17 invest-alignment audit): 激活选择权理论的配套 plan。
+        # 纯筛选 (无 trading_rules), 让用户对高选择权位阶的标的自行判断交易时机。
+        # invest1 §二: 2 层选择权 = 上游 + 政府求你 (稀缺资源/核心技术), 反脆弱性强。
+        "slug": "moat_leader",
+        "name": "选择权龙头",
+        "description": "选择权位阶≥2 + 预期股息率≥4%,纯筛选 (invest1 §二 选择权理论)",
+        "strategy_slugs": ["optionality_leader"],
         "logic": "AND",
         "scan_scope": {"type": "all_stocks", "values": []},
         "schedule_cron": "0 18 * * 1-5",

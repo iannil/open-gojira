@@ -231,6 +231,14 @@ def build(db: Session) -> dict:
         [],
         errors,
     )
+    # D4 (2026-06-17 invest-alignment): invest2 §7 平方差魔咒实时指标
+    from app.services.portfolio_risk_service import compute_portfolio_risk
+    portfolio_risk = _safe(
+        "portfolio_risk",
+        lambda: compute_portfolio_risk(db).to_dict(),
+        {"has_holdings": False, "holdings_count": 0, "window_days": 0},
+        errors,
+    )
 
     holdings_payload: list[dict[str, Any]] = []
     holdings_warnings: list[str] = []
@@ -262,6 +270,7 @@ def build(db: Session) -> dict:
         "cycle": cycle,
         "dividend_projection": dividend_projection,
         "thesis_alerts": thesis_alerts,
+        "portfolio_risk": portfolio_risk,
         "serenity_summary": _get_latest_serenity_summary(db),
         "serenity_monthly_spend_cny": _get_monthly_serenity_spend(db),
         "errors": errors,

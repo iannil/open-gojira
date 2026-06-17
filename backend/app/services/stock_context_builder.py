@@ -206,6 +206,15 @@ def build_context(db: Session, code: str) -> StockContext:
         if bp is not None:
             power_tier = bp.power_tier_baseline
 
+    # D3 (2026-06-17): 财报红旗数 (invest1 §三 + invest2 §10)
+    red_flag_count: int | None = None
+    try:
+        from app.services.red_flag_detector_service import detect_with_dividend_sustainability
+        report = detect_with_dividend_sustainability(db, code, div_sust_score=div_sust)
+        red_flag_count = report.count
+    except Exception:
+        logger.warning("red_flag_detector failed for %s", code, exc_info=True)
+
     return StockContext(
         code=code,
         name=stock.name,
@@ -230,6 +239,7 @@ def build_context(db: Session, code: str) -> StockContext:
         expansion_outlook=stock.expansion_outlook,
         geo_risk=stock.geo_risk,
         power_tier=power_tier,
+        red_flag_count=red_flag_count,
     )
 
 
@@ -289,6 +299,15 @@ def build_contexts_batch(db: Session, codes: list[str]) -> dict[str, StockContex
             except Exception:
                 logger.warning("market_temperature failed", exc_info=True)
 
+            # D3 (2026-06-17): 财报红旗数
+            red_flag_count: int | None = None
+            try:
+                from app.services.red_flag_detector_service import detect_with_dividend_sustainability
+                rf_report = detect_with_dividend_sustainability(db, code, div_sust_score=div_sust)
+                red_flag_count = rf_report.count
+            except Exception:
+                logger.warning("red_flag_detector failed for %s", code, exc_info=True)
+
             result[code] = StockContext(
                 code=code,
                 name=s.name if s else "",
@@ -307,6 +326,7 @@ def build_contexts_batch(db: Session, codes: list[str]) -> dict[str, StockContex
                 price_drop_pct=price_drop_pct,
                 bank_blind_box=bank_verdict,
                 market_temperature=market_temp,
+                red_flag_count=red_flag_count,
             )
         except Exception as e:
             logger.warning("Failed to build context for %s: %s", code, e)

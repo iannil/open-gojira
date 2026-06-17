@@ -1152,6 +1152,94 @@ export default function CockpitPage() {
           )}
         </div>
 
+        {/* D4 (2026-06-17 invest-alignment): invest2 §7 平方差魔咒实时指标 */}
+        <Col span={8}>
+          <Card className="gojira-card" title="组合风险" bordered={false}>
+            {data.portfolio_risk && data.portfolio_risk.has_holdings ? (
+              <div>
+                <Row gutter={16}>
+                  <Col span={12}>
+                    <Statistic
+                      title="年化波动率"
+                      value={
+                        data.portfolio_risk.annual_volatility !== null
+                          ? (data.portfolio_risk.annual_volatility * 100).toFixed(1)
+                          : '--'
+                      }
+                      suffix={data.portfolio_risk.annual_volatility !== null ? '%' : ''}
+                    />
+                  </Col>
+                  <Col span={12}>
+                    <Statistic
+                      title="夏普代理"
+                      value={
+                        data.portfolio_risk.sharpe_proxy !== null
+                          ? data.portfolio_risk.sharpe_proxy.toFixed(2)
+                          : '--'
+                      }
+                    />
+                  </Col>
+                </Row>
+                <Row gutter={16} style={{ marginTop: 12 }}>
+                  <Col span={12}>
+                    <Statistic
+                      title="30日最大回撤"
+                      value={
+                        data.portfolio_risk.max_drawdown_30d !== null
+                          ? (data.portfolio_risk.max_drawdown_30d * 100).toFixed(1)
+                          : '--'
+                      }
+                      suffix={data.portfolio_risk.max_drawdown_30d !== null ? '%' : ''}
+                      valueStyle={{
+                        color:
+                          data.portfolio_risk.max_drawdown_30d !== null &&
+                          data.portfolio_risk.max_drawdown_30d < -0.1
+                            ? '#cf1325'
+                            : undefined,
+                      }}
+                    />
+                  </Col>
+                  <Col span={12}>
+                    <Statistic
+                      title="90日最大回撤"
+                      value={
+                        data.portfolio_risk.max_drawdown_90d !== null
+                          ? (data.portfolio_risk.max_drawdown_90d * 100).toFixed(1)
+                          : '--'
+                      }
+                      suffix={data.portfolio_risk.max_drawdown_90d !== null ? '%' : ''}
+                      valueStyle={{
+                        color:
+                          data.portfolio_risk.max_drawdown_90d !== null &&
+                          data.portfolio_risk.max_drawdown_90d < -0.2
+                            ? '#cf1325'
+                            : undefined,
+                      }}
+                    />
+                  </Col>
+                </Row>
+                <div style={{ marginTop: 8, fontSize: 12, color: 'var(--gojira-text-tertiary)' }}>
+                  窗口 {data.portfolio_risk.window_days} 日 · {data.portfolio_risk.holdings_count} 只持仓
+                  {data.portfolio_risk.errors.length > 0 && (
+                    <span style={{ marginLeft: 8, color: 'var(--gojira-warning)' }}>
+                      ⚠ {data.portfolio_risk.errors.length} 个数据缺失
+                    </span>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <Empty
+                description={
+                  data.portfolio_risk && data.portfolio_risk.has_holdings === false
+                    ? '暂无持仓'
+                    : '等待数据'
+                }
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+              />
+            )}
+          </Card>
+        </Col>
+
         <div className="cockpit-span-12">
           <QuadrantPie data={data.quadrant} />
         </div>

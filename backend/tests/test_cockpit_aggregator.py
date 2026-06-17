@@ -99,6 +99,17 @@ class TestBuildContract:
         assert "warnings" in holdings
         assert isinstance(holdings["items"], list)
 
+    def test_build_includes_portfolio_risk(self, db):
+        """D4 (2026-06-17): Cockpit 必须暴露 portfolio_risk 字段 (invest2 §7)."""
+        _seed_goal(db)
+        result = cockpit_service.build(db)
+        assert "portfolio_risk" in result
+        pr = result["portfolio_risk"]
+        # Empty DB → no holdings → has_holdings=False
+        assert pr["has_holdings"] is False
+        assert pr["holdings_count"] == 0
+        assert pr["annual_volatility"] is None
+
     def test_build_alerts_structure(self, db):
         _seed_goal(db)
         result = cockpit_service.build(db)

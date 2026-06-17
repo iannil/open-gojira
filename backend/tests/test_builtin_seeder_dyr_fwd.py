@@ -172,6 +172,37 @@ class TestMidstreamFilterIsActive:
             )
 
 
+class TestOptionalityLeaderStrategy:
+    """D2 (2026-06-17 invest-alignment audit): 激活 power_tier (选择权位阶) 字段。
+
+    invest1 §二 选择权理论: 2 层选择权 = 对稀缺资源/核心技术的选择权 = 反脆弱性强。
+    配套 moat_leader plan (纯筛选,让用户自行决定交易)。
+    """
+
+    def test_optionality_leader_exists(self):
+        s = _strategy_by_slug("optionality_leader")
+        assert s is not None
+
+    def test_optionality_leader_uses_and(self):
+        s = _strategy_by_slug("optionality_leader")
+        assert s["rule"]["logic"] == "AND"
+
+    def test_optionality_leader_conditions(self):
+        """要求: 选择权位阶≥2 且 预期股息率≥4%。"""
+        s = _strategy_by_slug("optionality_leader")
+        conds = s["rule"]["conditions"]
+        fields = {(c["field"], c["op"], c["value"]) for c in conds}
+        assert ("power_tier", ">=", 2) in fields
+        assert ("dyr_fwd", ">=", 0.04) in fields
+
+    def test_moat_leader_plan_uses_optionality_leader(self):
+        """moat_leader plan 应引用 optionality_leader 策略,纯筛选无 trading_rules。"""
+        p = _plan_by_slug("moat_leader")
+        assert p is not None
+        assert "optionality_leader" in p["strategy_slugs"]
+        assert p["trading_rules"] is None  # 纯筛选
+
+
 class TestBankAnchorPlanUsesDyrFwdTriggers:
     """bank_anchor 预案 trading rule 的 triggers 改 dyr_fwd_ge/dyr_fwd_le."""
 
