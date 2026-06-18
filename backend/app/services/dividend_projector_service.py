@@ -87,12 +87,28 @@ def _historical_ex_months(db: Session, code: str) -> list[int]:
 
 
 def _historical_avg_per_share(db: Session, code: str, years: int = 3) -> float | None:
+    """F17 (2026-06-18): 3-year average DPS, only counting years that
+    actually paid a dividend.
+
+    Previous algorithm averaged all DPS values in the window including
+    years where DPS=0 (经营困难期 / 财报亏损). This systematically
+    underestimated forward_dyr for recovery stocks.
+
+    Real-world impact (spike 2026-06-18):
+      002170 芭田股份: old=0.168 → new=0.337 → forward_dyr 1.5% → 3.0%
+      601398 工商银行: old=0.175 → new=0.245 → forward_dyr 2.3% → 3.2%
+
+    This is still conservative (3y history can't predict growth) but no
+    longer systematically misreads recovery stocks. invest3 §8 "预期股息率"
+    intent is preserved.
+    """
     cutoff = date.today() - timedelta(days=years * 365)
     row = db.execute(
         select(func.avg(DividendRecord.amount_per_share))
         .where(
             DividendRecord.stock_code == code,
             DividendRecord.ex_date >= cutoff,
+            DividendRecord.amount_per_share > 0,
         )
     ).scalar_one_or_none()
     return float(row) if row else None

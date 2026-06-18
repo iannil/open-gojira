@@ -124,6 +124,15 @@ def _industry_breach_after_buy(
     value) for the new buy to avoid depending on a live price at create
     time. Existing positions use current_value when available, cost basis
     as fallback.
+
+    F20 (2026-06-18) caveat: ``new_industry`` here is ``Stock.industry`` which
+    currently stores Lixinger ``fsTableType`` values (5 categories:
+    non_financial/bank/security/insurance/other_financial), NOT real申万 industry.
+    This means 5530/5626 stocks share industry="non_financial" — the cap
+    effectively treats the entire non-financial universe as one bucket, which
+    is far coarser than the intent of MAX_INDUSTRY_WEIGHT. The cap still
+    meaningfully limits financial-sector concentration, but is essentially a
+    no-op within non-financial. Will be fixed when F20真实现 ships.
     """
     if not new_industry or new_cost <= 0:
         return None

@@ -97,6 +97,10 @@ DEFAULT_JOBS: dict[str, dict] = {
         "cron_expr": "0 8 * * 1",  # Monday 8am Asia/Shanghai
         "description": "周度 serenity 研究自动刷新（auto_refresh_freq=weekly 的主题；Q12 跳过 last_run_status=failed）",
     },
+    "pipeline_stale_sweep": {
+        "cron_expr": "*/15 * * * *",  # every 15 min
+        "description": "F15: 周期性清理 stuck pipeline runs (后台线程死亡但 status=running 的孤儿记录)",
+    },
 }
 
 
@@ -155,9 +159,72 @@ def update_config(
     return job
 
 
+# crontab standard: 0=Sun, 1=Mon, ..., 6=Sat, 7=Sun
+# APScheduler CronTrigger.day_of_week: 0=Mon, 1=Tue, ..., 6=Sun
+# `from_crontab()` passes the dow field verbatim — so crontab "1-5" (Mon-Fri)
+# gets interpreted as APScheduler Tue-Sat, silently shifting all weekday jobs
+# by one day. Translate the dow field before constructing the trigger.
+_CRONTAB_DOW_TO_APS_NAME = {
+    "0": "sun", "1": "mon", "2": "tue", "3": "wed", "4": "thu",
+    "5": "fri", "6": "sat", "7": "sun",
+}
+
+
+def _translate_dow_field(dow: str) -> str:
+    """Translate crontab dow field to APScheduler name-based equivalents.
+
+    crontab allows: 0-7 (0/7=Sun, 1=Mon, ..., 6=Sat), `*`, ranges, lists, steps.
+    APScheduler accepts named dows (mon/tue/.../sun) which are unambiguous.
+
+    Examples:
+      "1-5"     → "mon-fri"
+      "0,6"     → "sun,sat"
+      "*/5"     → "*/5"   (step not dow value, no translation needed)
+      "*"       → "*"
+      "1,3,5"   → "mon,wed,fri"
+    """
+    if dow == "*":
+        return "*"
+    parts = dow.split(",")
+    translated_parts: list[str] = []
+    for part in parts:
+        if "/" in part:
+            # step expression like */2 or 1-5/2 — keep as-is, step on full range
+            translated_parts.append(part)
+            continue
+        if "-" in part:
+            lo, hi = part.split("-", 1)
+            lo_name = _CRONTAB_DOW_TO_APS_NAME.get(lo.strip())
+            hi_name = _CRONTAB_DOW_TO_APS_NAME.get(hi.strip())
+            if lo_name and hi_name:
+                translated_parts.append(f"{lo_name}-{hi_name}")
+            else:
+                # Numeric range we don't recognize — fall back to raw
+                translated_parts.append(part)
+            continue
+        name = _CRONTAB_DOW_TO_APS_NAME.get(part.strip())
+        translated_parts.append(name if name else part)
+    return ",".join(translated_parts)
+
+
 def cron_to_trigger(cron_expr: str) -> CronTrigger:
-    """Parse standard 5-field crontab into APScheduler CronTrigger."""
-    return CronTrigger.from_crontab(cron_expr, timezone="Asia/Shanghai")
+    """Parse standard 5-field crontab into APScheduler CronTrigger.
+
+    F14 (2026-06-18): APScheduler CronTrigger.day_of_week uses 0=Mon/6=Sun,
+    while crontab standard uses 0=Sun/6=Sat. `from_crontab()` doesn't
+    translate — so "1-5" (Mon-Fri) silently becomes Tue-Sat. We translate
+    the dow field to APScheduler's named-dow form before constructing.
+    """
+    fields = cron_expr.split()
+    if len(fields) != 5:
+        raise ValueError(f"Invalid crontab expression (need 5 fields): {cron_expr!r}")
+    minute, hour, day, month, dow = fields
+    dow_translated = _translate_dow_field(dow)
+    return CronTrigger(
+        minute=minute, hour=hour, day=day, month=month,
+        day_of_week=dow_translated,
+        timezone="Asia/Shanghai",
+    )
 
 
 def record_start(db: Session, job_id: str) -> JobExecution:

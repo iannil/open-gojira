@@ -149,6 +149,12 @@ class UniverseBootstrapPipeline(BasePipeline):
                     code=code,
                     name=name,
                     listed_date=listed,
+                    # F20 (2026-06-18): stocks.industry currently stores Lixinger
+                    # fsTableType (5 values), not real申万 industry. Lixinger /cn/company
+                    # endpoint has no industry field; constituents endpoint returns 0.
+                    # Field name kept as 'industry' for backward compatibility with
+                    # existing strategy rules / holding_service industry cap. Will be
+                    # migrated to real申万 industry when external data source is added.
                     industry=fs_type or None,
                     exchange=exchange,
                     listing_status=listing_status,

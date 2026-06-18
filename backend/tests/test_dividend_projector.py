@@ -177,3 +177,77 @@ class TestComputeForwardDyr:
         # 3-year window only has 0.30 → avg 0.30; price 10 → 0.03
         assert result is not None
         assert abs(result - 0.03) < 1e-6
+
+
+# ── F17 (2026-06-18): forward_dyr should exclude DPS=0 years ─────────────
+
+
+def test_historical_avg_per_share_excludes_zero_dps(db_session):
+    """F17: years with DPS=0 should NOT pull down the average."""
+    from datetime import date, timedelta
+    from app.models.dividend import DividendRecord
+    from app.services.dividend_projector_service import _historical_avg_per_share
+
+    today = date.today()
+    db_session.add_all([
+        # 3 years of data, but 2 years had DPS=0 (经营困难期)
+        DividendRecord(stock_code="TEST001", ex_date=today - timedelta(days=30),
+                       amount_per_share=0.50, quantity_held=100, total_received=0.0),
+        DividendRecord(stock_code="TEST001", ex_date=today - timedelta(days=400),
+                       amount_per_share=0.00, quantity_held=100, total_received=0.0),
+        DividendRecord(stock_code="TEST001", ex_date=today - timedelta(days=750),
+                       amount_per_share=0.00, quantity_held=100, total_received=0.0),
+    ])
+    db_session.flush()
+
+    avg = _historical_avg_per_share(db_session, "TEST001", years=3)
+    # Old algorithm: (0.5+0+0)/3 = 0.167
+    # New algorithm: (0.5)/1 = 0.5
+    assert avg == 0.5, f"Expected 0.5 (only counting paid years), got {avg}"
+
+
+def test_historical_avg_per_share_returns_none_when_all_zero(db_session):
+    """F17: if no year paid dividends, return None (inconclusive)."""
+    from datetime import date, timedelta
+    from app.models.dividend import DividendRecord
+    from app.services.dividend_projector_service import _historical_avg_per_share
+
+    today = date.today()
+    db_session.add_all([
+        DividendRecord(stock_code="TEST002", ex_date=today - timedelta(days=30),
+                       amount_per_share=0.00, quantity_held=100, total_received=0.0),
+        DividendRecord(stock_code="TEST002", ex_date=today - timedelta(days=400),
+                       amount_per_share=0.00, quantity_held=100, total_received=0.0),
+    ])
+    db_session.flush()
+
+    avg = _historical_avg_per_share(db_session, "TEST002", years=3)
+    assert avg is None, f"Expected None when no paid years, got {avg}"
+
+
+def test_compute_forward_dyr_recovery_stock_not_underestimated(db_session):
+    """F17 integration:芭田-like recovery stock should get realistic forward_dyr."""
+    from datetime import date, timedelta
+    from app.models.dividend import DividendRecord
+    from app.models.price_kline import PriceKline
+    from app.services.dividend_projector_service import compute_forward_dyr_for_stock
+
+    today = date.today()
+    # Recovery stock: 2023-2024 paid 0, 2025 paid 0.30, 2026 paid 0.50
+    db_session.add_all([
+        DividendRecord(stock_code="TEST003", ex_date=today - timedelta(days=30),
+                       amount_per_share=0.50, quantity_held=100, total_received=0.0),
+        DividendRecord(stock_code="TEST003", ex_date=today - timedelta(days=400),
+                       amount_per_share=0.30, quantity_held=100, total_received=0.0),
+        DividendRecord(stock_code="TEST003", ex_date=today - timedelta(days=750),
+                       amount_per_share=0.00, quantity_held=100, total_received=0.0),
+        PriceKline(stock_code="TEST003", date=today, open=10, high=10.5,
+                   low=9.8, close=10.0, volume=1000),
+    ])
+    db_session.flush()
+
+    fd = compute_forward_dyr_for_stock(db_session, "TEST003")
+    # Old: (0.5+0.3+0)/3 / 10 = 0.0267 (2.67%)
+    # New: (0.5+0.3)/2 / 10 = 0.040 (4.0%)
+    assert fd is not None
+    assert 0.039 <= fd <= 0.041, f"Expected ~4.0% forward_dyr, got {fd}"

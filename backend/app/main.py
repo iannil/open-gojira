@@ -92,6 +92,20 @@ async def lifespan(app: FastAPI):
     import app.services.pipelines  # noqa: F401
     import app.core.event_handlers  # noqa: F401 — register all event handlers
 
+    # F15 (2026-06-18): recover any pipeline runs stuck in running/pending
+    # state. Previous uvicorn process was killed mid-execution → background
+    # thread died but pipeline_runs.status never advanced. Without this,
+    # stuck runs pollute the UI forever (24h+ observed in production DB).
+    try:
+        from app.services.pipelines.manager import PipelineManager
+        with SessionLocal() as db:
+            recovered = PipelineManager.recover_stale_runs(db)
+            db.commit()
+        if recovered:
+            log.info("Recovered %d stale pipeline runs on startup", recovered)
+    except Exception:
+        logger.exception("recover_stale_runs failed on startup")
+
     start_scheduler()
 
     yield

@@ -28,6 +28,7 @@ def test_job_registry_has_expected_jobs():
         "daily_corp_action_apply",
         "intraday_price_poll",
         "weekly_research_refresh",
+        "pipeline_stale_sweep",
     }
 
 
@@ -102,3 +103,165 @@ def test_run_job_now_thesis_evaluation_executes(monkeypatch):
     assert "checked" in inner
     assert "breached" in inner
     assert "legacy_alerts" in inner
+
+
+# ── F14 (2026-06-18): cron day_of_week translation ────────────────────────
+
+
+def test_translate_dow_field_basic():
+    """crontab dow (0=Sun..6=Sat) → APScheduler names (mon/tue/.../sun)."""
+    from app.services.scheduler_config_service import _translate_dow_field
+    assert _translate_dow_field("1-5") == "mon-fri"
+    assert _translate_dow_field("0,6") == "sun,sat"
+    assert _translate_dow_field("*") == "*"
+    assert _translate_dow_field("*/5") == "*/5"
+    assert _translate_dow_field("1,3,5") == "mon,wed,fri"
+    assert _translate_dow_field("0-4") == "sun-thu"
+    assert _translate_dow_field("7") == "sun"  # crontab 7 = Sunday
+    assert _translate_dow_field("2-6") == "tue-sat"
+
+
+def test_cron_to_trigger_mon_fri_fires_on_monday():
+    """F14: '1-5' must mean Mon-Fri (crontab standard), not Tue-Sat."""
+    from datetime import datetime
+    from app.services.scheduler_config_service import cron_to_trigger
+
+    # Monday 2026-06-15 09:00 UTC, before cron fire time
+    monday_9am = datetime(2026, 6, 15, 9, 0, 0)
+    trigger = cron_to_trigger("45 17 * * 1-5")
+    nxt = trigger.get_next_fire_time(None, monday_9am)
+    # Should fire SAME Monday, not Tuesday
+    assert nxt is not None
+    nxt_utc = nxt.astimezone(__import__("pytz").timezone("UTC"))
+    nxt_sh = nxt.astimezone(__import__("pytz").timezone("Asia/Shanghai"))
+    assert nxt_sh.weekday() == 0, f"Expected Monday (0), got weekday={nxt_sh.weekday()}"
+    assert nxt_sh.day == 15, f"Expected same Monday 2026-06-15, got day={nxt_sh.day}"
+
+
+def test_cron_to_trigger_skips_saturday():
+    """F14: '1-5' must skip Saturday (crontab standard), not fire on it."""
+    from datetime import datetime
+    import pytz
+    from app.services.scheduler_config_service import cron_to_trigger
+
+    # Saturday 2026-06-13 09:00 UTC
+    saturday_9am = datetime(2026, 6, 13, 9, 0, 0)
+    trigger = cron_to_trigger("45 17 * * 1-5")
+    nxt = trigger.get_next_fire_time(None, saturday_9am)
+    assert nxt is not None
+    nxt_sh = nxt.astimezone(pytz.timezone("Asia/Shanghai"))
+    # Saturday=5, Sunday=6, Monday=0 — should jump to Monday
+    assert nxt_sh.weekday() == 0, f"Expected Monday (0), got weekday={nxt_sh.weekday()} (was Saturday=5 before fix)"
+
+
+def test_cron_to_trigger_sunday_weekend_works():
+    """F14: explicit '0,6' (Sun+Sat) should still work correctly."""
+    from datetime import datetime
+    import pytz
+    from app.services.scheduler_config_service import cron_to_trigger
+
+    friday_9am = datetime(2026, 6, 12, 9, 0, 0)  # Friday before weekend
+    trigger = cron_to_trigger("0 9 * * 0,6")
+    nxt = trigger.get_next_fire_time(None, friday_9am)
+    nxt_sh = nxt.astimezone(pytz.timezone("Asia/Shanghai"))
+    # Next Saturday (day=13, weekday=5)
+    assert nxt_sh.weekday() == 5, f"Expected Saturday (5), got {nxt_sh.weekday()}"
+
+
+# ── F15 (2026-06-18): pipeline stale sweep ────────────────────────────────
+
+
+def test_recover_stale_runs_marks_old_running_as_failed(db_session):
+    """F15: stale pipeline run (status=running, old created_at) → failed."""
+    from datetime import datetime, timedelta, timezone
+    from app.models.pipeline import PipelineRun
+    from app.services.pipelines.base import PipelineStatus
+    from app.services.pipelines.manager import PipelineManager
+
+    old_time = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=24)
+    run = PipelineRun(
+        id="test-stale-run-1",
+        pipeline_type="dividends",
+        status=PipelineStatus.RUNNING.value,
+        config="{}",
+        total_items=100,
+        completed_items=0,
+        failed_items=0,
+        started_at=old_time,
+        created_at=old_time,
+    )
+    db_session.add(run)
+    db_session.flush()
+
+    recovered = PipelineManager.recover_stale_runs(db_session)
+    assert recovered == 1
+    db_session.refresh(run)
+    assert run.status == PipelineStatus.FAILED.value
+    assert run.finished_at is not None
+
+
+def test_recover_stale_runs_keeps_recent_running(db_session):
+    """F15: recent running pipeline (< 10 min old) should NOT be recovered."""
+    from datetime import datetime, timedelta, timezone
+    from app.models.pipeline import PipelineRun
+    from app.services.pipelines.base import PipelineStatus
+    from app.services.pipelines.manager import PipelineManager
+
+    fresh_time = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=2)
+    run = PipelineRun(
+        id="test-fresh-run-1",
+        pipeline_type="valuations",
+        status=PipelineStatus.RUNNING.value,
+        config="{}",
+        total_items=100,
+        completed_items=10,
+        failed_items=0,
+        started_at=fresh_time,
+        created_at=fresh_time,
+    )
+    db_session.add(run)
+    db_session.flush()
+
+    recovered = PipelineManager.recover_stale_runs(db_session)
+    assert recovered == 0
+    db_session.refresh(run)
+    assert run.status == PipelineStatus.RUNNING.value
+
+
+def test_pipeline_stale_sweep_job_recovers_stuck(db_session, monkeypatch):
+    """F15: scheduler sweep job should mark stuck runs as failed."""
+    from datetime import datetime, timedelta, timezone
+    from app.models.pipeline import PipelineRun
+    from app.services.pipelines.base import PipelineStatus
+
+    # 1 hour old, no updated_at refresh (stuck thread)
+    old_time = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)
+    run = PipelineRun(
+        id="test-sweep-target",
+        pipeline_type="dividends",
+        status=PipelineStatus.RUNNING.value,
+        config="{}",
+        total_items=100,
+        completed_items=0,
+        failed_items=0,
+        started_at=old_time,
+        created_at=old_time,
+        updated_at=old_time,  # not refreshed in 1h → stuck
+    )
+    db_session.add(run)
+    db_session.flush()
+
+    # Patch SessionLocal so the job uses our test session
+    import app.scheduler as sched_module
+    from contextlib import contextmanager
+
+    @contextmanager
+    def fake_session_local():
+        yield db_session
+
+    monkeypatch.setattr(sched_module, "SessionLocal", fake_session_local)
+
+    result = sched_module.pipeline_stale_sweep_job()
+    assert result["recovered"] >= 1
+    db_session.refresh(run)
+    assert run.status == PipelineStatus.FAILED.value

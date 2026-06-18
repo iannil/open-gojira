@@ -73,8 +73,12 @@ BUILTIN_STRATEGIES = [
         "rule": {
             "logic": "AND",
             "conditions": [
-                # D1 修复: Lixinger 实际返回 industry="银行" (中文),
-                # 旧值 ["bank"] 永不匹配。补 "bank" 兼容未来数据源变更。
+                # F20 (2026-06-18) 更正: stocks.industry 字段实际存的是
+                # Lixinger fsTableType 值 ("bank"/"non_financial"/"security" 等),
+                # 不是中文行业名。2026-06-17 Batch 1 注释 "Lixinger 返回
+                # industry='银行' (中文)" 是误判 (实际是 fsTableType='bank')。
+                # 保留 ["银行", "bank"] 双值兼容未来真行业数据源 (申万 sw_2021
+                # 当前 endpoint 返回 0 constituents,待外部数据源接入)。
                 {"field": "industry_in", "op": "in", "value": ["银行", "bank"]},
                 {"field": "dyr_fwd", "op": ">=", "value": 0.05},
                 # D1 新增: 接入 bank_analyzer_service 的 blind_box_verdict,

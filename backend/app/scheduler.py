@@ -730,6 +730,63 @@ def intraday_price_poll_job() -> dict:
         return summary
 
 
+def pipeline_stale_sweep_job() -> dict:
+    """F15 (2026-06-18): periodic sweep for stuck pipeline runs.
+
+    Background threads can die silently (OOM, network hang, code bug) while
+    pipeline_runs.status stays at 'running'. recover_stale_runs on startup
+    handles process restarts; this job handles in-process thread death.
+
+    Threshold: 30 min (much longer than any legitimate pipeline; the longest
+    observed run was financials at ~2h, but that updates completed_items
+    periodically so updated_at stays fresh — we check updated_at, not
+    started_at).
+    """
+    from app.services.pipelines.manager import PipelineManager
+
+    with SessionLocal() as db:
+        # recover_stale_runs checks created_at; we want to check updated_at
+        # because a long-running pipeline will have old created_at but
+        # recent updated_at if it's making progress. Use a custom query.
+        from datetime import timedelta
+        from app.models.pipeline import PipelineRun
+        from sqlalchemy import select
+
+        threshold = _utcnow() - timedelta(minutes=30)
+        stale_statuses = ("running", "pending")
+        # Use select(...).where(updated_at < threshold OR updated_at IS NULL)
+        # Be defensive: also catch started_at older than 2h regardless of
+        # updated_at (some pipelines may not refresh updated_at).
+        hard_threshold = _utcnow() - timedelta(hours=2)
+        result = db.execute(
+            select(PipelineRun).where(
+                PipelineRun.status.in_(stale_statuses),
+            )
+        ).scalars().all()
+        recovered = []
+        for run in result:
+            updated = run.updated_at or run.started_at
+            if updated is None or updated < hard_threshold:
+                # Definitely dead — older than 2h with no progress
+                run.status = "failed"
+                if not run.finished_at:
+                    run.finished_at = _utcnow()
+                recovered.append(run.id)
+            elif updated < threshold:
+                # Possibly dead — no progress in 30+ min
+                run.status = "failed"
+                if not run.finished_at:
+                    run.finished_at = _utcnow()
+                recovered.append(run.id)
+        if recovered:
+            db.commit()
+        logger.info(
+            "pipeline_stale_sweep: recovered %d stuck runs %s",
+            len(recovered), recovered[:5],
+        )
+        return {"recovered": len(recovered), "ids": recovered}
+
+
 # ── Job Registry ──────────────────────────────────────────────────────────
 
 # Maps job_id → unwrapped function (tracking is applied during scheduling)
@@ -755,6 +812,7 @@ JOB_REGISTRY = {
     "daily_corp_action_apply": daily_corp_action_apply_job,
     "intraday_price_poll": intraday_price_poll_job,
     "weekly_research_refresh": _weekly_research_refresh_job,
+    "pipeline_stale_sweep": pipeline_stale_sweep_job,
 }
 
 

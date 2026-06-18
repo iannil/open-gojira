@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, pool
 from sqlalchemy.orm import sessionmaker
 
+import app.db.session as _session_module
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
@@ -30,6 +31,16 @@ def override_get_db():
 
 
 app.dependency_overrides[get_db] = override_get_db
+
+
+# F16 (2026-06-18): patch SessionLocal at the module level so any service
+# that does `from app.db.session import SessionLocal` then `db = SessionLocal()`
+# (research_runner_service / pipeline manager / scheduler jobs / event handlers)
+# gets the in-memory test session, not the production SQLite.
+# Previously, scheduler jobs and event handlers spawned during tests wrote
+# directly to data/gojira.db, polluting the production DB with test fixtures
+# (178 audit_logs + 79 system_alerts with "E2E 测试" / "x(601398)" content).
+_session_module.SessionLocal = TestSessionLocal
 
 
 @pytest.fixture(autouse=True)
