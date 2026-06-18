@@ -1,0 +1,109 @@
+{
+  "ok": true,
+  "timestamp": "2026-06-18T04-16-24Z",
+  "description": "F20 spike: probe Lixinger industry APIs",
+  "sources_tested": [
+    {
+      "source": "sw_2021",
+      "ok": true,
+      "count": 511
+    },
+    {
+      "source": "sw",
+      "ok": true,
+      "count": 359
+    },
+    {
+      "source": "cni",
+      "ok": true,
+      "count": 129
+    }
+  ],
+  "industries_count_by_source": {
+    "sw_2021": 511,
+    "sw": 359,
+    "cni": 129
+  },
+  "industry_row_sample": [
+    {
+      "stockCode": "110000",
+      "name": "农林牧渔",
+      "launchDate": "1990-01-01T00:00:00+08:00",
+      "level": "one",
+      "areaCode": "cn",
+      "market": "a",
+      "source": "sw_2021",
+      "currency": "CNY",
+      "fsTableType": "non_financial"
+    },
+    {
+      "stockCode": "110100",
+      "name": "种植业",
+      "launchDate": "1990-01-01T00:00:00+08:00",
+      "level": "two",
+      "areaCode": "cn",
+      "market": "a",
+      "source": "sw_2021",
+      "currency": "CNY",
+      "fsTableType": "non_financial"
+    },
+    {
+      "stockCode": "110101",
+      "name": "种子",
+      "launchDate": "1990-01-01T00:00:00+08:00",
+      "level": "three",
+      "areaCode": "cn",
+      "market": "a",
+      "source": "sw_2021",
+      "currency": "CNY",
+      "fsTableType": "non_financial"
+    },
+    {
+      "stockCode": "110102",
+      "name": "粮食种植",
+      "launchDate": "1990-01-01T00:00:00+08:00",
+      "level": "three",
+      "areaCode": "cn",
+      "market": "a",
+      "source": "sw_2021",
+      "currency": "CNY",
+      "fsTableType": "non_financial"
+    },
+    {
+      "stockCode": "110103",
+      "name": "其他种植业",
+      "launchDate": "1990-01-01T00:00:00+08:00",
+      "level": "three",
+      "areaCode": "cn",
+      "market": "a",
+      "source": "sw_2021",
+      "currency": "CNY",
+      "fsTableType": "non_financial"
+    }
+  ],
+  "constituents_batch_test": {
+    "ok": true,
+    "input_codes": [
+      "110000",
+      "110100",
+      "110101",
+      "110102",
+      "110103"
+    ],
+    "returned_rows": 0,
+    "sample_rows": [],
+    "row_keys": []
+  },
+  "constituents_single_test": {
+    "ok": true,
+    "industry_code": "110000",
+    "constituent_count": 0,
+    "first_3_constituents": []
+  },
+  "cost_estimate": {
+    "total_industries": 511,
+    "requests_at_batch_5": 103,
+    "requests_at_batch_20": 26,
+    "requests_at_batch_50": 11
+  }
+}

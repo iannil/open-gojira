@@ -1,0 +1,243 @@
+{
+  "ok": true,
+  "timestamp": "2026-06-18T03-40-40Z",
+  "description": "F20 spike: probe Lixinger /cn/company for actual industry field",
+  "total_index_size": 5628,
+  "first_code_all_fields": {
+    "stockCode": "600989",
+    "areaCode": "cn",
+    "exchange": "sh",
+    "market": "a",
+    "fsTableType": "non_financial",
+    "ipoDate": "2019-05-16T00:00:00+08:00",
+    "mutualMarkets": [
+      "ha"
+    ],
+    "listingStatus": "normally_listed",
+    "name": "宝丰能源",
+    "mutualMarketFlag": true
+  },
+  "industry_field_candidates": [],
+  "per_stock": {
+    "600989": {
+      "label": "宝丰能源 (煤化工)",
+      "in_index": true,
+      "name": "宝丰能源",
+      "industry_related_fields": {},
+      "current_pipeline_fields": {
+        "fs_table_type": "non_financial",
+        "fsType": null,
+        "exchange": "sh"
+      }
+    },
+    "600219": {
+      "label": "南山铝业 (电解铝/铝上游)",
+      "in_index": true,
+      "name": "南山铝业",
+      "industry_related_fields": {},
+      "current_pipeline_fields": {
+        "fs_table_type": "non_financial",
+        "fsType": null,
+        "exchange": "sh"
+      }
+    },
+    "002170": {
+      "label": "芭田股份 (磷化工)",
+      "in_index": true,
+      "name": "芭田股份",
+      "industry_related_fields": {},
+      "current_pipeline_fields": {
+        "fs_table_type": "non_financial",
+        "fsType": null,
+        "exchange": "sz"
+      }
+    },
+    "002895": {
+      "label": "川恒股份 (磷化工)",
+      "in_index": true,
+      "name": "川恒股份",
+      "industry_related_fields": {},
+      "current_pipeline_fields": {
+        "fs_table_type": "non_financial",
+        "fsType": null,
+        "exchange": "sz"
+      }
+    },
+    "601398": {
+      "label": "工商银行 (银行)",
+      "in_index": true,
+      "name": "工商银行",
+      "industry_related_fields": {},
+      "current_pipeline_fields": {
+        "fs_table_type": "bank",
+        "fsType": null,
+        "exchange": "sh"
+      }
+    },
+    "600036": {
+      "label": "招商银行 (银行)",
+      "in_index": true,
+      "name": "招商银行",
+      "industry_related_fields": {},
+      "current_pipeline_fields": {
+        "fs_table_type": "bank",
+        "fsType": null,
+        "exchange": "sh"
+      }
+    },
+    "600519": {
+      "label": "贵州茅台 (白酒 — 应无 pattern)",
+      "in_index": true,
+      "name": "贵州茅台",
+      "industry_related_fields": {},
+      "current_pipeline_fields": {
+        "fs_table_type": "non_financial",
+        "fsType": null,
+        "exchange": "sh"
+      }
+    },
+    "000001": {
+      "label": "平安银行 (银行)",
+      "in_index": true,
+      "name": "平安银行",
+      "industry_related_fields": {},
+      "current_pipeline_fields": {
+        "fs_table_type": "bank",
+        "fsType": null,
+        "exchange": "sz"
+      }
+    },
+    "601628": {
+      "label": "中国人寿 (保险)",
+      "in_index": true,
+      "name": "中国人寿",
+      "industry_related_fields": {},
+      "current_pipeline_fields": {
+        "fs_table_type": "insurance",
+        "fsType": null,
+        "exchange": "sh"
+      }
+    },
+    "600030": {
+      "label": "中信证券 (证券)",
+      "in_index": true,
+      "name": "中信证券",
+      "industry_related_fields": {},
+      "current_pipeline_fields": {
+        "fs_table_type": "security",
+        "fsType": null,
+        "exchange": "sh"
+      }
+    },
+    "601088": {
+      "label": "中国神华 (煤炭)",
+      "in_index": true,
+      "name": "中国神华",
+      "industry_related_fields": {},
+      "current_pipeline_fields": {
+        "fs_table_type": "non_financial",
+        "fsType": null,
+        "exchange": "sh"
+      }
+    },
+    "600547": {
+      "label": "山东黄金 (黄金)",
+      "in_index": true,
+      "name": "山东黄金",
+      "industry_related_fields": {},
+      "current_pipeline_fields": {
+        "fs_table_type": "non_financial",
+        "fsType": null,
+        "exchange": "sh"
+      }
+    },
+    "601899": {
+      "label": "紫金矿业 (铜/金)",
+      "in_index": true,
+      "name": "紫金矿业",
+      "industry_related_fields": {},
+      "current_pipeline_fields": {
+        "fs_table_type": "non_financial",
+        "fsType": null,
+        "exchange": "sh"
+      }
+    }
+  },
+  "business_patterns_industries_json": {
+    "煤化工": [
+      "化学原料",
+      "化学制品",
+      "煤化工"
+    ],
+    "纯煤开采": [
+      "煤炭开采",
+      "煤炭"
+    ],
+    "电解铝": [
+      "工业金属",
+      "有色冶炼"
+    ],
+    "铝上游": [
+      "工业金属",
+      "有色冶炼"
+    ],
+    "磷化工": [
+      "化学原料",
+      "化学制品"
+    ],
+    "钾肥": [
+      "化学原料",
+      "化学制品"
+    ],
+    "铜矿": [
+      "工业金属",
+      "有色金属"
+    ],
+    "锡矿": [
+      "有色金属"
+    ],
+    "黄金矿企": [
+      "黄金",
+      "有色金属"
+    ],
+    "黄金零售": [
+      "珠宝首饰",
+      "零售"
+    ],
+    "银行": [
+      "银行",
+      "bank"
+    ],
+    "保险": [
+      "保险",
+      "保险Ⅱ",
+      "insurance"
+    ],
+    "证券": [
+      "证券",
+      "证券Ⅱ",
+      "security"
+    ],
+    "电力": [
+      "电力",
+      "电力Ⅱ"
+    ],
+    "植物生长剂": [
+      "农药",
+      "农化制品"
+    ],
+    "药店零售": [
+      "医药商业",
+      "医药流通"
+    ],
+    "旅游景区": [
+      "旅游零售",
+      "酒店餐饮",
+      "景点"
+    ]
+  },
+  "key_questions": {
+    "does_lixinger_return_industry": false,
+    "field_to_use_if_exists": "NO_INDUSTRY_FIELD_FOUND"
+  }
+}

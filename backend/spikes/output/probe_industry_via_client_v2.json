@@ -1,0 +1,140 @@
+{
+  "total": 511,
+  "by_level": {
+    "one": 31,
+    "two": 134,
+    "three": 346
+  },
+  "L1_sample": [
+    {
+      "stockCode": "110000",
+      "name": "农林牧渔",
+      "launchDate": "1990-01-01T00:00:00+08:00",
+      "level": "one",
+      "areaCode": "cn",
+      "market": "a",
+      "source": "sw_2021",
+      "currency": "CNY",
+      "fsTableType": "non_financial"
+    },
+    {
+      "stockCode": "220000",
+      "name": "基础化工",
+      "launchDate": "1990-01-01T00:00:00+08:00",
+      "level": "one",
+      "areaCode": "cn",
+      "market": "a",
+      "source": "sw_2021",
+      "currency": "CNY",
+      "fsTableType": "non_financial"
+    },
+    {
+      "stockCode": "230000",
+      "name": "钢铁",
+      "launchDate": "1990-01-01T00:00:00+08:00",
+      "level": "one",
+      "areaCode": "cn",
+      "market": "a",
+      "source": "sw_2021",
+      "currency": "CNY",
+      "fsTableType": "non_financial"
+    },
+    {
+      "stockCode": "240000",
+      "name": "有色金属",
+      "launchDate": "1990-01-01T00:00:00+08:00",
+      "level": "one",
+      "areaCode": "cn",
+      "market": "a",
+      "source": "sw_2021",
+      "currency": "CNY",
+      "fsTableType": "non_financial"
+    },
+    {
+      "stockCode": "270000",
+      "name": "电子",
+      "launchDate": "1990-01-01T00:00:00+08:00",
+      "level": "one",
+      "areaCode": "cn",
+      "market": "a",
+      "source": "sw_2021",
+      "currency": "CNY",
+      "fsTableType": "non_financial"
+    }
+  ],
+  "L1_count": 31,
+  "L2_sample": [
+    {
+      "stockCode": "110100",
+      "name": "种植业",
+      "launchDate": "1990-01-01T00:00:00+08:00",
+      "level": "two",
+      "areaCode": "cn",
+      "market": "a",
+      "source": "sw_2021",
+      "currency": "CNY",
+      "fsTableType": "non_financial"
+    },
+    {
+      "stockCode": "110200",
+      "name": "渔业",
+      "launchDate": "1990-01-01T00:00:00+08:00",
+      "level": "two",
+      "areaCode": "cn",
+      "market": "a",
+      "source": "sw_2021",
+      "currency": "CNY",
+      "fsTableType": "non_financial"
+    },
+    {
+      "stockCode": "110300",
+      "name": "林业",
+      "launchDate": "1990-01-01T00:00:00+08:00",
+      "level": "two",
+      "areaCode": "cn",
+      "market": "a",
+      "source": "sw_2021",
+      "currency": "CNY",
+      "fsTableType": "non_financial"
+    },
+    {
+      "stockCode": "110400",
+      "name": "饲料",
+      "launchDate": "1990-01-01T00:00:00+08:00",
+      "level": "two",
+      "areaCode": "cn",
+      "market": "a",
+      "source": "sw_2021",
+      "currency": "CNY",
+      "fsTableType": "non_financial"
+    },
+    {
+      "stockCode": "110500",
+      "name": "农产品加工",
+      "launchDate": "1990-01-01T00:00:00+08:00",
+      "level": "two",
+      "areaCode": "cn",
+      "market": "a",
+      "source": "sw_2021",
+      "currency": "CNY",
+      "fsTableType": "non_financial"
+    }
+  ],
+  "L2_count": 134,
+  "L1_constituents_test": {
+    "industry": {
+      "stockCode": "110000",
+      "name": "农林牧渔",
+      "launchDate": "1990-01-01T00:00:00+08:00",
+      "level": "one",
+      "areaCode": "cn",
+      "market": "a",
+      "source": "sw_2021",
+      "currency": "CNY",
+      "fsTableType": "non_financial"
+    },
+    "count": 0,
+    "sample": [],
+    "row_keys": []
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "total_industries": 511,
+  "level_field": "level",
+  "L1_count": 0,
+  "L2_count": 0,
+  "L3_count": 0,
+  "L1_industries_sample": [],
+  "constituents_test": {
+    "industry_code": "110000",
+    "returned": 0,
+    "sample_rows": [],
+    "row_keys": []
+  }
+}
