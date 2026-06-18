@@ -420,7 +420,17 @@ def _compute_percentile_at(
     if current is None:
         return None
 
-    window_start = date(day.year - years, day.month, day.day)
+    # F28 (2026-06-18): handle Feb 29 leap-year edge case. day=2024-02-29
+    # → naive `date(2014, 2, 29)` raises ValueError (2014 not leap).
+    # Fall back to Feb 28 for the window start — percentile calc is
+    # insensitive to 1-day shift on a 10y window.
+    try:
+        window_start = date(day.year - years, day.month, day.day)
+    except ValueError:
+        if day.month == 2 and day.day == 29:
+            window_start = date(day.year - years, 2, 28)
+        else:
+            raise
     rows = db.execute(
         select(getattr(HistoricalValuation, field))
         .where(

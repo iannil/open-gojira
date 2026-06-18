@@ -146,3 +146,63 @@ def test_build_context_at_missing_kline(db_session, setup):
     assert ctx.kline is None  # no kline on 2025-05-01
     # financial still available
     assert ctx.financial is not None
+
+
+# ── F28 (2026-06-18): Feb 29 leap-year edge case in _compute_percentile_at ──
+
+
+def test_compute_percentile_at_handles_leap_year_feb_29(db_session):
+    """F28: percentile_at on 2024-02-29 (leap year) must not crash.
+
+    Naive `date(2024-10, 2, 29) = date(2014, 2, 29)` raises ValueError
+    (2014 not leap). Fix: fall back to Feb 28 for window start.
+    """
+    from datetime import date
+    from app.models.historical_valuation import HistoricalValuation
+    from app.services.point_in_time_context_service import _compute_percentile_at
+
+    # Seed valuations including the problematic 2024-02-29 date
+    rows = [
+        HistoricalValuation(stock_code="TEST_F28", date=date(2024, 2, 29),
+                            pe_ttm=15.0, pb=2.0, sp=10.0),
+        HistoricalValuation(stock_code="TEST_F28", date=date(2024, 2, 28),
+                            pe_ttm=14.0, pb=1.9, sp=9.5),
+    ]
+    for year in range(2014, 2024):
+        rows.append(HistoricalValuation(stock_code="TEST_F28",
+                                        date=date(year, 6, 15),
+                                        pe_ttm=10.0 + (year - 2014), pb=1.5, sp=8.0))
+    db_session.add_all(rows)
+    db_session.flush()
+
+    # F28: critical assertion is "doesn't raise". Before fix:
+    #   date(2014, 2, 29) → ValueError
+    # After fix: falls back to date(2014, 2, 28) → returns None or float
+    result = _compute_percentile_at(
+        db_session, "TEST_F28", date(2024, 2, 29), "pe_ttm", years=10,
+    )
+    # Result may be None (< 30 samples) or a float — both acceptable.
+    # The contract is "doesn't raise on Feb 29".
+    assert result is None or 0.0 <= result <= 1.0
+
+
+def test_compute_percentile_at_normal_date_unaffected(db_session):
+    """F28: regular date (non-Feb-29) still works as before."""
+    from datetime import date
+    from app.models.historical_valuation import HistoricalValuation
+    from app.services.point_in_time_context_service import _compute_percentile_at
+
+    db_session.add_all([
+        HistoricalValuation(stock_code="TEST_F28_NORMAL", date=date(2024, 6, 15),
+                            pe_ttm=15.0, pb=2.0, sp=10.0),
+        HistoricalValuation(stock_code="TEST_F28_NORMAL", date=date(2020, 6, 15),
+                            pe_ttm=10.0, pb=1.5, sp=8.0),
+    ])
+    db_session.flush()
+
+    result = _compute_percentile_at(
+        db_session, "TEST_F28_NORMAL", date(2024, 6, 15), "pe_ttm", years=10,
+    )
+    # Only 2 samples < min_samples=30 → returns None (insufficient data)
+    # The point is that it doesn't raise.
+    assert result is None or 0.0 <= result <= 1.0
