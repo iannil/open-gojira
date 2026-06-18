@@ -232,7 +232,7 @@ Alembic 迁移链: 50 个版本文件 (实测 2026-06-18),head = `s10_1_in_circl
 
 ### 5.2 最近里程碑 (按时间倒序)
 
-**2026-06-18 (21:30 晚)**: grill-me "项目基础数据全部更新同步好了吗" 完整状态对齐 → **v0.2-started** 🚀。用户决策 6 项: (1) wipe 意图=进入 v0.2 (2) 就绪标准=四大表新鲜+autopilot 跑通 (3) dividends pipeline failed → 手动重跑验证 (实测 5 股 pipeline 5.8s 成功,Lixinger 限流已恢复,根因是 AdaptiveThrottler 死代码导致全速并发触发 429) (4) STATUS.md 改为 v0.2 起点 + v0.1 artifact 归档 (5) v0.2 验收去期限化=autopilot 跑通即 verified (6) price_klines 全量 backfill (task #4,需先 wire AdaptiveThrottler)。Task list: 5 项 (1✅ 2✅ 3 pending 18:00 4 后续 5 后续)。详见 `docs/progress/2026-06-18-grill-me-data-state-alignment.md` (todo: 写)。**核心问题"基础数据全部更新同步好了吗"答: 数据 90% OK,STATUS.md 改完即同步。**
+**2026-06-18 (21:30 晚)**: grill-me "项目基础数据全部更新同步好了吗" 完整状态对齐 → **v0.2-started** 🚀。用户决策 6 项: (1) wipe 意图=进入 v0.2 (2) 就绪标准=四大表新鲜+autopilot 跑通 (3) dividends pipeline failed → 手动重跑验证 (实测 5 股 pipeline 5.8s 成功,Lixinger 限流已恢复,根因是 AdaptiveThrottler 死代码导致全速并发触发 429) (4) STATUS.md 改为 v0.2 起点 + v0.1 artifact 归档 (5) v0.2 验收去期限化=autopilot 跑通即 verified (6) price_klines 全量 backfill (task #4,需先 wire AdaptiveThrottler)。Task list: 5 项 (1✅ 2✅ 3 pending 18:00 4 后续 5 后续)。详见 `docs/progress/2026-06-18-grill-me-data-state-alignment.md`。**核心问题"基础数据全部更新同步好了吗"答: 数据 90% OK,STATUS.md 改完即同步。**
 
 **2026-06-18 (21:06 晚)**: `wipe_usage_data.py` 执行 → 业务 action 表全清零 (holdings/trades/drafts/candidates/audit_logs/cash_balance/watchlist_items 全 0)。备份 `pre-usage-wipe-2026-06-18.db` (185MB) 保留 v0.1-paper-verified 全部产物 (2 holdings + 4 trades + 86 drafts + 179 candidates + audit_logs 123 行)。意图: 进入 v0.2 长期运行阶段,wipe paper 测试产物。脚本路径: `backend/scripts/wipe_usage_data.py`。
 
