@@ -80,45 +80,53 @@ passed=4, new=4, drafts_emitted=6 ✓
 
 ---
 
-## 3. P1 / 文档漂移 (8 个,部分已记录待修)
+## 3. P1 / 文档漂移 (8 个,7 个已修)
 
-### F2: STATUS.md §3.3 migration count 21 vs 实测 49
+### F2: STATUS.md §3.3 migration count 21 vs 实测 49 ✓ **已修**
 
 实测 `ls backend/alembic/versions/*.py | wc -l` = 49。STATUS.md §3.3 写 "21 个版本文件"。Memory 写 49 (正确)。STATUS.md 该处需更新。
+**修复**: STATUS.md §3.3 改 "50 个版本文件 (实测 2026-06-18),head = `s10_1_in_circle_filter_default_off`"。
 
-### F3: data_freshness 跟踪表 stale
+### F3: data_freshness 跟踪表 stale ✓ **已修**
 
 实测 `data_freshness.last_success_at`:
 - stocks: 2026-06-13 (5 天前)
 - valuation: 2026-06-13
 
-但 `price_klines` 表有 2026-06-17 数据。**freshness 跟踪与实际数据不同步**。通过 `universe_bootstrap` pipeline 重新触发,stocks freshness 已更新。这是一个 pipeline 设计问题 — K-line 写入时没更新 data_freshness.kline 跟踪。
+但 `price_klines` 表有 2026-06-17 数据。**freshness 跟踪与实际数据不同步**。
+**根因**: `kline_service._fetch_and_persist` (lazy fetch path) 写 price_klines 但**不更新** data_freshness.kline。
+**修复**: kline_service.py `_fetch_and_persist` 加 `record_sync_success(db, "kline", touched)`,与 pipeline 路径保持一致。
 
-### F6: Financial pipeline 不批量 → 90 分钟同步
+### F6: Financial pipeline 不批量 → 90 分钟同步 ⏭️ **未修 (留作下次)**
 
 `valuations_pipeline` BATCH_SIZE=100,5368 stocks → 54 batches → 1s/batch × throttler = ~60s。
 `financial_pipeline` 单股一次调用,5354 stocks → 5354 calls → 1s/call × throttler = ~90 分钟。
-对全市场同步太慢,但是设计选择 (financials 按 fs_table_type 分流到 4 个 endpoint)。建议未来按类型批量。
+对全市场同步太慢,但是设计选择 (financials 按 fs_table_type 分流到 4 个 endpoint)。建议未来按类型批量。Lixinger client 已支持 batch (stock_codes: list[str]),重构工作量 ~30-60 分钟。**留作下次 ship**。
 
-### F9: bank_select 策略 description vs rule 不一致
+### F9: bank_select 策略 description vs rule 不一致 ✓ **已修**
 
 description: "DYR≥5%",但 rule_json 用 `dyr_fwd` (forward DYR)。实测 601166 current DYR 5.98% 但 forward DYR 3.44% → fail。**这是 forward DYR 计算保守导致** (3-year avg per share / latest close),不是 bug 是设计选择,但 UI description 误导。
+**修复**: builtin_seeder.py 改 description 为 "forward DYR≥5%" + 备注 dividend_projector 保守 (实测 current 5-7% 但 forward 2-4%,通过率低)。DB 内 strategy description SQL 同步更新。
 
-### F10: 0/5626 stocks 有 `power_tier` 数据 → Batch 2 optionality_leader 策略永远 0 候选
+### F10: 0/5626 stocks 有 `power_tier` 数据 → Batch 2 optionality_leader 策略永远 0 候选 ✓ **已修 (文档化)**
 
 Batch 2 D2 ship 加了 `optionality_leader` 策略 (rule: `power_tier >= 2`),但 0 stocks 有 `power_tier` 字段值。**策略非功能性** — 永远 0 候选。
+**修复**: builtin_seeder.py description 加 ⚠️ 标记 + 解释数据依赖 (手动标注字段)。DB 内同步。用户需主动标 power_tier 才能激活。
 
-### F11: 1/5626 stocks 有 `dividend_payout_commitment_pct` → Batch 4 dividend_commitment_leader 策略近乎非功能
+### F11: 1/5626 stocks 有 `dividend_payout_commitment_pct` → Batch 4 dividend_commitment_leader 策略近乎非功能 ✓ **已修 (文档化)**
 
 Batch 4 N4 ship 加了 `dividend_commitment_leader` (rule: `dividend_payout_commitment_pct >= 0.6`),但只 1 stock 有此字段。**策略近乎非功能**。
+**修复**: builtin_seeder.py description 加 ⚠️ 标记 + 解释数据依赖 (年报附注手动录入)。DB 内同步。
 
-### F13: STATUS.md "真实生产链路跑通" 声明不实
+### F13: STATUS.md "真实生产链路跑通" 声明不实 ✓ **已修**
 
 STATUS.md (含 thesis monitor v2 acceptance 报告) 声称"工商银行 NIM 持续 2 期 1.2% < 1.3% → audit + EventBus + SystemAlert + dispatch 真实跑通"。实测 `audit_logs` / `system_alerts` 表 0 行。截图可能是 dev session 临时数据,后续被 wipe。
+**修复**: STATUS.md thesis monitor milestone 和 P2-1 task 加 ⚠️ 注:"dev session 截图不是持久化生产数据,代码链路 unit test 验证但 end-to-end 持久化未真跑"。
 
-### F1: 整体 STATUS.md production state 声明 (220 drafts / 1 holding / 8 research runs) 全部失实
+### F1: 整体 STATUS.md production state 声明 (220 drafts / 1 holding / 8 research runs) 全部失实 ✓ **已修**
 
 DB 全空,所有"真实使用"数字基于 dev session 截图 + 测试 fixture 凑出。
+**修复**: STATUS.md 顶部"真实使用"字段改写为 "DB 2026-06-18 清空后重新 sync + audit 验证状态": 0 holdings / 0 trades / 6 drafts / 4 active candidates / 0 research_runs / 0 backtests。注:"此前 STATUS.md 声称的... 是 dev session 截图,从未在真实 DB 持久化"。
 
 ---
 
