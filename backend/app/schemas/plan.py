@@ -203,7 +203,9 @@ class DraftResponse(BaseModel):
 class DraftExecute(BaseModel):
     holding_id: Optional[int] = None
     discipline_checklist: Optional[dict] = None
-    auto_create_holding: bool = False
+    auto_create_holding: bool = True
+    """F29 (2026-06-18): default True so autopilot BUY drafts auto-materialize a Holding.
+    Pass False to record Trade only without managed Holding (rare: manual broker tracking)."""
     buy_price: Optional[float] = None
     """Broker-reported fill price. When provided with quantity, a Trade is recorded."""
     quantity: Optional[int] = None

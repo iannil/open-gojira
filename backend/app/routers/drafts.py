@@ -46,6 +46,7 @@ def list_drafts(
 def execute_draft(
     draft_id: int,
     payload: DraftExecute | None = None,
+    force: bool = False,
     db: Session = Depends(get_db),
 ):
     payload = payload or DraftExecute()
@@ -72,6 +73,26 @@ def execute_draft(
             note=f"Auto from draft #{draft.id}: {draft.reason}",
         )
         audit_payload["auto_trade_id"] = trade.id
+
+        # F29 (2026-06-18): materialize a Holding for BUY so Cockpit
+        # portfolio_summary (which reads holdings table) reflects the new
+        # position. Industry-cap (F20) is enforced via create_holding's
+        # force param; pass through user-supplied force to allow conscious
+        # override (matches /api/portfolio pattern). On breach without force,
+        # raise 409 and let the whole transaction roll back (atomic with the
+        # trade above).
+        if payload.auto_create_holding and side == "BUY":
+            from app.services.holding_service import create_holding
+            from datetime import date as _date
+            holding = create_holding(db, {
+                "stock_code": draft.code,
+                "buy_date": _date.today(),
+                "buy_price": float(payload.buy_price),
+                "quantity": int(payload.quantity),
+                "stop_profit_price": 0.0,  # 0 = disabled; user can edit later
+                "trade_rationale": draft.reason,
+            }, force=force)
+            audit_payload["auto_holding_id"] = holding.id
 
     if payload.discipline_checklist:
         audit_payload["discipline_checklist"] = payload.discipline_checklist
