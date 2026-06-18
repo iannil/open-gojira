@@ -32,8 +32,31 @@ from app.services.plan_runner import run_plan
 # going through db_session fixture that proxies the same engine).
 
 @pytest.fixture
-def setup(db_session):
-    """Seed: 1 stock + valuation + cash + fee config + freshness."""
+def setup(db_session, monkeypatch):
+    """Seed: 1 stock + valuation + cash + fee config + freshness.
+
+    F25 (2026-06-18): monkeypatch assess_cycle to avoid Lixinger API dependency.
+    Previously flaky — when Lixinger CSI300 PE history call failed (quota /
+    network), plan_runner skipped the whole run via G1 fallback policy,
+    causing pending_after_r1 == 0.
+    """
+    from app.services.cycle_assessment_service import CycleAssessment
+    def fake_assess_cycle(db):
+        return CycleAssessment(
+            cycle_position="low",
+            pe_pct_10y=30.0,
+            pb_pct_10y=20.0,
+            dyr_index=0.03,
+            position_min=0.3,
+            position_max=0.5,
+            position_advice="test-fixture",
+        )
+    monkeypatch.setattr(
+        "app.services.plan_runner.assess_cycle" if False else
+        "app.services.cycle_assessment_service.assess_cycle",
+        fake_assess_cycle,
+    )
+
     today = date.today()
     db_session.add(Stock(
         code="600519", name="贵州茅台", exchange="sh",

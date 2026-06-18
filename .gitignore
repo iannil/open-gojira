@@ -23,6 +23,9 @@ backend/data/gojira.db.bak
 # Serenity LLM interaction logs (per-run JSON dumps)
 backend/data/llm_logs/
 
+# Observability runtime logs
+logs/
+
 # Environment
 .env
 

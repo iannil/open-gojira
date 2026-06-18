@@ -47,8 +47,33 @@ _session_module.SessionLocal = TestSessionLocal
 def setup_db():
     import app.models  # noqa: F401 — register all ORM tables
     Base.metadata.create_all(bind=test_engine)
+    # F25 (2026-06-18): clear module-level caches that leak across tests.
+    # Use direct dict.clear() (atomic in CPython) instead of acquiring locks —
+    # tests are single-threaded, no concurrent access to worry about.
+    try:
+        from app.services.holding_service import _price_cache
+        _price_cache.clear()
+    except Exception:
+        pass
+    try:
+        from app.services import lixinger_client as _lc
+        if _lc._client is not None:
+            _lc._client._cache.clear()
+    except Exception:
+        pass
     yield
     Base.metadata.drop_all(bind=test_engine)
+    try:
+        from app.services.holding_service import _price_cache
+        _price_cache.clear()
+    except Exception:
+        pass
+    try:
+        from app.services import lixinger_client as _lc
+        if _lc._client is not None:
+            _lc._client._cache.clear()
+    except Exception:
+        pass
 
 
 @pytest.fixture
