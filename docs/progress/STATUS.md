@@ -35,7 +35,7 @@ Gojira 是一台 **「个人股票自动驾驶舱」**:基于 `docs/reference/in
   ↓ 自动产出
 候选池(Candidate) ── 自动进出 (source: rule_based | serenity)
   ↓ (重审 2026-06-13:去 watchlist 闸门)
-草稿(Draft) ── 买卖建议 (220 累积,等用户审阅)
+草稿(Draft) ── 买卖建议 (10 pending,plan_runner supersede logic 自动清理 stale drafts)
   ↓ 用户执行
 持仓(Holding) ── 0 当前
   ↓ 自动审计
@@ -228,7 +228,20 @@ Alembic 迁移链: 50 个版本文件 (实测 2026-06-18),head = `s10_1_in_circl
 
 ### 5.2 最近里程碑 (按时间倒序)
 
-**2026-06-18**: 功能审计 — 5 P0/CRITICAL 全修 + 核心闭环首次真跑通。`/grill-me` 会话清空 DB 验证 Batch 1-5,实测发现此前的 6 轮审计 + 5 个 Batch ship 全部基于空 DB,1157 tests 通过 ≠ 真实链路跑通。发现并修复 5 项: F4 AdaptiveThrottler 死代码 wire / F5 429 retry / F7 avoid_overvalued_tech invalid op / F8 stock_context_builder bank industry 双语 / F12 (CRITICAL) Batch 5 M2 in_circle filter 默认翻转 + migration `s10_1`。修后 plan_runner (plan 1) 自动产出 4 candidates + 6 drafts,Cockpit API 正确返回。1157 测试通过 (+2)。详见 `docs/progress/2026-06-18-feature-audit-drift-findings.md`。
+**2026-06-18 (晚)**: grill-me 功能审计 — 5 P0 (F14-F17/F20) + 后续 P1 修复 (F21-F28)。**11 个 commits**:
+- `9ebb86a` 5 P0 修复: F14 APScheduler cron day_of_week 错位一天 + F15 recover_stale_runs 死代码 wire + sweep job + F16 SessionLocal mock + 测试残留清理 + F17 v1 forward_dyr WHERE > 0 + F20 stocks.industry 务实修复 (真实现需 AkShare)
+- `fb2337f` docs: grill-me audit 报告 + F20 spike artifacts + F16 备份
+- `de0bd81` F17 v2: forward_dyr = Lixinger dyr × stability (3y 派息年数/3)。Plan 3 银行底仓 0→7 candidates + 3 drafts,Plan 5 纯粹赚钱机器 0→1 draft。**6 内置 plan 现在 4 可用** (plan 1/3/4/5)
+- `1b701f6` F21: BacktestSubmit schema 对齐 (`strategy_rules` → `strategies`),backtest engine 首次真实跑通
+- `6484ee6` F23: research_stale_sweep job (GLM SSL hang reactive 防御)
+- `9165cf1` F24+F25: logs gitignore + flaky test 隔离 (_price_cache + lixinger cache 清理)
+- `e69c3fc` F26: serenity worker watchdog (proactive 防 LLM SSL hang)
+- `7fd2ce5` F27+F28: backtest 扩展 5 stocks 3.5y 历史 + Feb 29 leap year fix
+- `e95b80b` docs: STATUS.md 同步
+
+**核心成果**: 测试 1157→**1181** (+24); 6 内置 plan 1/6→4/6 可用; backtest engine 真跑 (5 股 60 trades sharpe 1.65); 3 个 sweep/watchdog 防 stuck/hang; 测试 vs 生产 DB 完全隔离 (5/5 稳定)。详见 `docs/progress/2026-06-18-grill-me-feature-audit.md` + `docs/active/project-state.md` (LLM 接手综合指南)。
+
+**2026-06-18 (午)**: 功能审计 — 5 P0/CRITICAL 全修 + 核心闭环首次真跑通。`/grill-me` 会话清空 DB 验证 Batch 1-5,实测发现此前的 6 轮审计 + 5 个 Batch ship 全部基于空 DB,1157 tests 通过 ≠ 真实链路跑通。发现并修复 5 项: F4 AdaptiveThrottler 死代码 wire / F5 429 retry / F7 avoid_overvalued_tech invalid op / F8 stock_context_builder bank industry 双语 / F12 (CRITICAL) Batch 5 M2 in_circle filter 默认翻转 + migration `s10_1`。修后 plan_runner (plan 1) 自动产出 4 candidates + 6 drafts,Cockpit API 正确返回。1157 测试通过 (+2)。详见 `docs/progress/2026-06-18-feature-audit-drift-findings.md`。
 
 **2026-06-17 (深夜)**: invest1/2/3 对齐审计 Batch 3 ship (spike 验证 + 文档对齐)。grill-me 会话验证 Batch 1/2 实施情况,发现 D3 6/7 红旗中 3/7 是死代码 + 5 missed 概念。spike `backend/spikes/probe_redflag_metrics.py` 用 4 真实股票 (宝丰能源/南山铝业/芭田股份/紫金矿业) 验证 Lixinger metric keys: `bs.ar.t` (应收账款) + `m.i_tor.t` (存货周转) + `auditOpinionType` (审计意见 top-level) 全部 4/4 股票 200 + 实际数据; `ps.np_wd_s_r.t` (扣非净利率) + `bs.inv.t` (存货绝对值) 确认 400 ValidationError 不支持。补 `models/financial.py` audit_opinion 字段 + `alembic s7_1_audit_opinion_field` migration + `financial_service.py` 3 字段映射 (含 metrics list 加 bs.ar.t + m.i_tor.t) + `red_flag_detector_service` 新增 `_check_non_standard_audit_opinion` 红旗 + `lixinger_client.get_financials` defaults 加 bs.ar.t。1126 测试通过 (+5)。原审计 78% 对齐度口径修正为 75% (3 红旗激活 + audit_opinion 新增,但 5 missed 概念文档化为限制)。详见 `docs/reports/completed/plan-invest-alignment-batch3-2026-06-17.md`。
 

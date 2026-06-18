@@ -321,3 +321,140 @@ Plan 3 选出 7 个银行股: 000001 平安银行 / 600015 华夏银行 / 600036
 | `app/services/dividend_projector_service.py` | 新增 `_paid_years_in_window()`;`compute_forward_dyr_for_stock` 加 `trailing_dyr` 参数,v2 算法优先,fallback 到 v1 |
 | `app/services/stock_context_builder.py` | 把 `val.dividend_yield` (Lixinger dyr) 传给 `compute_forward_dyr_for_stock` |
 | `tests/test_dividend_projector.py` | +5 个 F17 v2 测试 (stability factor / interrupted history / fallback / no-history / zero-trailing) |
+
+---
+
+## 9. 后续 P1 修复 (F21-F28,2026-06-18 续)
+
+F17 v2 之后,继续执行 P1 任务清单,发现并修复 8 个新 finding。
+
+### F21: BacktestSubmit schema vs engine 字段对齐 (P0)
+
+**Commit**: `1b701f6`
+
+**根因**: `BacktestSubmit` schema 用 `strategy_rules: list[dict]`,但 `backtest_engine` 读 `config.get("strategies", [])` as `list[int]` strategy IDs。Pydantic 拒掉 `strategies` 字段 → engine 永远拿到空 list → `_evaluate_strategies` 直接 return False (line 126-127) → 所有 backtest 0 trades。
+
+**修复**: schema 改 `strategies: list[int]` + 加 `target_pct: float = 0.10`。
+
+**实测验证**:
+```
+POST /api/backtests (600519, 2023-01-03 → 2023-06-30, strategy 2):
+- status: completed
+- trade_count: 8 (4 BUY/SELL 对)
+- total_return: -1.9%, cagr: -3.9%, sharpe: -0.89
+- max_drawdown: -6%, win_rate: 12.5%
+- backtest engine 首次真实跑通 (此前 6 轮审计 + 5 Batch 全部没用过)
+```
+
+**单测**: +3 (`test_backtest_submit_schema_accepts_strategies_field` + `test_backtest_submit_schema_default_strategies_empty` + `test_backtest_api_passes_strategies_to_engine`)。
+
+---
+
+### F23: research_stale_sweep job (GLM SSL hang 防御,P0)
+
+**Commit**: `6484ee6`
+
+**根因**: serenity worker thread 在 GLM SSL read 阻塞时永久 hang (memory `feedback-glm-connection-hang` 已记录)。worker 不 crash,DB 状态永远 running。实测复现 11 min 后还在 running,无 error log。
+
+**修复** (reactive cleanup): 加 `research_stale_sweep_job` (cron `*/10 * * * *`):
+- soft threshold 15 min: mark failed "likely GLM connection issue"
+- hard threshold 30 min: mark failed "GLM SSL read blocked"
+- 同步 theme.last_run_status / last_run_error
+
+**未修** (留 P2): worker thread 实际 hang 的 root cause 是 GLM SDK httpx timeout 在"连接开但无数据"场景下不生效。真正修复需要 multiprocessing 隔离 / main thread signal.alarm。
+
+**单测**: +2 (`test_research_stale_sweep_recovers_hung_run` + `test_research_stale_sweep_keeps_recent_running`)。
+
+---
+
+### F24+F25: gitignore + flaky test 隔离 (杂项 + P1)
+
+**Commit**: `9165cf1`
+
+**F24** (杂项): `logs/observability` 加入 `.gitignore` (运行时 observability 日志)。
+
+**F25** (P1) 根因: `test_plan_runner_supersede` 全套跑时偶发失败 (3 次中 1 次)。3 重原因:
+1. `plan_runner.run_plan` 调 `cycle_assessment_service.assess_cycle`,依赖 Lixinger CSI300 PE 历史 API。Lixinger 偶尔 fail → G1 fallback policy 跳过整个 plan run → `pending_after_r1=0`
+2. `holding_service._price_cache` (module-level dict) 跨 test 持久,前 test 缓存的 price 污染后 test 的 `_industry_weights` 计算
+3. `lixinger_client._client._cache` (TTL cache) 跨 test 持久,cycle_assessment 等读到 cached 数据
+
+**修法**:
+- `test_plan_runner_supersede.py` setup fixture monkeypatch `assess_cycle` 返回固定 CycleAssessment
+- `conftest.py` autouse `setup_db` fixture 清 `_price_cache` + `lixinger_client._client._cache` (前 + 后清,无 lock)
+
+**验证**: 5 次全套跑 5/5 通过 (此前 2/3 通过率)。
+**耗时 trade-off**: 60-100s → ~180s (3 倍,清 cache 开销)。
+
+---
+
+### F26: serenity worker watchdog (proactive 防 GLM SSL hang,P0)
+
+**Commit**: `e69c3fc`
+
+**定位**: F23 是 reactive cleanup (sweep job 30 min 后清 stuck runs),F26 是 proactive prevention — LLM 调用前包 watchdog,超时立即 raise。
+
+**memory `feedback-glm-connection-hang` 已记录修法**:
+> 用 `concurrent.futures.ThreadPoolExecutor + future.result(timeout=N)` 包装 LLM 调用,Python 层强制超时
+
+**修复点** (2 处):
+- `search_collector_service._search_one`: web_search 调用包 `ThreadPoolExecutor.submit + future.result(timeout=N+10)`,超时返回空 list
+- `zhipu_client.run_serenity_research`: `chat.completions.create` 同样包,超时 raise `ZhipuClientError("watchdog timeout")`
+- watchdog_timeout = SDK timeout + grace period (10s for search, 30s for LLM)
+
+**行为**:
+- 正常调用: watchdog 不触发,无影响
+- GLM SDK httpx timeout 失效: watchdog 接管,raise TimeoutError → retry_on_failure 触发 → 最终 mark failed
+- worker thread 不能强 kill (Python 限制),watchdog 超时后僵尸线程继续跑,但 main 流程已返回。F23 sweep job 后续清理 DB 状态
+
+**单测**: +2 (`test_search_one_watchdog_returns_empty_on_hang` + `test_zhipu_client_watchdog_raises_on_llm_hang`)。
+
+---
+
+### F27+F28: backtest 扩展历史数据 + Feb 29 闰年 fix (P0)
+
+**Commit**: `7fd2ce5`
+
+**F27**: 用 `run_historical_sync` sync 5 只代表性股票 3.5 年历史数据 (601398/600036/002170/600989/000001),扩展 backtest universe (此前只 600519)。
+
+**F28** (P0): `_compute_percentile_at` 在 Feb 29 触发 `ValueError`:
+```python
+# point_in_time_context_service.py:423
+window_start = date(day.year - years, day.month, day.day)
+# day=2024-02-29 (闰年) → date(2014, 2, 29) — 2014 非闰年 → ValueError
+```
+
+**影响**: 任何 backtest 跑到 Feb 29 都 fail (Internal Server Error)。
+
+**修复**: try/except ValueError,fallback 到 Feb 28 (10y 窗口 1 天偏移无影响)。
+
+**实测验证** (F27 + F28 后):
+```
+POST /api/backtests 5 stocks × strategy 2 (undervalued_entry) 2024 全年:
+- status: completed (此前 Feb 29 error)
+- trade_count: 60 (4 BUY/SELL 对 × 5 stocks × 3 评估期)
+- total_return: 8.1%, cagr: 8.1%, sharpe: 1.65
+- max_drawdown: 2.5%, win_rate: 47% (28/60)
+- final_cash: 1,080,795 (vs initial 1,000,000)
+- 完整 metrics 计算验证 ✓
+```
+
+backtest engine 现在真正可用于多股票策略验证 (此前 6 轮审计 + 7 fix 从未发现 Feb 29 bug,因为只跑过 600519 单股 + 2023-01-03 → 2023-06-30 不含 Feb 29)。
+
+**单测**: +2 (`test_compute_percentile_at_handles_leap_year_feb_29` + `test_compute_percentile_at_normal_date_unaffected`)。
+
+---
+
+## 10. 本会话累计成果
+
+| 指标 | 起点 (grill-me 开始) | 终点 |
+|---|---|---|
+| 测试通过 | 1157 | **1181** (+24) |
+| 内置 plan 真实可用 | 1/6 | **4/6** (plan 1/3/4/5) |
+| backtest engine | 从未跑过 | ✓ 5 股 60 trades sharpe 1.65 |
+| serenity 防 hang | 无 | ✓ proactive watchdog (F26) + reactive sweep (F23) |
+| cron 错位 | 周一静默跳过 | ✓ 周一正常触发 (F14) |
+| Stuck pipeline/research | 永久占 DB | ✓ 2 个 sweep jobs (F15/F23) |
+| 测试 vs 生产 DB 隔离 | 部分污染 | ✓ 完全隔离 (F16+F25) |
+| 总 commit | 0 | **11 个** |
+
+详见 `docs/active/project-state.md` (LLM 接手综合指南)。

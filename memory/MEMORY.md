@@ -9,8 +9,9 @@
 
 - **定位**: 个人股票自动驾驶舱 (策略→预案→候选→草稿→持仓→审计,全流程自动化)
 - **技术栈**: FastAPI (Python 3.14) + React 19 + SQLite (WAL) + Ant Design 6 + ECharts 6
-- **当前状态**: 402 测试通过,业务闭环已打通 (2026-06-11 第 6 轮审计后)
+- **当前状态**: **1181 测试通过** (2026-06-18 grill-me + F14-F28 全修后),6 内置 plan 4 可用 (plan 1/3/4/5),backtest engine + serenity 真实跑通,3 个 sweep/watchdog 防 stuck/hang
 - **远程仓库**: 暂无 (P1 待办)
+- **LLM 接手指南**: `docs/active/project-state.md` (综合导航,5 分钟建立完整画面)
 
 ## 用户偏好
 
@@ -37,6 +38,14 @@
 - **LIKE 通配符注入** (2026-06-11 第 6 轮 P1): search_stocks 必须转义 `%` 和 `_`,否则可枚举全量股票
 - **EventBus 异步非阻塞** (2026-06-11 第 6 轮 P2): emit 而非 emit_async 会阻塞主流程;失败 handler 不能影响业务
 - **Scheduler 并发保护** (2026-06-11 第 6 轮 P1): `run_job_now` 必须 threading.Lock + running set,否则可耗尽 API 配额
+- **APScheduler day_of_week 是 0=Mon 不是 0=Sun** (2026-06-18 F14): `CronTrigger.from_crontab()` 不翻译,所有 crontab `1-5` 配置错位一天。修法: `cron_to_trigger` 加 `_translate_dow_field` 翻译层
+- **Lixinger 完全不提供 stock_code → 申万行业映射** (2026-06-18 F20): `/cn/company` 只有 10 字段无 industry,`/cn/industry/constituents/sw_2021` 永远返回 0。`stocks.industry` 实际存的是 `fsTableType`,需 AkShare 才能彻底修
+- **测试隔离要看 `SessionLocal` 不只看 `get_db`** (2026-06-18 F16): scheduler jobs / event_handlers / pipeline manager 用 `SessionLocal()` 直接创建 session,绕过 FastAPI DI。修法: conftest.py 加 `_session_module.SessionLocal = TestSessionLocal`
+- **死代码模式重复出现** (2026-06-18): F4 (AdaptiveThrottler) / F15 (recover_stale_runs) / daily_industry_sync 都是定义了但从未 wire 的代码。建议加 lint 规则: 公共方法必须有 ≥1 调用方
+- **AVG(DPS) 算法不能含 0** (2026-06-18 F17): 恢复期股票 DPS=0 会拉低 AVG。`forward_dyr` 应该用 Lixinger dyr × stability (3y 派息年数/3)
+- **GLM SDK httpx timeout 失效** (2026-06-18 F23/F26): "连接开但无数据"场景下 SSL read 永久阻塞。需 ThreadPoolExecutor + future.result(timeout=N) 在 Python 层强制超时
+- **闰年 Feb 29 触发 backtest ValueError** (2026-06-18 F28): `date(day.year - years, day.month, day.day)` 在 day=Feb 29 + years=N 到非闰年时 raise。修法: try/except fallback 到 Feb 28
+- **测试通过 ≠ 真实链路跑通** (2026-06-18 F1 教训): ship 必须真实 DB 端到端验证,不只 fixture+unit test
 
 ## 文档导航 (与 docs/ 一致)
 
