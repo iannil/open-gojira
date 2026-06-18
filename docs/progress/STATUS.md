@@ -2,19 +2,19 @@
 
 > **此文档是项目当前状态的真实来源。AI 代理应首先阅读此文件。**
 >
-> | 字段 | 值 (实测于 2026-06-17 Batch 5 ship) |
+> | 字段 | 值 (实测于 2026-06-18 功能审计修复后) |
 > |---|---|
-> | 最后更新 | 2026-06-17 (invest1/2/3 对齐审计 Batch 5 ship: tier=core/satellite 专业金融名词 + Stock.in_circle 能力圈 + 心法闸门 5 条 (M1+M3) + psychology_alerts 回本强迫症检测 + thesis breach 自动 SELL draft (M4 渣男理论) + tier-aware 仓位上限 (M5) + extreme_low cycle banner) |
+> | 最后更新 | 2026-06-18 (功能审计 5 P0/CRITICAL 修复: F4 AdaptiveThrottler 死代码 wire + F5 429 retry + F7 avoid_overvalued_tech invalid op + F8 bank industry 双语 + F12 in_circle filter default flip. 核心闭环首次真实跑通,4 candidates + 6 drafts 自动产出) |
 > | 分支 | `master` |
-> | 最新 commit | 待提交 (Batch 5) / a125b6f (Batch 4 drift) / 87a8d66 (Batch 4) |
-> | 测试 | **1155 passed**, 0 failed (`pytest`) |
-> | 测试函数数 | 1155 (1141 Batch 4 + 14 Batch 5) |
-> | Alembic head | `s9_2_draft_plan_id_nullable` |
-> | Alembic 版本文件数 | 49 |
+> | 最新 commit | `788a4f5` (audit 5 P0/CRITICAL 修复) / d3d19c6 (Batch 5 drift) |
+> | 测试 | **1157 passed**, 0 failed (`pytest`) |
+> | 测试函数数 | 1157 (1155 Batch 5 + 2 audit 429 retry) |
+> | Alembic head | `s10_1_in_circle_filter_default_off` |
+> | Alembic 版本文件数 | 50 |
 > | 后端代码 | ~33,000 行 (app/) + ~20,000 行 (tests/) |
 > | 前端代码 | ~18,500 行 (src/) |
 > | 远程仓库 | 暂无 (`git remote -v` 为空) |
-> | 真实使用 | **1 holdings / 6 trades / 220 drafts (218 pending + 2 executed/cancelled) / 264 active candidates / 8 research_runs (含 Phase 2 #9 阶段 A + B + Phase 2 #10 ship) / 3 backtests / 9 research_claim_variables (6 active / 2 proposed / 1 rejected) / 1 真实 thesis 告警已触发 (601398 NIM 1.2% 持续 2 期)** |
+> | 真实使用 | **DB 2026-06-18 清空后重新 sync + audit 验证状态**: 0 holdings / 0 trades / 6 drafts (pending) / 4 active candidates (plan 1 test run) / 0 research_runs / 0 backtests / 0 research_claim_variables / 0 thesis 告警。**此前 STATUS.md 声称的 "1 holdings / 6 trades / 220 drafts / 264 candidates / 8 research runs / 1 thesis 告警" 是 dev session 截图,从未在真实 DB 持久化** (详见 2026-06-18 audit F1/F13) |
 
 ---
 
@@ -142,7 +142,7 @@ Gojira 是一台 **「个人股票自动驾驶舱」**:基于 `docs/reference/in
 
 Serenity 研究表 (7 个,Q14 stock_code × 3 表 index): `research_themes` / `research_runs` / `value_chain_layers` / `scarce_layers` / `research_company_universe` / `research_evidence` / `research_company_ranking`
 
-Alembic 迁移链: 21 个版本文件,head = `s2_candidate_source_field`。
+Alembic 迁移链: 50 个版本文件 (实测 2026-06-18),head = `s10_1_in_circle_filter_default_off`。
 
 ### 3.4 前端页面 (11 个)
 
@@ -228,13 +228,15 @@ Alembic 迁移链: 21 个版本文件,head = `s2_candidate_source_field`。
 
 ### 5.2 最近里程碑 (按时间倒序)
 
+**2026-06-18**: 功能审计 — 5 P0/CRITICAL 全修 + 核心闭环首次真跑通。`/grill-me` 会话清空 DB 验证 Batch 1-5,实测发现此前的 6 轮审计 + 5 个 Batch ship 全部基于空 DB,1157 tests 通过 ≠ 真实链路跑通。发现并修复 5 项: F4 AdaptiveThrottler 死代码 wire / F5 429 retry / F7 avoid_overvalued_tech invalid op / F8 stock_context_builder bank industry 双语 / F12 (CRITICAL) Batch 5 M2 in_circle filter 默认翻转 + migration `s10_1`。修后 plan_runner (plan 1) 自动产出 4 candidates + 6 drafts,Cockpit API 正确返回。1157 测试通过 (+2)。详见 `docs/progress/2026-06-18-feature-audit-drift-findings.md`。
+
 **2026-06-17 (深夜)**: invest1/2/3 对齐审计 Batch 3 ship (spike 验证 + 文档对齐)。grill-me 会话验证 Batch 1/2 实施情况,发现 D3 6/7 红旗中 3/7 是死代码 + 5 missed 概念。spike `backend/spikes/probe_redflag_metrics.py` 用 4 真实股票 (宝丰能源/南山铝业/芭田股份/紫金矿业) 验证 Lixinger metric keys: `bs.ar.t` (应收账款) + `m.i_tor.t` (存货周转) + `auditOpinionType` (审计意见 top-level) 全部 4/4 股票 200 + 实际数据; `ps.np_wd_s_r.t` (扣非净利率) + `bs.inv.t` (存货绝对值) 确认 400 ValidationError 不支持。补 `models/financial.py` audit_opinion 字段 + `alembic s7_1_audit_opinion_field` migration + `financial_service.py` 3 字段映射 (含 metrics list 加 bs.ar.t + m.i_tor.t) + `red_flag_detector_service` 新增 `_check_non_standard_audit_opinion` 红旗 + `lixinger_client.get_financials` defaults 加 bs.ar.t。1126 测试通过 (+5)。原审计 78% 对齐度口径修正为 75% (3 红旗激活 + audit_opinion 新增,但 5 missed 概念文档化为限制)。详见 `docs/reports/completed/plan-invest-alignment-batch3-2026-06-17.md`。
 
 **2026-06-17 (夜)**: invest1/2/3 对齐审计 Batch 2 ship (拓 schema)。实施 3 项决策: D2 新增 optionality_leader 策略 + moat_leader plan 激活 power_tier (选择权位阶); D3 拓 FinancialStatement 4 字段 + alembic s6_1_red_flag_fields migration + red_flag_detector_service 6 红旗 (商誉/OCF/分红可持续/应收/存货周转/非经常损益) + plan_runner 集成过滤; D4 新增 portfolio_risk_service 从 historical_klines 推算年化波动率/30-90日回撤/夏普代理 + Cockpit "组合风险"卡片。1121 测试通过 (+37)。Lixinger 字段键未 spike 验证 → graceful degradation (现有字段红旗立即生效,新字段等用户 spike)。详见 `docs/reports/completed/plan-invest-alignment-batch2-2026-06-17.md`。
 
 **2026-06-17 (晚)**: invest1/2/3 对齐审计 Batch 1 ship。grill-me 会话对照 `docs/reference/invest{1,2,3}.md` 全面审计,产出 11 项决策 + 求字→选择权 命名重构 + 两批 ship 计划。Batch 1 (低风险高价值) 实施: D1 bank_select 加 bank_blind_box==可见 (顺带修 industry ["bank"]→["银行","bank"] 永不匹配 Lixinger 实际返回值的潜伏 bug) / D5 extreme_high 新开仓 warning→blocker (保留加仓赢家通道) / D6-A 新增 avoid_overvalued_tech 策略 + D6-B 验证中游 filter 已就绪 / D7-D10 文档化决策 / 命名重构 (字段名 power_tier 保留,UI/文档改"选择权位阶"文案)。1084 测试通过 (+9)。详见 `docs/reference/specs/2026-06-17-invest-system-alignment-audit.md` + `docs/reports/completed/plan-invest-alignment-batch1-2026-06-17.md`。
 
-**2026-06-17**: Phase 2 #9 阶段 B v2 thesis monitor ship + Bug 1/2/3 修复。grill-me 会话产出 9 项决策 (严格 ship 口径 + 4 项产出物 + 4 source 单测补齐 + EventBus/handler/scheduler 3 项测试补齐 + Bug 1 P0 notification 修复 + Bug 2 dedup 干净验证 + dev server 3 场景截图 + STATUS/ADR/spec/reports/MEMORY 同步)。实施: Bug 1 (event_handlers.py 3 处 SystemAlert 字段不存在) 修复 → SystemAlert thesis 行 0→22 / Bug 2 不复现 (spike/dev 残留) / Bug 3 (cockpit theme_exposure schema mismatch 顺带修)。1075 测试通过 (+12)。真实生产链路跑通: 工商银行 NIM 持续 2 期 1.2% < 1.3% → audit + EventBus + SystemAlert + dispatch_alert。详见 `docs/reports/completed/plan-thesis-monitor-v2-2026-06-17.md` + `docs/reports/thesis-monitor-v2-acceptance-2026-06-17.md`。
+**2026-06-17**: Phase 2 #9 阶段 B v2 thesis monitor ship + Bug 1/2/3 修复。grill-me 会话产出 9 项决策 (严格 ship 口径 + 4 项产出物 + 4 source 单测补齐 + EventBus/handler/scheduler 3 项测试补齐 + Bug 1 P0 notification 修复 + Bug 2 dedup 干净验证 + dev server 3 场景截图 + STATUS/ADR/spec/reports/MEMORY 同步)。实施: Bug 1 (event_handlers.py 3 处 SystemAlert 字段不存在) 修复 → SystemAlert thesis 行 0→22 / Bug 2 不复现 (spike/dev 残留) / Bug 3 (cockpit theme_exposure schema mismatch 顺带修)。1075 测试通过 (+12)。dev session 验证: 工商银行 NIM 持续 2 期 1.2% < 1.3% → audit + EventBus + SystemAlert + dispatch_alert。⚠️ **2026-06-18 audit F13 复核**: 当时声称的"真实生产链路跑通"基于 dev session 临时数据,后续 DB 清空后 `audit_logs` / `system_alerts` 表 0 行 — dev session 截图不是持久化生产数据。代码链路本身通过 unit test 验证,但 end-to-end 持久化从未真实跑通。详见 `docs/reports/completed/plan-thesis-monitor-v2-2026-06-17.md` + `docs/reports/thesis-monitor-v2-acceptance-2026-06-17.md`。
 
 **2026-06-15 (晚)**: 三层完成度审计 + Phase 2 commit。grill-me 会话产出三层审计报告 (Phase 2 未提交批次 / Phase 1 ship 清单 / P0 阻塞链),发现 7 个 bug + Sentinel Plan 是绕路 + STATUS.md 严重过期 + backtest 0-metrics 根因。Phase 2 commit `e0a915f` 落地: schema plan_id nullable + Sentinel Plan 移除 + 7 个 bug 修复 + 976 测试通过。详见 `docs/reports/2026-06-15-completeness-audit.md`。
 
@@ -284,7 +286,7 @@ Alembic 迁移链: 21 个版本文件,head = `s2_candidate_source_field`。
 - ⏭️ **P1-5** CI (GitHub Actions) — 跳过 (2026-06-13 用户决策)
 
 **P2 (体验补全)**:
-- ~~**P2-1 [高]**: Phase 2 #9 阶段 B — thesis monitor 接入~~ ✅ **ship** (2026-06-17) — v2 14 项决策全落地 + Bug 1/2/3 修复 + 1075 测试通过 + 真实生产链路跑通（工商银行 NIM 告警 → audit + SystemAlert + notification dispatch）+ 4 张 dev server 截图。详见 `docs/reports/completed/plan-thesis-monitor-v2-2026-06-17.md` + `docs/reports/thesis-monitor-v2-acceptance-2026-06-17.md`。
+- ~~**P2-1 [高]**: Phase 2 #9 阶段 B — thesis monitor 接入~~ ✅ **ship** (2026-06-17) — v2 14 项决策全落地 + Bug 1/2/3 修复 + 1075 测试通过 + dev session 截图 4 张 (⚠️ 2026-06-18 audit F13 发现"真实生产链路跑通"声明基于 dev 临时数据,DB 清空后 `audit_logs`/`system_alerts` 0 行,代码链路 unit test 覆盖但 end-to-end 持久化未真跑)。详见 `docs/reports/completed/plan-thesis-monitor-v2-2026-06-17.md` + `docs/reports/thesis-monitor-v2-acceptance-2026-06-17.md`。
 - 月度复盘视图增强、预案 diff 视图、StockDetail 新建预案回填、候选池筛选持久化、统一 GLM model 配置 (3 个名浮动)
 
 **P3 (技术债)**: holding_service 拆纯计算+持久查询两层、datetime.utcnow() → datetime.now(UTC)、前端 bundle 分块、STATUS.md 自动化生成

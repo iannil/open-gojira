@@ -80,6 +80,17 @@ def _fetch_and_persist(
 
     if touched:
         db.commit()
+        # Audit F3 (2026-06-18): lazy-fetch path also updates data_freshness
+        # so plan_runner's freshness gate reflects the actual data state.
+        # Without this, browsing a stock detail page would populate
+        # price_klines but data_freshness.kline would stay stale, causing
+        # plan_runner to refuse to run despite the data being present.
+        try:
+            from app.services.data_freshness_service import record_sync_success
+            record_sync_success(db, "kline", touched)
+            db.commit()
+        except Exception:
+            logger.warning("record_sync_success(kline) failed", exc_info=True)
     return touched
 
 

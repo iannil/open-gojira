@@ -69,7 +69,7 @@ BUILTIN_STRATEGIES = [
     {
         "slug": "bank_select",
         "name": "银行业精选",
-        "description": "银行行业、股息率≥5%、盲盒可视化=可见 (invest2 §11 三维: 股息+地域+现金流)",
+        "description": "银行行业、forward DYR≥5% (3 年平均每股分红/最新价,投资意义上更保守)、盲盒可视化=可见 (invest2 §11 三维: 股息+地域+现金流)。注: rule 用 dyr_fwd 不是 dyr (current),实测多数银行股 current DYR 5-7% 但 forward DYR 2-4% (dividend_projector 保守估计),通过率较低",
         "rule": {
             "logic": "AND",
             "conditions": [
@@ -130,7 +130,7 @@ BUILTIN_STRATEGIES = [
         # 配合 dyr_fwd≥4% 安全垫。配套 plan: moat_leader (纯筛选,用户自行决定交易)。
         "slug": "optionality_leader",
         "name": "选择权龙头",
-        "description": "选择权位阶≥2 (上游+政府求你) 且 预期股息率≥4% (invest1 §二 选择权理论)",
+        "description": "选择权位阶≥2 (上游+政府求你) 且 预期股息率≥4% (invest1 §二 选择权理论)。⚠️ 审计 F10 (2026-06-18): power_tier 是手动标注字段,实测 0/5626 股票有值,策略非功能。用户需先在 StockDetail 或批量导入标 power_tier 才能激活",
         "rule": {
             "logic": "AND",
             "conditions": [
@@ -146,7 +146,7 @@ BUILTIN_STRATEGIES = [
         # 注意: 与 FinancialStatement.dividend_payout_ratio (actual) 不同概念.
         "slug": "dividend_commitment_leader",
         "name": "分红承诺龙头",
-        "description": "公司明示 forward 分红承诺 ≥ 60% (invest3 §八 纯粹赚钱机器)",
+        "description": "公司明示 forward 分红承诺 ≥ 60% (invest3 §八 纯粹赚钱机器)。⚠️ 审计 F11 (2026-06-18): dividend_payout_commitment_pct 需从年报附注手动录入,实测 1/5626 股票有值,策略近乎非功能。用户需先批量录入承诺数据",
         "rule": {
             "logic": "AND",
             "conditions": [
