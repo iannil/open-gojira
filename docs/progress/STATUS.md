@@ -2,19 +2,22 @@
 
 > **此文档是项目当前状态的真实来源。AI 代理应首先阅读此文件。**
 >
-> | 字段 | 值 (实测于 2026-06-18 grill-me + F17 v2 + F21 + F23 + F24-28 修复后) |
+> | 字段 | 值 (实测于 2026-06-18 grill-me completion verification 后) |
 > |---|---|
-> | 最后更新 | 2026-06-18 (F27+F28 — backtest 扩展 5 只股票 3.5 年历史数据 (klines=4180),F28 修复 `_compute_percentile_at` Feb 29 闰年 ValueError。实测 backtest 5 股 × strategy 2 全年: 60 trades, sharpe 1.65, total_return 8.1%, win_rate 47%) |
+> | 项目状态 | **v0.1-paper-verified** ✅ (2026-06-18) |
+> | 最后更新 | 2026-06-18 (grill-me completion verification 通过 + F29 fix + F30 验证) |
 > | 分支 | `master` |
-> | 最新 commit | `7fd2ce5` F27+F28 backtest 扩展 + Feb 29 fix |
-> | 测试 | **1181 passed**, 0 failed (`pytest`) |
-> | 测试函数数 | 1181 (1177 + F24×0 + F25×0 + F26×2 + F28×2) |
+> | 最新 commit | `c4d105c` F29 drafts execute 创建 holding + force param |
+> | 测试 | **1184 passed**, 0 failed (`pytest`) |
+> | 测试函数数 | 1184 (1181 + F29×3) |
 > | Alembic head | `s10_1_in_circle_filter_default_off` |
 > | Alembic 版本文件数 | 50 |
 > | 后端代码 | ~33,000 行 (app/) + ~20,000 行 (tests/) |
 > | 前端代码 | ~18,500 行 (src/) |
 > | 远程仓库 | 暂无 (`git remote -v` 为空) |
-> | 真实使用 | **DB 2026-06-18 F17 v2 后状态**: 0 holdings / 0 trades / 10 drafts (pending,plan 1×6 + plan 3×3 + plan 5×1) / 12 active candidates (plan 1×4 + plan 3×7 + plan 5×1) / 0 research_runs / 0 backtests / 0 thesis 告警。**核心闭环跑通,6 内置 plan 现在 4 个真实可用 (plan 1/3/4/5)** — plan 2 仍 0 候选 (高息低估值 AND 太严),plan 6 因 F10 (qiu_score 全 0)。 |
+> | 真实使用 | **DB 2026-06-18 v0.1 verification 后**: 2 paper-verified holdings (000651 格力电器 + 000001 平安银行) / 4 trades / 86 drafts (83 pending + 3 superseded) / 179 active candidates / audit_logs holding.created × 2 + draft.executed × 4 + draft_created × 82 / cash_balance ¥100k deposit → ¥78079.78 / job_executions daily_plan_evaluation + alert_evaluation + thesis_evaluation 都 today success。**核心 autopilot 链路 paper 真跑通,F14 cron production 验证通过**。 |
+> | 已通过验证 | v0.1 paper verification (2026-06-18): scheduler真触发 / plan_runner真产出 / paper execute / holdings创建 / audit / 三防护 (价格/Cash/Industry) 全部验证 |
+> | 下次 milestone | v0.2 (长期运行 1 个月) → v1.0 (真实 broker 下单) |
 
 ---
 
@@ -227,6 +230,8 @@ Alembic 迁移链: 50 个版本文件 (实测 2026-06-18),head = `s10_1_in_circl
 最新审计报告: `docs/reports/completed/full-audit-round6-2026-06-11.md` (历史) + `docs/reports/2026-06-15-completeness-audit.md` (最新三层完成度审计)
 
 ### 5.2 最近里程碑 (按时间倒序)
+
+**2026-06-18 (晚)**: grill-me completion verification 通过 → **v0.1-paper-verified** ✅。10 项 design 决策锁定 (B/A/A/B/D/A/B/B/A/A)。Stage 1 paper execute 验证 autopilot 链路真跑通,F14 cron production 验证意外加速 (today 17:45 已真触发,Stage 2 同步过)。发现 F29 (P0 bug: drafts execute 不创建 holding,fix commit `c4d105c` + 3 新测试 → 1184 passed) + F30 (积极: 价格 band + Cash + Industry cap 三防护正确)。Paper holdings 2 个 (000651 格力电器 + 000001 平安银行) 保留为 artifact。详见 `docs/reports/2026-06-18-grill-me-completion-verification.md`。
 
 **2026-06-18 (晚)**: grill-me 功能审计 — 5 P0 (F14-F17/F20) + 后续 P1 修复 (F21-F28)。**11 个 commits**:
 - `9ebb86a` 5 P0 修复: F14 APScheduler cron day_of_week 错位一天 + F15 recover_stale_runs 死代码 wire + sweep job + F16 SessionLocal mock + 测试残留清理 + F17 v1 forward_dyr WHERE > 0 + F20 stocks.industry 务实修复 (真实现需 AkShare)
