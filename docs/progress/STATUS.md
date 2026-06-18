@@ -2,22 +2,23 @@
 
 > **此文档是项目当前状态的真实来源。AI 代理应首先阅读此文件。**
 >
-> | 字段 | 值 (实测于 2026-06-18 grill-me completion verification 后) |
+> | 字段 | 值 (实测于 2026-06-18 wipe 进入 v0.2 后) |
 > |---|---|
-> | 项目状态 | **v0.1-paper-verified** ✅ (2026-06-18) |
-> | 最后更新 | 2026-06-18 (grill-me completion verification 通过 + F29 fix + F30 验证) |
+> | 项目状态 | **v0.2-started** 🚀 (2026-06-18 21:06 wipe 进入 v0.2;首次 autopilot run pending 今晚 18:00) |
+> | 最后更新 | 2026-06-18 21:30 (wipe + grill-me 完整状态对齐) |
 > | 分支 | `master` |
-> | 最新 commit | `c4d105c` F29 drafts execute 创建 holding + force param |
+> | 最新 commit | `9a2ad61` docs: v0.1-paper-verified 通过 + F29/F30 finding 同步 (v0.1 ship); wipe 脚本 + STATUS.md 改写 pending commit |
 > | 测试 | **1184 passed**, 0 failed (`pytest`) |
-> | 测试函数数 | 1184 (1181 + F29×3) |
+> | 测试函数数 | 1184 |
 > | Alembic head | `s10_1_in_circle_filter_default_off` |
 > | Alembic 版本文件数 | 50 |
 > | 后端代码 | ~33,000 行 (app/) + ~20,000 行 (tests/) |
 > | 前端代码 | ~18,500 行 (src/) |
 > | 远程仓库 | 暂无 (`git remote -v` 为空) |
-> | 真实使用 | **DB 2026-06-18 v0.1 verification 后**: 2 paper-verified holdings (000651 格力电器 + 000001 平安银行) / 4 trades / 86 drafts (83 pending + 3 superseded) / 179 active candidates / audit_logs holding.created × 2 + draft.executed × 4 + draft_created × 82 / cash_balance ¥100k deposit → ¥78079.78 / job_executions daily_plan_evaluation + alert_evaluation + thesis_evaluation 都 today success。**核心 autopilot 链路 paper 真跑通,F14 cron production 验证通过**。 |
-> | 已通过验证 | v0.1 paper verification (2026-06-18): scheduler真触发 / plan_runner真产出 / paper execute / holdings创建 / audit / 三防护 (价格/Cash/Industry) 全部验证 |
-> | 下次 milestone | v0.2 (长期运行 1 个月) → v1.0 (真实 broker 下单) |
+> | 真实使用 | **DB 2026-06-18 wipe 后起点**: 业务 action 表全 0 (holdings/trades/drafts/candidates/audit_logs/cash_balance/watchlist_items 全清); Lixinger 四大表新鲜 (stocks 5626 / valuations 14928 最新今天 / financials 26799 最新 2025-12-31 / dividends 48989 最新 ex_date 2026-06-29 + 5 股增量测试 OK) |
+> | v0.1 artifact | **pre-usage-wipe-2026-06-18.db** (185MB,backend/data/backups/) — 含 2 paper holdings + 4 trades + 86 drafts + 179 candidates + audit_logs 123 行,v0.1-verified 验证产物 |
+> | v0.2 验收标准 | **autopilot 跑通即 v0.2-verified** (用户 2026-06-18 grill-me 决策: 去期限化,不要求"1 个月长期运行")。通过条件: 今晚 18:00 scheduler daily_plan_evaluation 跑首次 v0.2 run + 产出 candidates/drafts + audit_logs 沉淀 |
+> | 下次 milestone | v0.2-verified (autopilot 跑通) → v1.0 (真实 broker 下单) |
 
 ---
 
@@ -231,6 +232,10 @@ Alembic 迁移链: 50 个版本文件 (实测 2026-06-18),head = `s10_1_in_circl
 
 ### 5.2 最近里程碑 (按时间倒序)
 
+**2026-06-18 (21:30 晚)**: grill-me "项目基础数据全部更新同步好了吗" 完整状态对齐 → **v0.2-started** 🚀。用户决策 6 项: (1) wipe 意图=进入 v0.2 (2) 就绪标准=四大表新鲜+autopilot 跑通 (3) dividends pipeline failed → 手动重跑验证 (实测 5 股 pipeline 5.8s 成功,Lixinger 限流已恢复,根因是 AdaptiveThrottler 死代码导致全速并发触发 429) (4) STATUS.md 改为 v0.2 起点 + v0.1 artifact 归档 (5) v0.2 验收去期限化=autopilot 跑通即 verified (6) price_klines 全量 backfill (task #4,需先 wire AdaptiveThrottler)。Task list: 5 项 (1✅ 2✅ 3 pending 18:00 4 后续 5 后续)。详见 `docs/progress/2026-06-18-grill-me-data-state-alignment.md` (todo: 写)。**核心问题"基础数据全部更新同步好了吗"答: 数据 90% OK,STATUS.md 改完即同步。**
+
+**2026-06-18 (21:06 晚)**: `wipe_usage_data.py` 执行 → 业务 action 表全清零 (holdings/trades/drafts/candidates/audit_logs/cash_balance/watchlist_items 全 0)。备份 `pre-usage-wipe-2026-06-18.db` (185MB) 保留 v0.1-paper-verified 全部产物 (2 holdings + 4 trades + 86 drafts + 179 candidates + audit_logs 123 行)。意图: 进入 v0.2 长期运行阶段,wipe paper 测试产物。脚本路径: `backend/scripts/wipe_usage_data.py`。
+
 **2026-06-18 (晚)**: grill-me completion verification 通过 → **v0.1-paper-verified** ✅。10 项 design 决策锁定 (B/A/A/B/D/A/B/B/A/A)。Stage 1 paper execute 验证 autopilot 链路真跑通,F14 cron production 验证意外加速 (today 17:45 已真触发,Stage 2 同步过)。发现 F29 (P0 bug: drafts execute 不创建 holding,fix commit `c4d105c` + 3 新测试 → 1184 passed) + F30 (积极: 价格 band + Cash + Industry cap 三防护正确)。Paper holdings 2 个 (000651 格力电器 + 000001 平安银行) 保留为 artifact。详见 `docs/reports/2026-06-18-grill-me-completion-verification.md`。
 
 **2026-06-18 (晚)**: grill-me 功能审计 — 5 P0 (F14-F17/F20) + 后续 P1 修复 (F21-F28)。**11 个 commits**:
@@ -308,6 +313,19 @@ Alembic 迁移链: 50 个版本文件 (实测 2026-06-18),head = `s10_1_in_circl
 - 月度复盘视图增强、预案 diff 视图、StockDetail 新建预案回填、候选池筛选持久化、统一 GLM model 配置 (3 个名浮动)
 
 **P3 (技术债)**: holding_service 拆纯计算+持久查询两层、datetime.utcnow() → datetime.now(UTC)、前端 bundle 分块、STATUS.md 自动化生成
+
+### 已知限制 (v0.2 起点 — 2026-06-18 grill-me 数据状态对齐)
+
+- **L1 price_klines 仅覆盖 601/5626 股 (11%)**: 当前 601 股 = 6 backtest 股 + 595 早期 watchlist/手动同步股。其余 5025 股无日 K 数据,影响:
+  - plan_runner Pass 1 (build_screening_contexts) **不依赖** price_klines,只看 stocks + 今天 valuations → 全市场 5626 股都会被扫到
+  - plan_runner Pass 2 (build_context) 深度评估时,无 kline 股的 `price_drop_pct` / `latest_close` / `52w_high` 为 None → `contrarian_oversold` 策略(要求跌幅≥20%)覆盖不全
+  - **不阻塞** v0.2 开始,但候选池多样性受限。修复路径: task #4 全量 backfill (5354 股 × 5 年,需先 wire AdaptiveThrottler)
+- **L2 corp_actions 表 0 行**: 公司行为(送股/拆股/派现/退市)从未同步。影响:
+  - backtest_engine `_apply_corp_actions_for_day` 无法应用,回测价格序列不连续 → backtest 结果可能不准
+  - `daily_corp_action_apply` scheduler job 跑空(无记录可 apply)
+  - **不阻塞** v0.2 生产链路(实时下单用 prev_close 算价格 band,不读 corp_actions)。corp_action_sync_service 已实现但未 wire scheduler trigger
+- **L3 AdaptiveThrottler 是死代码 (F4 复发)**: `pipelines/throttler.py` 实现完整但 `base.py` 未调用。后果: pipeline 全速并发拉 5354 股 → 触发 Lixinger 429 → circuit breaker (threshold=5) 打开 → 300s reset window 内全部 fast-fail。证据: 6-18 00:50 dividends pipeline FAILED 5354 items 0 completed。小批量(5 股)测试 OK。修复路径: 在 base.py wire up acquire/sleep 调用 (约 30 分钟)
+- **L4 dividends pipeline 6-18 00:50 FAILED 历史状态**: 已实测验证 Lixinger 限流恢复 (5 股 pipeline cd178ed8 5.8s completed)。freshness gate 不查 dividends (plan_runner 只检 stocks + valuation),dividends 表 48989 行 + 最新 ex_date 2026-06-29,**生产链路不受影响**。需后续 L3 修后才能放心跑全量 backfill
 
 ### 已知限制 (D8/D9/D10 + Lixinger 字段键 — 2026-06-17 invest-alignment audit)
 

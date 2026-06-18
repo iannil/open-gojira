@@ -20,6 +20,11 @@ backend/data/gojira.db.bak
 **/data/*.db-wal
 **/data/*.db.bak
 
+# DB snapshots / wipe backups (large files, never commit)
+backend/data/backups/*.db
+backend/data/backups/*.db-shm
+backend/data/backups/*.db-wal
+
 # Serenity LLM interaction logs (per-run JSON dumps)
 backend/data/llm_logs/
 
