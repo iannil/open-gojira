@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any
@@ -290,14 +291,34 @@ def _search_one(
     count: int,
     timeout: int,
 ) -> list[CollectedResult]:
-    """Execute one web_search API call, return parsed CollectedResults."""
-    resp = client.web_search.web_search(
-        search_query=query,
-        search_engine=DEFAULT_SEARCH_ENGINE,
-        count=count,
-        content_size="high",
-        timeout=timeout,
-    )
+    """Execute one web_search API call, return parsed CollectedResults.
+
+    F26 (2026-06-18): wraps the actual web_search call in a watchdog
+    ThreadPoolExecutor.future.result(timeout=timeout+10). This catches
+    the GLM SSL read hang scenario (memory feedback-glm-connection-hang)
+    where zhipuai SDK's httpx timeout is ineffective. On watchdog timeout
+    we raise TimeoutError; the worker thread keeps running as zombie but
+    caller regains control to retry / mark failed. Combined with the
+    research_stale_sweep job (F23), zombie threads are eventually cleaned.
+    """
+    watchdog_timeout = timeout + 10  # SDK timeout + grace period
+    with ThreadPoolExecutor(max_workers=1) as watchdog_ex:
+        future = watchdog_ex.submit(
+            client.web_search.web_search,
+            search_query=query,
+            search_engine=DEFAULT_SEARCH_ENGINE,
+            count=count,
+            content_size="high",
+            timeout=timeout,
+        )
+        try:
+            resp = future.result(timeout=watchdog_timeout)
+        except FutureTimeoutError:
+            logger.warning(
+                "web_search watchdog triggered for query=%r after %ds (SDK timeout ineffective)",
+                query, watchdog_timeout,
+            )
+            return []  # treat as 0 results, let collect_results count failures
     raw_results = getattr(resp, "search_result", None) or []
     out: list[CollectedResult] = []
     seen_urls: set[str] = set()

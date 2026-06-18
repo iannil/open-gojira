@@ -89,8 +89,17 @@ class ZhipuClient:
             user_context, search_results or []
         )
 
-        try:
-            response = self._client.chat.completions.create(
+        # F26 (2026-06-18): watchdog wrap. GLM SDK's httpx timeout is
+        # ineffective when server keeps connection open but sends no data
+        # (SSL read blocks forever — memory feedback-glm-connection-hang).
+        # ThreadPoolExecutor.future.result(timeout=N) is enforced by Python
+        # scheduler, immune to SSL-level hangs.
+        from concurrent.futures import ThreadPoolExecutor
+        from concurrent.futures import TimeoutError as FutureTimeoutError
+        watchdog_timeout = (timeout or 600) + 30  # SDK timeout + grace
+
+        def _do_call():
+            return self._client.chat.completions.create(
                 model=self._model,
                 messages=[
                     {
@@ -116,6 +125,19 @@ class ZhipuClient:
                 temperature=cfg["temperature"],
                 timeout=timeout,
             )
+
+        try:
+            with ThreadPoolExecutor(max_workers=1) as watchdog_ex:
+                future = watchdog_ex.submit(_do_call)
+                try:
+                    response = future.result(timeout=watchdog_timeout)
+                except FutureTimeoutError:
+                    raise ZhipuClientError(
+                        f"GLM API watchdog timeout after {watchdog_timeout}s "
+                        f"(SDK timeout={timeout}s ineffective, SSL read blocked)"
+                    )
+        except ZhipuClientError:
+            raise
         except Exception as exc:
             raise ZhipuClientError(f"GLM API call failed: {exc}") from exc
 

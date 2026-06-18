@@ -299,3 +299,65 @@ def test_backtest_api_passes_strategies_to_engine(client, db_session, monkeypatc
     cfg = captured_configs[0]
     assert cfg.get("strategies") == [2, 7], f"Expected [2, 7], got {cfg.get('strategies')}"
     assert cfg.get("target_pct") == 0.30
+
+
+# ── F26 (2026-06-18): serenity worker watchdog ────────────────────────────
+
+
+def test_search_one_watchdog_returns_empty_on_hang(monkeypatch):
+    """F26: web_search call that hangs past timeout → empty results (not raise)."""
+    import time
+    from app.services.search_collector_service import _search_one
+
+    class HangingClient:
+        class web_search:
+            @staticmethod
+            def web_search(**kwargs):
+                # Simulate GLM SSL read hang — sleep way past timeout
+                time.sleep(10)
+                return type("R", (), {"search_result": []})()
+
+    rows = _search_one(HangingClient(), "test query", count=5, timeout=1)
+    assert rows == [], "Watchdog should return empty list on hang, not raise"
+
+
+def test_zhipu_client_watchdog_raises_on_llm_hang(monkeypatch):
+    """F26: run_serenity_research watchdog raises ZhipuClientError on LLM hang.
+
+    Mock ThreadPoolExecutor.submit to return a future whose .result() raises
+    TimeoutError immediately — simulates the watchdog triggering without
+    actually waiting for the real timeout (test speed).
+    """
+    from concurrent.futures import TimeoutError as FutureTimeoutError
+    from app.services.llm.zhipu_client import ZhipuClient, ZhipuClientError
+
+    client = ZhipuClient(api_key="fake-key")
+    client._model = "fake-model"
+
+    class MockFuture:
+        def result(self, timeout=None):
+            raise FutureTimeoutError()
+
+    class HangingExecutor:
+        def __init__(self, *a, **kw):
+            pass
+        def __enter__(self):
+            return self
+        def __exit__(self, *a):
+            return False
+        def submit(self, fn, *a, **kw):
+            return MockFuture()
+
+    monkeypatch.setattr(
+        "concurrent.futures.ThreadPoolExecutor", HangingExecutor,
+    )
+
+    import pytest
+    with pytest.raises(ZhipuClientError) as exc_info:
+        client.run_serenity_research(
+            user_context="test",
+            search_results=[],
+        )
+    err = str(exc_info.value).lower()
+    assert "watchdog" in err or "timeout" in err, \
+        f"Expected watchdog/timeout error, got: {exc_info.value}"
