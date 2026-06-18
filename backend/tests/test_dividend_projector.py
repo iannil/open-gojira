@@ -251,3 +251,94 @@ def test_compute_forward_dyr_recovery_stock_not_underestimated(db_session):
     # New: (0.5+0.3)/2 / 10 = 0.040 (4.0%)
     assert fd is not None
     assert 0.039 <= fd <= 0.041, f"Expected ~4.0% forward_dyr, got {fd}"
+
+
+# ── F17 v2 (2026-06-18): forward_dyr = trailing_dyr × stability ──────────
+
+
+def test_compute_forward_dyr_v2_uses_trailing_dyr_with_stability(db_session):
+    """F17 v2: trailing_dyr × (paid_years_3y / 3)."""
+    from datetime import date, timedelta
+    from app.models.dividend import DividendRecord
+    from app.services.dividend_projector_service import compute_forward_dyr_for_stock
+
+    today = date.today()
+    # Stock paid dividends every year for 3 years → stability=1.0
+    db_session.add_all([
+        DividendRecord(stock_code="TEST_V2_1", ex_date=today - timedelta(days=30),
+                       amount_per_share=0.50, quantity_held=100, total_received=0.0),
+        DividendRecord(stock_code="TEST_V2_1", ex_date=today - timedelta(days=400),
+                       amount_per_share=0.30, quantity_held=100, total_received=0.0),
+        DividendRecord(stock_code="TEST_V2_1", ex_date=today - timedelta(days=750),
+                       amount_per_share=0.20, quantity_held=100, total_received=0.0),
+    ])
+    db_session.flush()
+
+    # trailing_dyr=0.06 (6%), 3/3 paid years → forward_dyr=0.06
+    fd = compute_forward_dyr_for_stock(db_session, "TEST_V2_1", trailing_dyr=0.06)
+    assert fd is not None
+    assert abs(fd - 0.06) < 1e-6, f"Expected 0.06, got {fd}"
+
+
+def test_compute_forward_dyr_v2_discounts_for_interrupted_history(db_session):
+    """F17 v2: stock with only 1 paid year out of 3 → ×1/3 factor."""
+    from datetime import date, timedelta
+    from app.models.dividend import DividendRecord
+    from app.services.dividend_projector_service import compute_forward_dyr_for_stock
+
+    today = date.today()
+    # Only 1 paid year (2026), 2 skipped (2025/2024)
+    db_session.add_all([
+        DividendRecord(stock_code="TEST_V2_2", ex_date=today - timedelta(days=30),
+                       amount_per_share=0.50, quantity_held=100, total_received=0.0),
+    ])
+    db_session.flush()
+
+    # trailing_dyr=0.06, 1/3 paid years → forward_dyr=0.02
+    fd = compute_forward_dyr_for_stock(db_session, "TEST_V2_2", trailing_dyr=0.06)
+    assert fd is not None
+    assert abs(fd - 0.02) < 1e-6, f"Expected 0.02 (0.06 × 1/3), got {fd}"
+
+
+def test_compute_forward_dyr_v2_falls_back_when_no_trailing(db_session):
+    """F17 v2: when trailing_dyr is None, fallback to F17 v1 algorithm."""
+    from datetime import date, timedelta
+    from app.models.dividend import DividendRecord
+    from app.models.price_kline import PriceKline
+    from app.services.dividend_projector_service import compute_forward_dyr_for_stock
+
+    today = date.today()
+    db_session.add_all([
+        DividendRecord(stock_code="TEST_V2_3", ex_date=today - timedelta(days=30),
+                       amount_per_share=0.50, quantity_held=100, total_received=0.0),
+        DividendRecord(stock_code="TEST_V2_3", ex_date=today - timedelta(days=400),
+                       amount_per_share=0.30, quantity_held=100, total_received=0.0),
+        PriceKline(stock_code="TEST_V2_3", date=today, open=10, high=10.5,
+                   low=9.8, close=10.0, volume=1000),
+    ])
+    db_session.flush()
+
+    # No trailing_dyr → fallback: (0.5+0.3)/2 / 10 = 0.04
+    fd = compute_forward_dyr_for_stock(db_session, "TEST_V2_3", trailing_dyr=None)
+    assert fd is not None
+    assert abs(fd - 0.04) < 1e-6, f"Expected 0.04 (fallback v1 algorithm), got {fd}"
+
+
+def test_compute_forward_dyr_v2_returns_none_when_no_history_at_all(db_session):
+    """F17 v2: no trailing_dyr AND no paid years → None."""
+    from app.services.dividend_projector_service import compute_forward_dyr_for_stock
+
+    fd = compute_forward_dyr_for_stock(db_session, "NONEXISTENT_CODE", trailing_dyr=None)
+    assert fd is None
+
+
+def test_compute_forward_dyr_v2_returns_none_when_zero_trailing(db_session):
+    """F17 v2: trailing_dyr=0 should not produce forward_dyr (fall back)."""
+    from datetime import date, timedelta
+    from app.models.dividend import DividendRecord
+    from app.services.dividend_projector_service import compute_forward_dyr_for_stock
+
+    today = date.today()
+    # No dividend history → fallback returns None
+    fd = compute_forward_dyr_for_stock(db_session, "TEST_V2_4", trailing_dyr=0.0)
+    assert fd is None, f"Expected None when trailing_dyr=0 and no history, got {fd}"

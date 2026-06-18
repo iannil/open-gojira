@@ -2,9 +2,9 @@
 
 > **触发**: `/grill-me 对已经实现的所有功能进行审计`
 > **方法**: 实测生产 DB (sqlite3 直接 query) + spike Lixinger API + 真跑 6 个内置 plan
-> **范围**: 5 个 P0 finding (F14/F15/F16/F17/F20) + 务实修复 + 文档同步
-> **耗时**: ~3 小时 (grill) + ~2 小时 (修复)
-> **结论**: 5 个 P0 全部修复 (4 个真修 + 1 个务实文档化),1167 测试通过 (+10),核心闭环真实可靠性大幅提升
+> **范围**: 5 个 P0 finding (F14/F15/F16/F17/F20) + F17 v2 算法升级
+> **耗时**: ~3 小时 (grill) + ~2 小时 (修复) + ~1 小时 (F17 v2)
+> **结论**: 5 个 P0 全部修复 (4 个真修 + 1 个务实文档化) + F17 v2 彻底修复,1172 测试通过 (+15),核心闭环真实可靠性大幅提升
 
 ---
 
@@ -246,3 +246,78 @@ SELECT industry, COUNT(*) FROM stocks GROUP BY industry ORDER BY n DESC LIMIT 5;
 4. **serenity research 真跑**: research_themes=0,从未真实创建过研究主题。Q14 已部分验证 (Path B 跑 1 次 run_id=8),但完整流程未真跑。
 5. **scheduler 真触发验证**: F14 修复后等下周一 17:45 看 daily_plan_evaluation 是否真触发,产出 candidates/drafts。
 6. **thesis_monitor 真触发**: thesis_evaluation 跑 41 次但 0 thesis_variables。需要等用户填 thesis_variables_json 后验证 breach → EventBus → SystemAlert → M4 SELL draft 全链路。
+
+---
+
+## 8. F17 v2 算法升级 (P1,彻底修复,2026-06-18 续)
+
+F17 v1 (WHERE amount_per_share > 0) 改善了 forward_dyr 但仍不彻底 — 银行股
+还是 0 候选。F17 v2 用更准确的算法彻底修复。
+
+### 算法
+
+```python
+def compute_forward_dyr_for_stock(db, code, trailing_dyr=None):
+    """F17 v2 (2026-06-18): forward_dyr = trailing_dyr × stability_factor.
+
+    - trailing_dyr: Lixinger `dyr` (current dividend_yield, trailing 12m
+      actual dividend / latest close). Most accurate "current paying power".
+    - stability_factor: paid_years_in_3y / 3. Discounts for interrupted
+      dividend history.
+
+    Fallback (when trailing_dyr missing): F17 v1 algorithm
+    (3y avg nonzero DPS / latest close).
+    """
+    if trailing_dyr is not None and trailing_dyr > 0:
+        paid_years = _paid_years_in_window(db, code, years=3)
+        if paid_years > 0:
+            stability = min(paid_years / 3.0, 1.0)
+            return trailing_dyr * stability
+    # Fallback to v1 ...
+```
+
+### 实测改善
+
+| 股票 | Lixinger dyr | F17 v1 (3y avg nonzero) | **F17 v2** (Lixinger × 3/3) |
+|---|---|---|---|
+| 002170 芭田股份 | 6.6% | 2.12% | **6.6%** |
+| 601398 工商银行 | 4.2% | 2.66% | **4.2%** |
+| 601166 兴业银行 | 6.0% | 4.82% | **6.0%** |
+| 600036 招商银行 | 5.3% | 3.93% | **5.3%** |
+
+### Plan 真跑验证 (重启服务后)
+
+| Plan | F17 v1 (0 候选 / 0 draft) | **F17 v2** |
+|---|---|---|
+| Plan 3 银行底仓 | 0 候选 0 draft | **7 候选 + 3 drafts** ✓ |
+| Plan 5 纯粹赚钱机器 | 1 候选 0 draft | **1 候选 + 1 draft** ✓ |
+
+Plan 3 选出 7 个银行股: 000001 平安银行 / 600015 华夏银行 / 600036 招商银行 /
+601166 兴业银行 / 601169 北京银行 / 601825 农业银行 / 601998 中信银行。
+其中 3 个产 BUY draft (30% add_pct): 000001 / 600015 / 600036。
+
+### 6 内置 plan 最终可用性
+
+| Plan | F17 v2 后 | 备注 |
+|---|---|---|
+| 1 core_value | ✓ 可用 | 4 候选 + 6 drafts |
+| 2 高息低估值 | ✗ 0 候选 | strategy 3 (resource_hard_asset) 要求 has_mine (7/5626) |
+| 3 银行底仓 | ✓ **可用** | 7 候选 + 3 drafts (F17 v2 修复) |
+| 4 超跌逆向 | ✓ 可用 (筛选) | 6 候选 0 drafts (trading_rules 为空,设计选择) |
+| 5 纯粹赚钱机器 | ✓ **可用** | 1 候选 + 1 draft (F17 v2 修复) |
+| 6 选择权龙头 | ✗ 0 候选 | qiu_score 全 0 (F10) |
+
+**4/6 内置 plan 真实可用** (此前仅 1/6)。
+
+### 测试
+
+- 1167 → **1172 passed** (+5: 4 个 F17 v2 行为测试 + 1 个 zero-trailing edge case)
+- 现有 F17 v1 测试保留 (验证 fallback 路径)
+
+### 代码改动
+
+| 文件 | 改动 |
+|---|---|
+| `app/services/dividend_projector_service.py` | 新增 `_paid_years_in_window()`;`compute_forward_dyr_for_stock` 加 `trailing_dyr` 参数,v2 算法优先,fallback 到 v1 |
+| `app/services/stock_context_builder.py` | 把 `val.dividend_yield` (Lixinger dyr) 传给 `compute_forward_dyr_for_stock` |
+| `tests/test_dividend_projector.py` | +5 个 F17 v2 测试 (stability factor / interrupted history / fallback / no-history / zero-trailing) |

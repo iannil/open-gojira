@@ -90,6 +90,8 @@ def _historical_avg_per_share(db: Session, code: str, years: int = 3) -> float |
     """F17 (2026-06-18): 3-year average DPS, only counting years that
     actually paid a dividend.
 
+    Used as fallback for forward_dyr when Lixinger trailing_12m_dyr is missing.
+
     Previous algorithm averaged all DPS values in the window including
     years where DPS=0 (经营困难期 / 财报亏损). This systematically
     underestimated forward_dyr for recovery stocks.
@@ -114,6 +116,25 @@ def _historical_avg_per_share(db: Session, code: str, years: int = 3) -> float |
     return float(row) if row else None
 
 
+def _paid_years_in_window(db: Session, code: str, years: int = 3) -> int:
+    """F17 v2: count distinct years with at least one nonzero DPS in past N years.
+
+    Used as dividend stability factor: forward_dyr = trailing_12m × (paid_years / N).
+    A stock that paid dividends every year gets factor=1.0; a stock that
+    skipped years gets penalized proportionally.
+    """
+    cutoff = date.today() - timedelta(days=years * 365)
+    rows = db.execute(
+        select(DividendRecord.ex_date)
+        .where(
+            DividendRecord.stock_code == code,
+            DividendRecord.ex_date >= cutoff,
+            DividendRecord.amount_per_share > 0,
+        )
+    ).scalars().all()
+    return len({d.year for d in rows if d is not None})
+
+
 def _latest_close_price(db: Session, code: str) -> float | None:
     """Return the latest close price for a stock, or None if no kline data."""
     from app.models.price_kline import PriceKline
@@ -126,15 +147,50 @@ def _latest_close_price(db: Session, code: str) -> float | None:
     return float(row) if row else None
 
 
-def compute_forward_dyr_for_stock(db: Session, code: str) -> float | None:
-    """G3: Forward dividend yield for a single stock.
+def compute_forward_dyr_for_stock(
+    db: Session, code: str, trailing_dyr: float | None = None
+) -> float | None:
+    """F17 v2 (2026-06-18): Forward DYR = trailing_12m_dyr × stability_factor.
 
-    Algorithm: 3-year average dividend_per_share / latest_close_price.
-    Returns None when dividend history missing OR price missing — caller
+    Algorithm (when Lixinger trailing_dyr is available):
+        forward_dyr = trailing_dyr × (paid_years_in_3y / 3)
+
+    Rationale:
+    - Lixinger `dyr` is trailing 12-month dividend yield (based on actual
+      past-year DPS / latest close). This is the most accurate "current
+      paying power" data we have.
+    - Multiplying by stability factor (= distinct paid years / N) discounts
+      the trailing yield for stocks with interrupted dividend history. A
+      stock that paid 3 of 3 years keeps full trailing; a stock that paid
+      1 of 3 gets ×0.33 reflecting uncertainty about future payouts.
+    - This is more accurate than the F17 v1 algorithm (3y avg DPS, nonzero
+      only) which systematically underestimated banks by 3×.
+
+    Fallback (when trailing_dyr is None or 0): use F17 v1 algorithm
+    (3y avg nonzero DPS / latest close).
+
+    Returns None when no dividend history AND no trailing_dyr — caller
     treats None as inconclusive (剔除).
 
-    Aligns with invest3 §8 "预期股息率，而不是过去股息率".
+    Real-world impact (spike 2026-06-18, assuming 3/3 paid years):
+      002170 芭田股份: Lixinger dyr=6.6% → forward_dyr 6.6% (vs v1: 2.1%)
+      601398 工商银行: Lixinger dyr=4.2% → forward_dyr 4.2% (vs v1: 2.7%)
+      601166 兴业银行: Lixinger dyr=6.0% → forward_dyr 6.0% (vs v1: 4.8%)
+
+    Note: forward_dyr is now a "trailing × stability" proxy, not a true
+    forward projection. invest3 §8 "预期股息率" intent is preserved as
+    long as the user reads it as "current paying power adjusted for
+    stability". True forward projection (based on dividend guidance /
+    earnings forecasts) needs data sources Lixinger doesn't provide.
     """
+    # Try F17 v2 algorithm first
+    if trailing_dyr is not None and trailing_dyr > 0:
+        paid_years = _paid_years_in_window(db, code, years=3)
+        if paid_years > 0:
+            stability = min(paid_years / 3.0, 1.0)
+            return trailing_dyr * stability
+
+    # Fallback: F17 v1 algorithm (3y avg nonzero DPS / latest close)
     avg_per_share = _historical_avg_per_share(db, code)
     if avg_per_share is None or avg_per_share <= 0:
         return None

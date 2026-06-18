@@ -2,19 +2,19 @@
 
 > **此文档是项目当前状态的真实来源。AI 代理应首先阅读此文件。**
 >
-> | 字段 | 值 (实测于 2026-06-18 grill-me 功能审计修复后) |
+> | 字段 | 值 (实测于 2026-06-18 grill-me 功能审计 + F17 v2 修复后) |
 > |---|---|
-> | 最后更新 | 2026-06-18 (grill-me 功能审计 — 真实端到端生产链路 5 P0 修复: F14 APScheduler cron day_of_week 错位一天 + F15 recover_stale_runs 死代码 wire + sweep job + F16 SessionLocal mock + 测试残留清理 + F17 forward_dyr 算法保守过度 (WHERE amount_per_share > 0) + F20 stocks.industry 字段语义错位 (务实修复,真实现留 P1,详见 `docs/progress/2026-06-18-grill-me-feature-audit.md`)) |
+> | 最后更新 | 2026-06-18 (F17 v2 — forward_dyr 改用 Lixinger dyr × stability。Plan 3 银行底仓 0 候选 → 7 候选 + 3 drafts,Plan 5 纯粹赚钱机器 0 draft → 1 draft。6 内置 plan 现在 4 个真实可用: plan 1/3/4/5) |
 > | 分支 | `master` |
-> | 最新 commit | (待提交) grill-me audit 5 P0 |
-> | 测试 | **1167 passed**, 0 failed (`pytest`) |
-> | 测试函数数 | 1167 (1157 + F14×4 + F15×3 + F17×3) |
+> | 最新 commit | (待提交) F17 v2 forward_dyr 算法升级 |
+> | 测试 | **1172 passed**, 0 failed (`pytest`) |
+> | 测试函数数 | 1172 (1167 + F17 v2 ×5) |
 > | Alembic head | `s10_1_in_circle_filter_default_off` |
 > | Alembic 版本文件数 | 50 |
 > | 后端代码 | ~33,000 行 (app/) + ~20,000 行 (tests/) |
 > | 前端代码 | ~18,500 行 (src/) |
 > | 远程仓库 | 暂无 (`git remote -v` 为空) |
-> | 真实使用 | **DB 2026-06-18 grill 后状态**: 0 holdings / 0 trades / 6 drafts (pending) / 5 active candidates (plan 1 + plan 5 共 5 个) / 0 research_runs / 0 backtests / 0 research_claim_variables / 0 thesis 告警 (audit_logs/system_alerts F16 清理测试残留后归 0)。**核心闭环 (plan runner) 跑通,但 6 内置 plan 仅 plan 1 真实可用** (plan 2/3/5 因 F17 系统性低估,plan 6 因 F10,plan 4 是设计选择不产 draft)。 |
+> | 真实使用 | **DB 2026-06-18 F17 v2 后状态**: 0 holdings / 0 trades / 10 drafts (pending,plan 1×6 + plan 3×3 + plan 5×1) / 12 active candidates (plan 1×4 + plan 3×7 + plan 5×1) / 0 research_runs / 0 backtests / 0 thesis 告警。**核心闭环跑通,6 内置 plan 现在 4 个真实可用 (plan 1/3/4/5)** — plan 2 仍 0 候选 (高息低估值 AND 太严),plan 6 因 F10 (qiu_score 全 0)。 |
 
 ---
 
