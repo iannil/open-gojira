@@ -13,6 +13,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.core.datetime_utils import utcnow
+from app.services.pipelines.throttler import AdaptiveThrottler
 
 logger = logging.getLogger(__name__)
 
@@ -83,10 +84,17 @@ class BasePipeline(ABC):
 
     pipeline_type: str = ""
 
-    def __init__(self, db: Session, run_id: str | None = None, cancel_check: Any = None):
+    def __init__(
+        self,
+        db: Session,
+        run_id: str | None = None,
+        cancel_check: Any = None,
+        throttler: AdaptiveThrottler | None = None,
+    ):
         self.db = db
         self.run_id = run_id or str(uuid.uuid4())[:8]
         self._cancel_check = cancel_check
+        self._throttler = throttler or AdaptiveThrottler()
         self._logger = logging.getLogger(f"pipeline.{self.pipeline_type}")
 
     def execute(self, stock_codes: list[str], **kwargs) -> PipelineResult:
@@ -116,7 +124,13 @@ class BasePipeline(ABC):
                 result.status = PipelineStatus.CANCELLED
                 self._logger.info("Pipeline cancelled after %d items", result.completed_items + result.failed_items)
                 break
+            # F4 wire-up: throttle between stocks to avoid Lixinger 429.
+            # Without this the loop fires at full CPU speed and the circuit
+            # breaker (threshold=5) trips after just a few 429s.
+            self._throttler.acquire()
             sr = self._process_single(code, ctx)
+            if not sr.success:
+                self._throttler.record_error()
             result.stock_results.append(sr)
             if sr.success:
                 result.completed_items += 1

@@ -8,8 +8,8 @@
 > | 最后更新 | 2026-06-18 21:30 (wipe + grill-me 完整状态对齐) |
 > | 分支 | `master` |
 > | 最新 commit | `9a2ad61` docs: v0.1-paper-verified 通过 + F29/F30 finding 同步 (v0.1 ship); wipe 脚本 + STATUS.md 改写 pending commit |
-> | 测试 | **1184 passed**, 0 failed (`pytest`) |
-> | 测试函数数 | 1184 |
+> | 测试 | **1187 passed**, 0 failed (`pytest`) |
+> | 测试函数数 | 1187 (1184 + L3 wire-up ×3) |
 > | Alembic head | `s10_1_in_circle_filter_default_off` |
 > | Alembic 版本文件数 | 50 |
 > | 后端代码 | ~33,000 行 (app/) + ~20,000 行 (tests/) |
@@ -324,7 +324,7 @@ Alembic 迁移链: 50 个版本文件 (实测 2026-06-18),head = `s10_1_in_circl
   - backtest_engine `_apply_corp_actions_for_day` 无法应用,回测价格序列不连续 → backtest 结果可能不准
   - `daily_corp_action_apply` scheduler job 跑空(无记录可 apply)
   - **不阻塞** v0.2 生产链路(实时下单用 prev_close 算价格 band,不读 corp_actions)。corp_action_sync_service 已实现但未 wire scheduler trigger
-- **L3 AdaptiveThrottler 是死代码 (F4 复发)**: `pipelines/throttler.py` 实现完整但 `base.py` 未调用。后果: pipeline 全速并发拉 5354 股 → 触发 Lixinger 429 → circuit breaker (threshold=5) 打开 → 300s reset window 内全部 fast-fail。证据: 6-18 00:50 dividends pipeline FAILED 5354 items 0 completed。小批量(5 股)测试 OK。修复路径: 在 base.py wire up acquire/sleep 调用 (约 30 分钟)
+- **L3 AdaptiveThrottler wire-up 完成 (F4 fix 2026-06-18)**: `base.py.execute` 循环每个 stock 之间调 `self._throttler.acquire()` (默认 min_interval=0.2s = 5 RPS),`_process_single` 失败时调 `record_error()`。__init__ 接受可选 `throttler` 参数(测试可注入 mock)。新增 3 个 wire-up 测试验证。全套 1187 passed (+3)。修复前: 全速并发拉 5354 股 → Lixinger 429 → circuit breaker (threshold=5) 打开 → 300s fast-fail。修复后: 节流后预期稳定拉取 (5354 股 × 0.2s ≈ 18 分钟,可接受)
 - **L4 dividends pipeline 6-18 00:50 FAILED 历史状态**: 已实测验证 Lixinger 限流恢复 (5 股 pipeline cd178ed8 5.8s completed)。freshness gate 不查 dividends (plan_runner 只检 stocks + valuation),dividends 表 48989 行 + 最新 ex_date 2026-06-29,**生产链路不受影响**。需后续 L3 修后才能放心跑全量 backfill
 
 ### 已知限制 (D8/D9/D10 + Lixinger 字段键 — 2026-06-17 invest-alignment audit)

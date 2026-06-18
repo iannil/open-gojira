@@ -195,6 +195,64 @@ class TestAdaptiveThrottler:
         assert t.stats["total_calls"] == 1
 
 
+class TestBasePipelineThrottlerWireUp:
+    """F4 wire-up regression: BasePipeline.execute must call acquire() per
+    stock and record_error() on failure. Without this, full-speed concurrency
+    trips the Lixinger circuit breaker (threshold=5) after a handful of 429s,
+    silently fast-failing the entire pipeline run."""
+
+    def _make_pipeline(self, db, throttler=None, fail_codes=None):
+        from unittest.mock import MagicMock
+
+        fail_codes = fail_codes or set()
+
+        class _TestPipeline(BasePipeline):
+            pipeline_type = "test"
+
+            def extract(self, code, ctx):
+                return [{"code": code}]
+
+            def transform(self, code, raw, ctx):
+                return raw
+
+            def validate(self, code, data, ctx):
+                return data
+
+            def load(self, code, data, ctx):
+                if code in fail_codes:
+                    raise RuntimeError(f"injected failure for {code}")
+                return len(data)
+
+            def verify(self, code, ctx):
+                return True
+
+        return _TestPipeline(db, throttler=throttler)
+
+    def test_acquire_called_per_stock(self, db):
+        from unittest.mock import MagicMock
+
+        mock = MagicMock(spec=AdaptiveThrottler)
+        mock.acquire.return_value = 0.0
+        p = self._make_pipeline(db, throttler=mock)
+        p.execute(["000001", "000002", "000003"])
+        assert mock.acquire.call_count == 3
+
+    def test_record_error_on_failure(self, db):
+        from unittest.mock import MagicMock
+
+        mock = MagicMock(spec=AdaptiveThrottler)
+        mock.acquire.return_value = 0.0
+        p = self._make_pipeline(db, throttler=mock, fail_codes={"000002"})
+        result = p.execute(["000001", "000002", "000003"])
+        assert mock.record_error.call_count == 1
+        assert result.failed_items == 1
+        assert result.completed_items == 2
+
+    def test_default_throttler_when_none_passed(self, db):
+        p = self._make_pipeline(db, throttler=None)
+        assert isinstance(p._throttler, AdaptiveThrottler)
+
+
 class TestPipelineRegistry:
     def test_all_types_registered(self):
         registered = get_registered_pipelines()
