@@ -316,16 +316,14 @@ Alembic 迁移链: 50 个版本文件 (实测 2026-06-18),head = `s10_1_in_circl
 
 ### 已知限制 (v0.2 起点 — 2026-06-18 grill-me 数据状态对齐)
 
-- **L1 price_klines 仅覆盖 601/5626 股 (11%)**: 当前 601 股 = 6 backtest 股 + 595 早期 watchlist/手动同步股。其余 5025 股无日 K 数据,影响:
-  - plan_runner Pass 1 (build_screening_contexts) **不依赖** price_klines,只看 stocks + 今天 valuations → 全市场 5626 股都会被扫到
-  - plan_runner Pass 2 (build_context) 深度评估时,无 kline 股的 `price_drop_pct` / `latest_close` / `52w_high` 为 None → `contrarian_oversold` 策略(要求跌幅≥20%)覆盖不全
-  - **不阻塞** v0.2 开始,但候选池多样性受限。修复路径: task #4 全量 backfill (5354 股 × 5 年,需先 wire AdaptiveThrottler)
+- **L1 price_klines 全量 backfill 完成 (2026-06-19 01:03)**: pipeline `c7777df8` 5025/5025 completed 0 failed / 9242s(2h34m) / 0 dead_letter。覆盖 5607/5626 股 (99.7%,19 股可能退市/数据不可用),rows 6,229,507。`contrarian_oversold` 策略现在覆盖全市场。L3 throttler 在生产稳定工作(2h34m 无 429)
 - **L2 corp_actions 表 0 行**: 公司行为(送股/拆股/派现/退市)从未同步。影响:
   - backtest_engine `_apply_corp_actions_for_day` 无法应用,回测价格序列不连续 → backtest 结果可能不准
   - `daily_corp_action_apply` scheduler job 跑空(无记录可 apply)
   - **不阻塞** v0.2 生产链路(实时下单用 prev_close 算价格 band,不读 corp_actions)。corp_action_sync_service 已实现但未 wire scheduler trigger
 - **L3 AdaptiveThrottler wire-up 完成 (F4 fix 2026-06-18)**: `base.py.execute` 循环每个 stock 之间调 `self._throttler.acquire()` (默认 min_interval=0.2s = 5 RPS),`_process_single` 失败时调 `record_error()`。__init__ 接受可选 `throttler` 参数(测试可注入 mock)。新增 3 个 wire-up 测试验证。全套 1187 passed (+3)。修复前: 全速并发拉 5354 股 → Lixinger 429 → circuit breaker (threshold=5) 打开 → 300s fast-fail。修复后: 节流后预期稳定拉取 (5354 股 × 0.2s ≈ 18 分钟,可接受)
 - **L4 dividends pipeline 6-18 00:50 FAILED 历史状态**: 已实测验证 Lixinger 限流恢复 (5 股 pipeline cd178ed8 5.8s completed)。freshness gate 不查 dividends (plan_runner 只检 stocks + valuation),dividends 表 48989 行 + 最新 ex_date 2026-06-29,**生产链路不受影响**。需后续 L3 修后才能放心跑全量 backfill
+- **L5 `recover_stale_runs` 10min 阈值 vs long-running pipeline race (2026-06-18 backfill 发现)**: `manager.recover_stale_runs` 用 `created_at < utcnow() - 10min` 判断 stale (设计为 server-crash 检测),但 backfill 5025 股实际跑 4-5 小时,远超 10min。每 10 分钟的 `pipeline_stale_sweep` job 会把 still-running pipeline 误标 FAILED,但 pipeline 在 backend 进程里继续跑,完成后 `_execute_with_db` 覆盖回真实状态。**不影响 data_freshness** (sweep 不调 `record_pipeline_completion`)。**不影响 plan_runner** (freshness gate 只看真实 pipeline 完成)。仅 cosmetic: pipeline_runs.status 中间状态误导。修复路径: (a) 简单: 提阈值到 6h+ (b) 正确: 加 heartbeat 字段 + sweep 用 heartbeat
 
 ### 已知限制 (D8/D9/D10 + Lixinger 字段键 — 2026-06-17 invest-alignment audit)
 
