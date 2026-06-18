@@ -69,6 +69,24 @@ class _TransientServerError(httpx.RequestError):
         self.response = response
 
 
+class _RateLimitError(httpx.RequestError):
+    """Internal: 429 response wrapped so tenacity retries it.
+
+    Unlike other 4xx errors (which are deterministic client-side failures),
+    429 = "too many requests" is transient — retrying after a backoff will
+    succeed once the rate limit window resets. Same trick as
+    `_TransientServerError`: subclass httpx.RequestError so tenacity's
+    `retry_if_exception_type(httpx.RequestError)` matches.
+    """
+
+    def __init__(self, response: httpx.Response):
+        super().__init__(
+            f"rate limit {response.status_code}",
+            request=response.request,
+        )
+        self.response = response
+
+
 class _CircuitBreaker:
     """Simple circuit breaker.
 
@@ -183,6 +201,24 @@ class _TTLCache:
 class LixingerClient:
     """Low-level Lixinger API client with caching, retry, and circuit breaker."""
 
+    # Class-level adaptive throttler — shared across ALL instances so that
+    # parallel pipelines (each spawning its own client) coordinate against
+    # the same Lixinger rate-limit budget. Tests can monkey-patch this on
+    # the class (LixingerClient._throttler = ...) or per-instance.
+    _throttler = None  # lazily initialized in __init__ via _get_throttler()
+
+    @classmethod
+    def _get_throttler(cls):
+        if cls._throttler is None:
+            from app.services.pipelines.throttler import AdaptiveThrottler
+            cls._throttler = AdaptiveThrottler(
+                budget=10000,
+                period_hours=24 * 30,
+                min_interval=1.0,
+                max_interval=10.0,
+            )
+        return cls._throttler
+
     def __init__(self, token: str = ""):
         self._token = token or settings.LIXINGER_TOKEN
         self._cache = _TTLCache()
@@ -207,16 +243,22 @@ class LixingerClient:
         - httpx.RequestError (connection errors, timeouts)
         - 5xx responses (converted into _TransientServerError, which is a
           RequestError subclass so tenacity matches it)
+        - 429 responses (converted into _RateLimitError — rate limit is
+          transient, recovers after backoff)
 
         Does NOT retry on:
-        - 4xx HTTPStatusError (client-side, won't recover by retrying)
+        - Other 4xx HTTPStatusError (client-side, won't recover by retrying)
 
-        The 5xx-to-_TransientServerError conversion is necessary because
+        The status-to-RequestError conversion is necessary because
         httpx.HTTPStatusError is NOT a subclass of httpx.RequestError,
-        so we cannot selectively retry "only 5xx HTTPStatusError" by type
-        alone — 4xx would also match. Instead we wrap 5xx in a distinct
-        RequestError subclass that tenacity recognizes as retryable.
+        so we cannot selectively retry "only 5xx/429 HTTPStatusError" by type
+        alone — 4xx would also match. Instead we wrap retryable statuses in
+        distinct RequestError subclasses that tenacity recognizes.
         """
+        # Adaptive throttler: sleep before the call to avoid bursting the
+        # Lixinger rate limit. Tests can patch `_throttler` to a no-op.
+        self._get_throttler().acquire()
+
         @retry(
             stop=stop_after_attempt(3),
             wait=self._retry_wait,
@@ -227,6 +269,10 @@ class LixingerClient:
             resp = self._client.post(url, json=body)
             if resp.status_code >= 500:
                 raise _TransientServerError(resp)
+            if resp.status_code == 429:
+                # Record error so the throttler adapts (lengthens interval).
+                self._get_throttler().record_error()
+                raise _RateLimitError(resp)
             return resp
 
         return _do_post()

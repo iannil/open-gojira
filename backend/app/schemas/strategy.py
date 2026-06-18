@@ -32,7 +32,7 @@ StrategyField = Literal[
     "dividend_payout_commitment_pct",
 ]
 
-ComparisonOp = Literal[">=", "<=", "==", "in"]
+ComparisonOp = Literal[">=", "<=", "==", "in", "<", ">"]
 
 
 class Condition(BaseModel):

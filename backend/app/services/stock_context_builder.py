@@ -168,7 +168,14 @@ def build_context(db: Session, code: str) -> StockContext:
 
     # Bank blind box verdict
     bank_verdict = None
-    if stock.industry == "银行":
+    # Lixinger returns industry="bank" (English) for A-share bank stocks.
+    # Match both Chinese and English plus use fs_table_type as fallback so
+    # the analyzer runs for all bank stocks regardless of industry naming.
+    is_bank = (
+        stock.industry in ("银行", "bank")
+        or getattr(stock, "fs_table_type", None) == "bank"
+    )
+    if is_bank:
         try:
             from app.services.bank_analyzer_service import analyze
             result = analyze(db, code)
@@ -284,7 +291,11 @@ def build_contexts_batch(db: Session, codes: list[str]) -> dict[str, StockContex
                 logger.warning("dividend_sustainability failed for %s", code, exc_info=True)
 
             bank_verdict = None
-            if s and s.industry == "银行":
+            is_bank = (
+                s is not None
+                and (s.industry in ("银行", "bank") or getattr(s, "fs_table_type", None) == "bank")
+            )
+            if is_bank:
                 try:
                     from app.services.bank_analyzer_service import analyze
                     r = analyze(db, code)

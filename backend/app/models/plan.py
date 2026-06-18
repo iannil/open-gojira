@@ -53,14 +53,18 @@ class Plan(Base):
     whose BusinessPattern.is_midstream=True AND Stock.is_cost_leader != True.
     Plan-level逃生口: set True to bypass for special-case plans."""
 
-    # --- M2 in_circle filter toggle (Batch 5 2026-06-17) ---
+    # --- M2 in_circle filter toggle (Batch 5 2026-06-17, default flipped 2026-06-18) ---
     disable_in_circle_filter: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False, server_default="0"
+        Boolean, nullable=False, default=True, server_default="1"
     )
-    """M2 (invest3 第四层 + 核心十诫 #9 坚守边界): when False (default),
-    plan_runner filters out stocks whose Stock.in_circle=False (用户未标记
-    为"在我的能力圈内"). Plan-level逃生口: set True to bypass for
-    special-case plans (e.g. 全市场扫描学习用)."""
+    """M2 (invest3 第四层 + 核心十诫 #9 坚守边界): when False, plan_runner
+    filters out stocks whose Stock.in_circle=False (用户未标记为"在我的能力
+    圈内").
+
+    **Default flipped to True (2026-06-18 audit F12)**: 原默认 False 在
+    Stock.in_circle 字段从未填充的情况下排除 100% 股票,plan_runner 永远
+    产出 0 候选。改为默认 True (filter 关),用户主动标 in_circle 后再
+    opt-in 启用 filter (设为 False)。"""
 
     # --- G1 cycle gate ---
     cycle_buy_max: Mapped[str] = mapped_column(

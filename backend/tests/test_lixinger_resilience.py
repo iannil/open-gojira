@@ -28,16 +28,28 @@ def _reset_lixinger_singleton():
 
     Circuit breaker state from one test could leak into another via the
     shared get_lixinger_client() singleton. Clear it before each test.
+    Also stubs the class-level throttler to a no-op so tests don't sleep.
     """
     import app.services.lixinger_client as mod
-    old = mod._client
+    old_client = mod._client
     mod._client = None
+    old_throttler = LixingerClient._throttler
+    LixingerClient._throttler = _NoOpThrottler()
     yield
-    mod._client = old
+    mod._client = old_client
+    LixingerClient._throttler = old_throttler
+
+
+class _NoOpThrottler:
+    """Test stub — acquire() and record_error() do nothing."""
+    def acquire(self) -> float:
+        return 0.0
+    def record_error(self) -> None:
+        pass
 
 
 def _make_client() -> LixingerClient:
-    """Client with no-op retry wait so tests run fast."""
+    """Client with no-op retry wait + no-op throttler so tests run fast."""
     c = LixingerClient(token="fake")
     c._retry_wait = wait_none()
     return c
@@ -122,6 +134,46 @@ def test_5xx_retried_4xx_not():
         with pytest.raises(LixingerError):
             client2._post("/test", {"a": 1})
     assert call_count[0] == 1  # no retry
+
+
+def test_429_rate_limit_retried():
+    """429 (rate limit) is retried with backoff — recovers after window resets.
+
+    Unlike other 4xx, 429 is transient. Audit 2026-06-18 found that the
+    previous code treated 429 as a fatal 4xx error, which meant parallel
+    pipelines triggered Lixinger rate limit and died silently (15k+ stocks
+    failed in dead-letter). 429 now goes through _RateLimitError which is
+    a RequestError subclass — tenacity retries it.
+    """
+    client = _make_client()
+
+    call_count = [0]
+
+    def side_effect(*args, **kwargs):
+        call_count[0] += 1
+        if call_count[0] < 3:
+            # Return a 429 response twice, then success.
+            return _make_response(status_code=429, text="rate limit")
+        return _make_response(json_data={"code": 1, "data": [{"x": 1}]})
+
+    with patch.object(client._client, "post", side_effect=side_effect):
+        data = client._post("/test", {"a": 1})
+
+    assert data == [{"x": 1}]
+    assert call_count[0] == 3  # 2 retries + 1 success
+
+
+def test_429_all_retries_exhausted():
+    """429 that doesn't recover within 3 attempts → LixingerError."""
+    client = _make_client()
+
+    with patch.object(
+        client._client,
+        "post",
+        side_effect=lambda *a, **k: _make_response(status_code=429, text="rate limit"),
+    ):
+        with pytest.raises(LixingerError):
+            client._post("/test", {"a": 1})
 
 
 def test_business_code_error_not_retried():

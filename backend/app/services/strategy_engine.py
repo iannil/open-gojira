@@ -115,6 +115,12 @@ def _evaluate_condition(cond: Condition, ctx: StockContext) -> ConditionResult:
     elif cond.op == "<=":
         passed = float(actual) <= float(cond.value)
         detail = f"{actual} {'≤' if passed else '>'} {cond.value}"
+    elif cond.op == "<":
+        passed = float(actual) < float(cond.value)
+        detail = f"{actual} {'<' if passed else '≥'} {cond.value}"
+    elif cond.op == ">":
+        passed = float(actual) > float(cond.value)
+        detail = f"{actual} {'>' if passed else '≤'} {cond.value}"
     else:
         passed = False
         detail = f"unknown op: {cond.op}"
