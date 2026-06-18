@@ -2,13 +2,13 @@
 
 > **此文档是项目当前状态的真实来源。AI 代理应首先阅读此文件。**
 >
-> | 字段 | 值 (实测于 2026-06-18 grill-me 功能审计 + F17 v2 修复后) |
+> | 字段 | 值 (实测于 2026-06-18 grill-me + F17 v2 + F21 修复后) |
 > |---|---|
-> | 最后更新 | 2026-06-18 (F17 v2 — forward_dyr 改用 Lixinger dyr × stability。Plan 3 银行底仓 0 候选 → 7 候选 + 3 drafts,Plan 5 纯粹赚钱机器 0 draft → 1 draft。6 内置 plan 现在 4 个真实可用: plan 1/3/4/5) |
+> | 最后更新 | 2026-06-18 (F21 — BacktestSubmit schema vs engine 字段不对齐 (`strategy_rules` vs `strategies`),所有 POST /api/backtests 永远 0 strategies → 0 trades。schema 改 `strategies: list[int]` + `target_pct: float` + 3 单测。实测 backtest 真跑 8 trades / total_return -1.9% / sharpe -0.89,metrics 全部计算正确。backtest engine 首次真实跑通) |
 > | 分支 | `master` |
-> | 最新 commit | (待提交) F17 v2 forward_dyr 算法升级 |
-> | 测试 | **1172 passed**, 0 failed (`pytest`) |
-> | 测试函数数 | 1172 (1167 + F17 v2 ×5) |
+> | 最新 commit | (待提交) F21 backtest schema 对齐 |
+> | 测试 | **1175 passed**, 0 failed (`pytest`) |
+> | 测试函数数 | 1175 (1172 + F21×3) |
 > | Alembic head | `s10_1_in_circle_filter_default_off` |
 > | Alembic 版本文件数 | 50 |
 > | 后端代码 | ~33,000 行 (app/) + ~20,000 行 (tests/) |

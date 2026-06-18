@@ -15,16 +15,25 @@ from pydantic import BaseModel, Field
 class BacktestSubmit(BaseModel):
     """Payload for POST /api/backtests.
 
-    strategy_rules format (v1, simplified):
-        [{metric, operator, threshold, action, target_pct}]
-    See app.services.backtest_engine docstring for full spec.
+    Config consumed by app.services.backtest_engine.run_backtest:
+      - stock_codes: universe
+      - start_date / end_date: YYYY-MM-DD
+      - initial_capital: cash to start with (default 1_000_000)
+      - slippage_bps: slippage in basis points (default 10)
+      - strategies: list of strategy IDs (filter AND-wise; empty = no signals)
+      - target_pct: per-BUY fraction of cash (default 0.10)
     """
     stock_codes: list[str] = Field(..., min_length=1)
     start_date: str  # YYYY-MM-DD
     end_date: str    # YYYY-MM-DD
     initial_capital: float = 1000000.0
     slippage_bps: int = 10
-    strategy_rules: list[dict] = Field(default_factory=list)
+    # F21 (2026-06-18): schema field name must match what backtest_engine reads.
+    # Previous field was `strategy_rules: list[dict]` but engine reads
+    # `config.get("strategies", [])` as list[int] strategy IDs → permanent
+    # mismatch meant all backtests ran with 0 strategies → 0 trades.
+    strategies: list[int] = Field(default_factory=list)
+    target_pct: float = 0.10
 
 
 class BacktestResponse(BaseModel):

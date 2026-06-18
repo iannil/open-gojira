@@ -228,3 +228,74 @@ def test_backtest_api_submit_list_get(client, db_session):
 
     r4 = client.get("/api/backtests/99999")
     assert r4.status_code == 404
+
+
+# ── F21 (2026-06-18): Schema vs Engine alignment ──────────────────────────
+
+
+def test_backtest_submit_schema_accepts_strategies_field():
+    """F21: BacktestSubmit must use 'strategies' (list[int]) not 'strategy_rules'.
+
+    Previously schema had `strategy_rules: list[dict]` but backtest_engine
+    reads `config.get("strategies", [])` as list[int] strategy IDs. Schema
+    rejected `strategies` field → engine always saw empty list → 0 trades.
+    """
+    from app.schemas.backtest import BacktestSubmit
+
+    # Should accept strategies field
+    payload = BacktestSubmit(
+        stock_codes=["600519"],
+        start_date="2023-01-03",
+        end_date="2023-06-30",
+        strategies=[1, 2],
+        target_pct=0.20,
+    )
+    dumped = payload.model_dump()
+    assert dumped["strategies"] == [1, 2]
+    assert dumped["target_pct"] == 0.20
+    # Old field name should NOT be present
+    assert "strategy_rules" not in dumped
+
+
+def test_backtest_submit_schema_default_strategies_empty():
+    """F21: default strategies is empty list (matches engine expectation)."""
+    from app.schemas.backtest import BacktestSubmit
+    payload = BacktestSubmit(
+        stock_codes=["600519"],
+        start_date="2023-01-03",
+        end_date="2023-06-30",
+    )
+    assert payload.strategies == []
+    assert payload.target_pct == 0.10  # default
+
+
+def test_backtest_api_passes_strategies_to_engine(client, db_session, monkeypatch):
+    """F21: POST /api/backtests must pass `strategies` through to config_json.
+
+    Integration test: full HTTP path → DB → run_backtest sees config.
+    """
+    captured_configs = []
+    from app.routers import backtests as backtests_router
+
+    def fake_run_backtest(db, run_id):
+        from app.models.backtest_run import BacktestRun
+        run = db.get(BacktestRun, run_id)
+        captured_configs.append(dict(run.config_json))
+        run.status = "completed"
+        run.result_json = {"metrics": {}}
+        return run
+
+    monkeypatch.setattr(backtests_router, "run_backtest", fake_run_backtest)
+
+    resp = client.post("/api/backtests", json={
+        "stock_codes": ["600519"],
+        "start_date": "2023-01-03",
+        "end_date": "2023-06-30",
+        "strategies": [2, 7],
+        "target_pct": 0.30,
+    })
+    assert resp.status_code == 201
+    assert len(captured_configs) == 1
+    cfg = captured_configs[0]
+    assert cfg.get("strategies") == [2, 7], f"Expected [2, 7], got {cfg.get('strategies')}"
+    assert cfg.get("target_pct") == 0.30
