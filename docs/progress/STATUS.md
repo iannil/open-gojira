@@ -2,13 +2,13 @@
 
 > **此文档是项目当前状态的真实来源。AI 代理应首先阅读此文件。**
 >
-> | 字段 | 值 (实测于 2026-06-18 grill-me + F17 v2 + F21 修复后) |
+> | 字段 | 值 (实测于 2026-06-18 grill-me + F17 v2 + F21 + F23 修复后) |
 > |---|---|
-> | 最后更新 | 2026-06-18 (F21 — BacktestSubmit schema vs engine 字段不对齐 (`strategy_rules` vs `strategies`),所有 POST /api/backtests 永远 0 strategies → 0 trades。schema 改 `strategies: list[int]` + `target_pct: float` + 3 单测。实测 backtest 真跑 8 trades / total_return -1.9% / sharpe -0.89,metrics 全部计算正确。backtest engine 首次真实跑通) |
+> | 最后更新 | 2026-06-18 (F23 — serenity worker thread 在 GLM SSL read 阻塞时永久 hang,DB 状态永远 running。加 `research_stale_sweep` job 每 10 min 清理 stuck runs,15 min soft + 30 min hard threshold。实测复现 GLM hang 11 min,kill 后 mark failed。worker hang 根因 GLM-5.1 SSL bug 留作 P2 watchdog,详见 memory `feedback-glm-connection-hang`) |
 > | 分支 | `master` |
-> | 最新 commit | (待提交) F21 backtest schema 对齐 |
-> | 测试 | **1175 passed**, 0 failed (`pytest`) |
-> | 测试函数数 | 1175 (1172 + F21×3) |
+> | 最新 commit | (待提交) F23 research stale sweep |
+> | 测试 | **1177 passed**, 0 failed (`pytest`) |
+> | 测试函数数 | 1177 (1175 + F23×2) |
 > | Alembic head | `s10_1_in_circle_filter_default_off` |
 > | Alembic 版本文件数 | 50 |
 > | 后端代码 | ~33,000 行 (app/) + ~20,000 行 (tests/) |

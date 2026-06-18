@@ -101,6 +101,10 @@ DEFAULT_JOBS: dict[str, dict] = {
         "cron_expr": "*/15 * * * *",  # every 15 min
         "description": "F15: 周期性清理 stuck pipeline runs (后台线程死亡但 status=running 的孤儿记录)",
     },
+    "research_stale_sweep": {
+        "cron_expr": "*/10 * * * *",  # every 10 min (F23: serenity worker hang 更频繁)
+        "description": "F23: 周期性清理 stuck serenity research runs (GLM SSL hang 导致 worker thread 永久阻塞)",
+    },
 }
 
 

@@ -29,6 +29,7 @@ def test_job_registry_has_expected_jobs():
         "intraday_price_poll",
         "weekly_research_refresh",
         "pipeline_stale_sweep",
+        "research_stale_sweep",
     }
 
 
@@ -265,3 +266,87 @@ def test_pipeline_stale_sweep_job_recovers_stuck(db_session, monkeypatch):
     assert result["recovered"] >= 1
     db_session.refresh(run)
     assert run.status == PipelineStatus.FAILED.value
+
+
+# ── F23 (2026-06-18): research stale sweep ────────────────────────────────
+
+
+def test_research_stale_sweep_recovers_hung_run(db_session, monkeypatch):
+    """F23: research run stuck in 'running' for > 30 min → mark failed."""
+    from datetime import datetime, timedelta, timezone
+    from app.models.research_run import ResearchRun
+    from app.models.research_theme import ResearchTheme
+    from contextlib import contextmanager
+    import app.scheduler as sched_module
+
+    # Create theme + run with started_at 45 min ago (past hard threshold)
+    old_time = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=45)
+    theme = ResearchTheme(name="test theme", market="A_SHARE", status="active")
+    db_session.add(theme)
+    db_session.flush()
+    run = ResearchRun(
+        research_theme_id=theme.id,
+        status="running",
+        scope_market="A_SHARE",
+        scope_time_window="3-12M",
+        triggered_by="manual",
+        llm_provider="glm-5.1",
+        llm_token_input=0,
+        llm_token_output=0,
+        llm_search_count=0,
+        attempt_count=1,
+        started_at=old_time,
+    )
+    db_session.add(run)
+    db_session.flush()
+
+    @contextmanager
+    def fake_session_local():
+        yield db_session
+    monkeypatch.setattr(sched_module, "SessionLocal", fake_session_local)
+
+    result = sched_module.research_stale_sweep_job()
+    assert result["recovered"] >= 1
+    db_session.refresh(run)
+    assert run.status == "failed"
+    assert run.completed_at is not None
+    assert "GLM" in (run.error_message or "") or "hung" in (run.error_message or "")
+
+
+def test_research_stale_sweep_keeps_recent_running(db_session, monkeypatch):
+    """F23: research run started < 15 min ago → keep running."""
+    from datetime import datetime, timedelta, timezone
+    from app.models.research_run import ResearchRun
+    from app.models.research_theme import ResearchTheme
+    from contextlib import contextmanager
+    import app.scheduler as sched_module
+
+    fresh_time = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=5)
+    theme = ResearchTheme(name="test theme 2", market="A_SHARE", status="active")
+    db_session.add(theme)
+    db_session.flush()
+    run = ResearchRun(
+        research_theme_id=theme.id,
+        status="running",
+        scope_market="A_SHARE",
+        scope_time_window="3-12M",
+        triggered_by="manual",
+        llm_provider="glm-5.1",
+        llm_token_input=0,
+        llm_token_output=0,
+        llm_search_count=0,
+        attempt_count=1,
+        started_at=fresh_time,
+    )
+    db_session.add(run)
+    db_session.flush()
+
+    @contextmanager
+    def fake_session_local():
+        yield db_session
+    monkeypatch.setattr(sched_module, "SessionLocal", fake_session_local)
+
+    result = sched_module.research_stale_sweep_job()
+    assert result["recovered"] == 0
+    db_session.refresh(run)
+    assert run.status == "running"

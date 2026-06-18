@@ -787,6 +787,66 @@ def pipeline_stale_sweep_job() -> dict:
         return {"recovered": len(recovered), "ids": recovered}
 
 
+def research_stale_sweep_job() -> dict:
+    """F23 (2026-06-18): periodic sweep for stuck serenity research runs.
+
+    Serenity worker thread can hang on GLM API call (memory
+    feedback-glm-connection-hang: SSL read blocks, httpx timeout ineffective).
+    The thread doesn't crash so the run stays 'running' forever.
+
+    Threshold: 15 min soft (likely dead), 30 min hard (definitely dead).
+    Typical serenity run = 5 min; 15 min = 3× safety margin.
+    """
+    from datetime import timedelta
+    from app.models.research_run import ResearchRun
+    from sqlalchemy import select
+
+    with SessionLocal() as db:
+        soft_threshold = _utcnow() - timedelta(minutes=15)
+        hard_threshold = _utcnow() - timedelta(minutes=30)
+
+        stuck = db.execute(
+            select(ResearchRun).where(ResearchRun.status == "running")
+        ).scalars().all()
+        recovered = []
+        for run in stuck:
+            if run.started_at is None:
+                continue
+            if run.started_at < hard_threshold:
+                run.status = "failed"
+                run.error_message = (
+                    "Worker hung > 30 min (GLM SSL read blocked, "
+                    "per feedback-glm-connection-hang)"
+                )
+                if not run.completed_at:
+                    run.completed_at = _utcnow()
+                recovered.append(run.id)
+            elif run.started_at < soft_threshold:
+                run.status = "failed"
+                run.error_message = "Worker hung > 15 min (likely GLM connection issue)"
+                if not run.completed_at:
+                    run.completed_at = _utcnow()
+                recovered.append(run.id)
+
+        if recovered:
+            db.commit()
+            # Sync theme last_run_status
+            from app.models.research_theme import ResearchTheme
+            for run_id in recovered:
+                run_obj = db.get(ResearchRun, run_id)
+                if run_obj:
+                    theme = db.get(ResearchTheme, run_obj.research_theme_id)
+                    if theme:
+                        theme.last_run_status = "failed"
+                        theme.last_run_error = run_obj.error_message
+            db.commit()
+        logger.info(
+            "research_stale_sweep: recovered %d stuck runs %s",
+            len(recovered), recovered[:5],
+        )
+        return {"recovered": len(recovered), "ids": recovered}
+
+
 # ── Job Registry ──────────────────────────────────────────────────────────
 
 # Maps job_id → unwrapped function (tracking is applied during scheduling)
@@ -813,6 +873,7 @@ JOB_REGISTRY = {
     "intraday_price_poll": intraday_price_poll_job,
     "weekly_research_refresh": _weekly_research_refresh_job,
     "pipeline_stale_sweep": pipeline_stale_sweep_job,
+    "research_stale_sweep": research_stale_sweep_job,
 }
 
 
