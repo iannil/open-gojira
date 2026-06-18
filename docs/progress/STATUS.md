@@ -4,7 +4,7 @@
 >
 > | 字段 | 值 (实测于 2026-06-18 wipe 进入 v0.2 后) |
 > |---|---|
-> | 项目状态 | **v0.2-started** 🚀 (2026-06-18 21:06 wipe 进入 v0.2;首次 autopilot run pending 今晚 18:00) |
+> | 项目状态 | **v0.2-started** 🚀 (2026-06-18 21:06 wipe 进入 v0.2;首次 v0.2 autopilot run pending 明天 2026-06-19 17:45 daily_plan_evaluation cron 触发) |
 > | 最后更新 | 2026-06-18 21:30 (wipe + grill-me 完整状态对齐) |
 > | 分支 | `master` |
 > | 最新 commit | `9a2ad61` docs: v0.1-paper-verified 通过 + F29/F30 finding 同步 (v0.1 ship); wipe 脚本 + STATUS.md 改写 pending commit |
@@ -17,7 +17,7 @@
 > | 远程仓库 | 暂无 (`git remote -v` 为空) |
 > | 真实使用 | **DB 2026-06-18 wipe 后起点**: 业务 action 表全 0 (holdings/trades/drafts/candidates/audit_logs/cash_balance/watchlist_items 全清); Lixinger 四大表新鲜 (stocks 5626 / valuations 14928 最新今天 / financials 26799 最新 2025-12-31 / dividends 48989 最新 ex_date 2026-06-29 + 5 股增量测试 OK) |
 > | v0.1 artifact | **pre-usage-wipe-2026-06-18.db** (185MB,backend/data/backups/) — 含 2 paper holdings + 4 trades + 86 drafts + 179 candidates + audit_logs 123 行,v0.1-verified 验证产物 |
-> | v0.2 验收标准 | **autopilot 跑通即 v0.2-verified** (用户 2026-06-18 grill-me 决策: 去期限化,不要求"1 个月长期运行")。通过条件: 今晚 18:00 scheduler daily_plan_evaluation 跑首次 v0.2 run + 产出 candidates/drafts + audit_logs 沉淀 |
+> | v0.2 验收标准 | **autopilot 跑通即 v0.2-verified** (用户 2026-06-18 grill-me 决策: 去期限化,不要求"1 个月长期运行")。通过条件: 明天 2026-06-19 17:45 scheduler `daily_plan_evaluation` cron (`45 17 * * 1-5`) 触发首次 v0.2 run + 产出 candidates/drafts + audit_logs 沉淀 |
 > | 下次 milestone | v0.2-verified (autopilot 跑通) → v1.0 (真实 broker 下单) |
 
 ---
@@ -174,7 +174,7 @@ Alembic 迁移链: 50 个版本文件 (实测 2026-06-18),head = `s10_1_in_circl
 | mon-fri 17:05 | 沪深300 周期评估 |
 | mon-fri 17:15 | K线增量同步 |
 | mon-fri 17:30 | 告警规则评估 |
-| mon-fri 18:00 | **预案运行** (扫描全市场 → 更新候选池 → 交易规则评估) |
+| mon-fri 17:45 | **预案运行** (扫描全市场 → 更新候选池 → 交易规则评估) |
 | mon-fri */5 9-14 | 盘中价格监控 (可选,默认关闭) |
 
 ### 3.6 EventBus 事件注册表

@@ -1,7 +1,7 @@
 # 2026-06-18 grill-me 数据状态完整对齐 → v0.2 起点
 
 > **日期**: 2026-06-18 (21:00–21:45 晚)
-> **状态**: 已完成 (待 #3 今晚 18:00 autopilot 触发)
+> **状态**: 已完成 (待 #3 明天 2026-06-19 17:45 autopilot 触发)
 > **关联**: STATUS.md §5.2 (本条已写入里程碑) / `2026-06-18-grill-me-feature-audit.md` (上一轮功能审计) / `wipe_usage_data.py` (本日新增)
 
 ## 目标 (Goal)
@@ -47,11 +47,11 @@
 - [x] Pipeline 测试: `POST /api/data-management/pipeline/dividends/start` 5 股 → `cd178ed8` status=completed 5/5 0 failed 5.8s
 - [x] git commit `7989718` 三件 staged 干净
 - [x] backup .db 已 ignore (`git check-ignore -v` 验证)
-- [ ] **#3 今晚 18:00 scheduler autopilot 跑首次 v0.2 run**: job_executions 有 daily_plan_evaluation success + candidates/drafts 表非 0 + audit_logs 沉淀
+- [ ] **#3 明天 2026-06-19 17:45 scheduler autopilot 跑首次 v0.2 run**: job_executions 有 daily_plan_evaluation success + candidates/drafts 表非 0 + audit_logs 沉淀
 
 ## 下一步 (Next Steps)
 
-- **#3 今晚 18:00** (Asia/Shanghai) 等 scheduler `daily_plan_evaluation` 触发; 通过 = v0.2-verified (按决策 #5)
+- **#3 明天 2026-06-19 17:45** (Asia/Shanghai) 等 scheduler `daily_plan_evaluation` (cron `45 17 * * 1-5`) 触发; 通过 = v0.2-verified (按决策 #5)
 - **#4 price_klines 全量 backfill (5354 股)**: 前置需先 wire AdaptiveThrottler (L3 修复,约 30 分钟),再触发 klines pipeline 全量 (预计 1-2 小时 + Lixinger 流量)
 - **可选: wire AdaptiveThrottler (L3)** — v0.2 期间根本性稳定性修复,且是 #4 前置
 - **可选: dev.sh clear_port + CockpitPage.tsx + theme.css** — 用户独立改动,本任务未触碰,待用户自己决定
