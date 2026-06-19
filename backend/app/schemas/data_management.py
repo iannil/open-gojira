@@ -1,6 +1,6 @@
 """Schemas for data management endpoints."""
 
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -60,6 +60,18 @@ class DataStatusOverview(BaseModel):
 class SyncTriggerRequest(BaseModel):
     stock_codes: Optional[list[str]] = None  # None = all watched stocks
     years: int = 5
+
+
+class PipelineStartRequest(BaseModel):
+    """Validated body for POST /api/data-management/pipeline/{type}/start.
+
+    Constraints enforced here (entry-point) so manager / pipeline layers can
+    trust the values without re-checking. granularity is the financials-only
+    toggle: 'y' (annual, default) or 'q' (quarterly)."""
+    stock_codes: Optional[list[str]] = None
+    force_full: bool = False
+    years: int = Field(default=5, ge=1, le=20)
+    granularity: Optional[Literal["y", "q"]] = None
 
 
 

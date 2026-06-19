@@ -9,6 +9,7 @@ from app.schemas.data_management import (
     CleanupRequest,
     CleanupResult,
     DataStatusOverview,
+    PipelineStartRequest,
     StockPoolAddRequest,
     StockPoolItem,
     StockPoolRemoveRequest,
@@ -108,20 +109,17 @@ async def start_pipeline(pipeline_type: str, request: Request, db: Session = Dep
     if pipeline_type not in valid_types:
         raise HTTPException(status_code=400, detail=f"Invalid pipeline type: {pipeline_type}")
 
-    body = await request.json()
-    stock_codes = body.get("stock_codes")
-    force_full = body.get("force_full", False)
-    years = body.get("years", 5)
-    granularity = body.get("granularity")
+    payload = await request.json()
+    parsed = PipelineStartRequest(**payload)
 
     mgr = PipelineManager(db)
     try:
         return mgr.start(
             pipeline_type=pipeline_type,
-            stock_codes=stock_codes,
-            force_full=force_full,
-            years=years,
-            granularity=granularity,
+            stock_codes=parsed.stock_codes,
+            force_full=parsed.force_full,
+            years=parsed.years,
+            granularity=parsed.granularity,
         )
     except ValueError as e:
         msg = str(e)
