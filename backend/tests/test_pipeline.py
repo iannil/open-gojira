@@ -287,6 +287,29 @@ class TestPipelineManager:
         with pytest.raises(ValueError, match="No stocks to sync"):
             mgr.start("valuations", stock_codes=[])
 
+    def test_start_records_granularity_in_config(self, db: Session):
+        """Granularity arg (financials quarterly) is persisted to PipelineRun.config."""
+        from app.models.pipeline import PipelineRun
+        mgr = PipelineManager(db)
+        result = mgr.start(
+            "financials",
+            stock_codes=["600519"],
+            granularity="q",
+            background=False,
+        )
+        run = db.query(PipelineRun).filter(PipelineRun.id == result["run_id"]).first()
+        config = json.loads(run.config)
+        assert config["granularity"] == "q"
+
+    def test_start_default_granularity_is_none(self, db: Session):
+        """When granularity not passed, config records null (financials defaults to 'y' in pipeline.extract)."""
+        from app.models.pipeline import PipelineRun
+        mgr = PipelineManager(db)
+        result = mgr.start("financials", stock_codes=["600519"], background=False)
+        run = db.query(PipelineRun).filter(PipelineRun.id == result["run_id"]).first()
+        config = json.loads(run.config)
+        assert config["granularity"] is None
+
 
 class TestBasePipeline:
     def test_classify_transient_error(self):

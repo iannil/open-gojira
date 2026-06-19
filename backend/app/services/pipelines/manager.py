@@ -68,6 +68,7 @@ class PipelineManager:
         force_full: bool = False,
         years: int = 5,
         background: bool = True,
+        granularity: str | None = None,
     ) -> dict:
         """Start a pipeline run. Returns run metadata immediately."""
         cls = _pipeline_registry.get(pipeline_type)
@@ -91,6 +92,7 @@ class PipelineManager:
             "stock_codes": stock_codes,
             "force_full": force_full,
             "years": years,
+            "granularity": granularity,
         })
 
         run = PipelineRun(
@@ -106,12 +108,12 @@ class PipelineManager:
         if background:
             thread = threading.Thread(
                 target=self._run_in_thread,
-                args=(run_id, pipeline_type, stock_codes, force_full, years),
+                args=(run_id, pipeline_type, stock_codes, force_full, years, granularity),
                 daemon=True,
             )
             thread.start()
         else:
-            self._execute(run_id, pipeline_type, stock_codes, force_full, years)
+            self._execute(run_id, pipeline_type, stock_codes, force_full, years, granularity)
 
         return {
             "run_id": run_id,
@@ -127,11 +129,12 @@ class PipelineManager:
         stock_codes: list[str],
         force_full: bool,
         years: int,
+        granularity: str | None = None,
     ) -> None:
         """Background thread entry — owns its own DB session."""
         from app.db.session import SessionLocal
         with SessionLocal() as db:
-            self._execute_with_db(db, run_id, pipeline_type, stock_codes, force_full, years)
+            self._execute_with_db(db, run_id, pipeline_type, stock_codes, force_full, years, granularity)
 
     def _execute(
         self,
@@ -140,8 +143,9 @@ class PipelineManager:
         stock_codes: list[str],
         force_full: bool,
         years: int,
+        granularity: str | None = None,
     ) -> None:
-        self._execute_with_db(self.db, run_id, pipeline_type, stock_codes, force_full, years)
+        self._execute_with_db(self.db, run_id, pipeline_type, stock_codes, force_full, years, granularity)
 
     def _execute_with_db(
         self,
@@ -151,6 +155,7 @@ class PipelineManager:
         stock_codes: list[str],
         force_full: bool,
         years: int,
+        granularity: str | None = None,
     ) -> None:
         cls = _pipeline_registry[pipeline_type]
         pipeline = cls(db, run_id=run_id, cancel_check=lambda: run_id in _get_cancelled())
@@ -169,7 +174,8 @@ class PipelineManager:
         db.commit()
 
         try:
-            result = pipeline.execute(stock_codes, force_full=force_full, years=years)
+            extra = {"granularity": granularity} if granularity else {}
+            result = pipeline.execute(stock_codes, force_full=force_full, years=years, extra=extra)
 
             run.status = result.status.value
             run.completed_items = result.completed_items

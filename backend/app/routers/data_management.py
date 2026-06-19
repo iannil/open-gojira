@@ -112,6 +112,7 @@ async def start_pipeline(pipeline_type: str, request: Request, db: Session = Dep
     stock_codes = body.get("stock_codes")
     force_full = body.get("force_full", False)
     years = body.get("years", 5)
+    granularity = body.get("granularity")
 
     mgr = PipelineManager(db)
     try:
@@ -120,6 +121,7 @@ async def start_pipeline(pipeline_type: str, request: Request, db: Session = Dep
             stock_codes=stock_codes,
             force_full=force_full,
             years=years,
+            granularity=granularity,
         )
     except ValueError as e:
         msg = str(e)
