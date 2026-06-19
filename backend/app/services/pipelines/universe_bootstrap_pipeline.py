@@ -120,7 +120,7 @@ class UniverseBootstrapPipeline(BasePipeline):
         return result
 
     def _upsert_companies(self, companies: dict[str, dict]) -> dict:
-        now = now()
+        now_dt = now()
         codes_in_response = set(companies.keys())
 
         existing_stocks = {
@@ -193,7 +193,7 @@ class UniverseBootstrapPipeline(BasePipeline):
         for code, stock in existing_stocks.items():
             if code not in codes_in_response:
                 if stock.sync_source in ("bootstrap", "delta") and stock.delisted_at is None:
-                    stock.delisted_at = now
+                    stock.delisted_at = now_dt
                     delisted += 1
             else:
                 # Reactivate previously delisted stocks
