@@ -4,6 +4,7 @@ from sqlalchemy import DateTime, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.core.datetime_utils import now
 
 
 class AuditLog(Base):
@@ -30,5 +31,5 @@ class AuditLog(Base):
     summary: Mapped[str] = mapped_column(String, nullable=False)
     payload: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), index=True
+        DateTime, default=now(), index=True
     )

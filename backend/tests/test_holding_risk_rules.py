@@ -7,6 +7,7 @@ from app.services.trade_service import record_trade
 from app.models.cash_balance import CashBalance
 from app.models.broker_fee_config import BrokerFeeConfig
 from app.models.stock import Stock
+from app.core.datetime_utils import now
 
 
 @pytest.fixture
@@ -52,7 +53,7 @@ def test_risk_rule_triggered_at_set(db_session, setup):
                             stop_loss_type="pct_from_cost", take_profit_pct=0.30,
                             take_profit_type="pct_from_cost")
     db_session.add(rule); db_session.flush()
-    rule.triggered_at = datetime.utcnow()
+    rule.triggered_at = now()
     rule.trigger_reason = "Stop loss at -8.5%"
     db_session.commit()
     refreshed = db_session.get(HoldingRiskRule, rule.id)

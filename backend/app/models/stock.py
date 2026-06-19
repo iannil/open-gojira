@@ -5,6 +5,7 @@ from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, Stri
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.core.datetime_utils import now
 
 if TYPE_CHECKING:
     from app.models.dividend import DividendRecord
@@ -107,7 +108,7 @@ class Stock(Base):
     """Latest close price (previous trading day). Used for price band (涨跌停)
     calculation. Synced daily via update_prev_close_batch before market open."""
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now()
+        DateTime, default=now()
     )
     updated_at: Mapped[datetime | None] = mapped_column(
         DateTime, onupdate=func.now(), nullable=True

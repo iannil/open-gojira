@@ -17,6 +17,7 @@ from sqlalchemy import DateTime, Float, Integer, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.core.datetime_utils import now
 
 
 class CashBalance(Base):
@@ -29,7 +30,7 @@ class CashBalance(Base):
     """Current cash position. Signed: positive = cash available."""
 
     as_of_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), nullable=False
+        DateTime, default=now(), nullable=False
     )
     """Last time balance was updated. Refreshed on every trade / adjustment."""
 

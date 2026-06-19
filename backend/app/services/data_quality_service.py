@@ -8,12 +8,12 @@ from datetime import date
 from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session
 
-from app.core.datetime_utils import utcnow
 from app.models.dividend import DividendRecord
 from app.models.financial import FinancialStatement
 from app.models.pipeline import DeadLetterRecord, PipelineRun
 from app.models.price_kline import PriceKline
 from app.models.valuation import ValuationSnapshot
+from app.core.datetime_utils import now
 from app.schemas.data_quality import (
     DataQualityResponse,
     DataTypeQuality,
@@ -71,7 +71,7 @@ def _get_pool_codes(db: Session) -> set[str]:
 def _compute_freshness(latest_date: date | None, dtype: str) -> str:
     if latest_date is None:
         return "missing"
-    today = utcnow().date()
+    today = now().date()
     days_diff = (today - latest_date).days
     if days_diff <= _FRESHNESS_THRESHOLDS.get(dtype, 365):
         return "fresh"

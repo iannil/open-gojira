@@ -16,6 +16,7 @@ need to assert on the alert, ``app.services.scheduler_alerting.SessionLocal``
 can be monkey-patched to point at the test's in-memory engine.
 """
 from __future__ import annotations
+from app.core.datetime_utils import now
 
 import functools
 import logging
@@ -47,7 +48,7 @@ _last_emit_at: dict[str, datetime] = {}
 
 
 def _utcnow_naive() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return now()
 
 
 def _should_emit(job_id: str, now: datetime) -> bool:

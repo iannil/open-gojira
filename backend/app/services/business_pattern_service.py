@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from app.models.business_pattern import BusinessPattern
 from app.models.stock import Stock
+from app.core.datetime_utils import now
 
 logger = logging.getLogger(__name__)
 
@@ -266,7 +267,7 @@ def infer_for_stock(
     new_id = infer_business_pattern(stock.industry, patterns)
     stock.business_pattern_id = new_id
     stock.business_pattern_inferred_at = (
-        datetime.now(timezone.utc) if new_id is not None else None
+        now() if new_id is not None else None
     )
     db.flush()
     return new_id
@@ -321,7 +322,7 @@ def infer_all_stocks(db: Session, *, force: bool = False) -> dict:
                 cleared += 1
             stock.business_pattern_id = new_id
             stock.business_pattern_inferred_at = (
-                datetime.now(timezone.utc) if new_id is not None else None
+                now() if new_id is not None else None
             )
     db.flush()
     logger.info(

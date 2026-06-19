@@ -14,13 +14,14 @@ from app.models.research_theme import ResearchTheme
 from app.models.stock import Stock
 from app.models.valuation import ValuationSnapshot
 from app.services import thesis_monitor_service as svc
+from app.core.datetime_utils import now
 
 
 # ── Helpers ────────────────────────────────────────────────────────────
 
 
 def _utcnow_naive() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return now()
 
 
 def _make_theme_run(db) -> ResearchRun:

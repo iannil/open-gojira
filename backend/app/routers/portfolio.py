@@ -1,4 +1,5 @@
 """Portfolio (holdings) CRUD endpoints."""
+from app.core.datetime_utils import now
 
 from datetime import datetime
 
@@ -100,9 +101,9 @@ def get_available_quantity(code: str, db: Session = Depends(get_db)):
     """
     if not db.query(Stock).filter(Stock.code == code).first():
         raise HTTPException(status_code=404, detail=f"Stock {code} not found")
-    now = datetime.now()
-    available = available_quantity_at(db, code, now)
-    frozen = frozen_quantity_at(db, code, now)
+    now_dt = now()
+    available = available_quantity_at(db, code, now_dt)
+    frozen = frozen_quantity_at(db, code, now_dt)
     holdings = [h for h in get_holding_view(db) if h["stock_code"] == code]
     total = int(holdings[0]["total_quantity"]) if holdings else 0
     return AvailableQuantityResponse(

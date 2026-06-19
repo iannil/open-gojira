@@ -141,7 +141,8 @@ def test_supersede_old_pending_draft_when_strategy_no_longer_fires(db_session, s
     assert len(pending_after_r1) >= 1
 
     # Simulate time passing — manually age the draft's triggered_at backwards
-    old_ts = datetime.utcnow() - timedelta(days=5)
+    from app.core.datetime_utils import now
+    old_ts = now() - timedelta(days=5)
     for d in pending_after_r1:
         d.triggered_at = old_ts
     db_session.flush()

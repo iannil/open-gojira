@@ -12,10 +12,11 @@ from sqlalchemy.orm import Session
 from app.models.draft import Draft
 from app.models.plan import Plan
 from app.core.events import bus, DraftCreated
+from app.core.datetime_utils import now
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return now()
 
 
 def list_recent(

@@ -23,6 +23,7 @@ from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.core.datetime_utils import now
 
 
 class ResearchClaimVariable(Base):
@@ -73,7 +74,7 @@ class ResearchClaimVariable(Base):
     # "proposed" | "active" | "rejected"
 
     proposed_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now()
+        DateTime, default=now()
     )
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     reviewed_by: Mapped[str | None] = mapped_column(String, nullable=True)

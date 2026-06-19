@@ -26,6 +26,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
 
 from app.db.base import Base
+from app.core.datetime_utils import now
 
 
 class CorpAction(Base):
@@ -60,7 +61,7 @@ class CorpAction(Base):
     """lixinger | manual | heuristic (company list diff)"""
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), nullable=False
+        DateTime, default=now(), nullable=False
     )
     processed_at: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True, index=True

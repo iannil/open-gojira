@@ -30,6 +30,7 @@ from app.models.trade import Trade
 from app.services.fee_calculator_service import compute_fees
 from app.services.holding_view_service import available_quantity_at
 from app.services.price_validator_service import assert_tradable
+from app.core.datetime_utils import now
 
 
 class InsufficientBalanceError(HTTPException):
@@ -62,7 +63,7 @@ class NoActiveFeeConfigError(HTTPException):
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return now()
 
 
 def _get_active_fee_config(db: Session, filled_at: datetime) -> BrokerFeeConfig:

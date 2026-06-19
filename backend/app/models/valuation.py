@@ -4,6 +4,7 @@ from sqlalchemy import Date, DateTime, Float, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.core.datetime_utils import now
 
 
 class ValuationSnapshot(Base):
@@ -26,7 +27,7 @@ class ValuationSnapshot(Base):
     dividend_yield: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now()
+        DateTime, default=now()
     )
 
     # Relationships

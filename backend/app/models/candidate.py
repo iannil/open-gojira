@@ -16,6 +16,7 @@ from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, fun
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.core.datetime_utils import now
 
 if TYPE_CHECKING:
     from app.models.plan import Plan
@@ -38,9 +39,9 @@ class Candidate(Base):
         String, nullable=False, default="active", index=True
     )
     """'active' | 'removed'"""
-    first_seen_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime, default=now())
     last_confirmed_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now()
+        DateTime, default=now()
     )
     removed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_eval_json: Mapped[str | None] = mapped_column(Text, nullable=True)

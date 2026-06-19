@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta
 import pytest
 
+from app.core.datetime_utils import now
 from app.models.data_freshness import DataFreshness
 from app.services.data_freshness_service import (
     record_sync_attempt, record_sync_success, record_sync_failure,
@@ -11,8 +12,8 @@ from app.services.data_freshness_service import (
 
 def test_freshness_create(db_session):
     f = DataFreshness(category="valuation",
-                      last_synced_at=datetime.utcnow(),
-                      last_success_at=datetime.utcnow(),
+                      last_synced_at=now(),
+                      last_success_at=now(),
                       last_record_count=5000)
     db_session.add(f)
     db_session.commit()
@@ -61,7 +62,7 @@ def test_assert_fresh_enough_pass(db_session):
 
 def test_assert_fresh_enough_stale_raises(db_session):
     """Data older than max_age should raise."""
-    stale_time = datetime.utcnow() - timedelta(hours=48)
+    stale_time = now() - timedelta(hours=48)
     f = DataFreshness(category="valuation",
                       last_synced_at=stale_time,
                       last_success_at=stale_time,
@@ -81,9 +82,9 @@ def test_assert_fresh_enough_never_synced_raises(db_session):
 def test_assert_fresh_enough_failed_sync_only_raises(db_session):
     """If last sync failed but success was recent, may still be OK.
     But if success is stale, raise."""
-    stale_success = datetime.utcnow() - timedelta(hours=48)
+    stale_success = now() - timedelta(hours=48)
     f = DataFreshness(category="valuation",
-                      last_synced_at=datetime.utcnow(),  # attempt was recent
+                      last_synced_at=now(),  # attempt was recent
                       last_success_at=stale_success,  # but success was 48h ago
                       last_record_count=100)
     db_session.add(f); db_session.commit()
@@ -94,7 +95,7 @@ def test_assert_fresh_enough_failed_sync_only_raises(db_session):
 def test_assert_fresh_enough_emits_system_alert(db_session):
     """Stale data should also create a system_alert."""
     from app.services.system_alert_service import list_unresolved
-    stale_time = datetime.utcnow() - timedelta(hours=48)
+    stale_time = now() - timedelta(hours=48)
     db_session.add(DataFreshness(category="valuation",
                                   last_synced_at=stale_time,
                                   last_success_at=stale_time,

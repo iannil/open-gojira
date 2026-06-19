@@ -3,6 +3,7 @@ from datetime import date
 import pytest
 
 from app.models.corp_action import CorpAction
+from app.core.datetime_utils import now
 
 
 def test_corp_action_create_cash_dividend(db_session):
@@ -67,7 +68,8 @@ def test_processed_at_set_after_processing(db_session):
     )
     db_session.add(a); db_session.commit()
     assert a.processed_at is None
-    a.processed_at = __import__("datetime").datetime.utcnow()
+    from app.core.datetime_utils import now
+    a.processed_at = now()
     a.applied_trade_id = 42
     db_session.commit()
     refreshed = db_session.get(CorpAction, a.id)

@@ -5,6 +5,7 @@ error summaries, and performance reports for LLM consumption.
 """
 
 from __future__ import annotations
+from app.core.datetime_utils import now
 
 import json
 from collections import defaultdict
@@ -29,7 +30,7 @@ def _find_log_files(minutes: int | None = None) -> list[Path]:
     files = sorted(_OBS_LOG_DIR.glob("obs-*.jsonl"))
     if minutes is None:
         return files
-    cutoff = datetime.now(timezone.utc) - timedelta(minutes=minutes)
+    cutoff = now() - timedelta(minutes=minutes)
     recent: list[Path] = []
     for f in files:
         try:

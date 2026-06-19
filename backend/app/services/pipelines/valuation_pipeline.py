@@ -7,10 +7,10 @@ from datetime import date
 from typing import Any
 
 
-from app.core.datetime_utils import utcnow
 from app.models.valuation import ValuationSnapshot
 from app.services.pipelines.base import BasePipeline, PipelineContext
 from app.services.pipelines.manager import register_pipeline
+from app.core.datetime_utils import now
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ class ValuationPipeline(BasePipeline):
             run_id=self.run_id,
             pipeline_type=self.pipeline_type,
             stock_codes=stock_codes,
-            started_at=utcnow(),
+            started_at=now(),
         )
         result = PipelineResult(
             run_id=self.run_id,
@@ -65,7 +65,7 @@ class ValuationPipeline(BasePipeline):
                 else:
                     result.failed_items += 1
 
-        ctx.finished_at = utcnow()
+        ctx.finished_at = now()
 
         if result.failed_items == 0:
             result.status = PipelineStatus.COMPLETED

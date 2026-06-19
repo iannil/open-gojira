@@ -7,9 +7,9 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from app.core.datetime_utils import utcnow
 from app.models.pipeline import DeadLetterRecord
 from app.services.pipelines.base import ErrorType
+from app.core.datetime_utils import now
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +72,7 @@ class DeadLetterQueue:
         r = db.get(DeadLetterRecord, record_id)
         if r:
             r.retry_count += 1
-            r.last_retry_at = utcnow()
+            r.last_retry_at = now()
             if r.retry_count >= r.max_retries:
                 r.status = "exhausted"
             else:
@@ -92,7 +92,7 @@ class DeadLetterQueue:
             record.status = "resolved"
         else:
             record.retry_count += 1
-            record.last_retry_at = utcnow()
+            record.last_retry_at = now()
             if record.retry_count >= record.max_retries:
                 record.status = "exhausted"
             else:

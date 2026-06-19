@@ -5,6 +5,7 @@ from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstr
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.core.datetime_utils import now
 
 if TYPE_CHECKING:
     pass
@@ -17,7 +18,7 @@ class WatchlistGroup(Base):
     name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now())
 
     items: Mapped[List["WatchlistItem"]] = relationship(
         back_populates="group", cascade="all, delete-orphan"
@@ -38,6 +39,6 @@ class WatchlistItem(Base):
         Integer, ForeignKey("candidates.id"), nullable=True
     )
     """Set when promoted from candidate pool."""
-    added_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    added_at: Mapped[datetime] = mapped_column(DateTime, default=now())
 
     group: Mapped["WatchlistGroup"] = relationship(back_populates="items")

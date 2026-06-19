@@ -9,6 +9,7 @@ from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, fu
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.core.datetime_utils import now
 
 
 class HoldingRiskRule(Base):
@@ -39,5 +40,5 @@ class HoldingRiskRule(Base):
     triggered_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
     trigger_reason: Mapped[str | None] = mapped_column(String, nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now())
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

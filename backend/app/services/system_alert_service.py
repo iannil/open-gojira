@@ -6,6 +6,7 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
 from app.models.system_alert import SystemAlert
+from app.core.datetime_utils import now
 
 
 def create_alert(
@@ -76,7 +77,7 @@ def resolve_alert(
         return None
     if alert.resolved_at is not None:
         return alert  # already resolved
-    alert.resolved_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    alert.resolved_at = now()
     alert.resolved_by = resolved_by
     db.flush()
     return alert
@@ -96,9 +97,9 @@ def resolve_matching(
     if category:
         stmt = stmt.where(SystemAlert.category == category)
     alerts = list(db.execute(stmt).scalars().all())
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now_dt = now()
     for a in alerts:
-        a.resolved_at = now
+        a.resolved_at = now_dt
         a.resolved_by = resolved_by
     db.flush()
     return len(alerts)

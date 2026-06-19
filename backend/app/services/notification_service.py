@@ -25,13 +25,14 @@ from sqlalchemy.orm import Session
 
 from app.models.notification_channel import NotificationChannel
 from app.models.system_alert import SystemAlert
+from app.core.datetime_utils import now
 
 
 logger = logging.getLogger(__name__)
 
 
 def _utcnow_naive() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return now()
 
 
 def _matches_severity(channel_severity: str, alert_severity: str) -> bool:

@@ -8,10 +8,11 @@ dividend_ex_date_near, financial_report_released, stop_profit.
 import logging
 from datetime import datetime, timezone
 from typing import Optional
+from app.core.datetime_utils import now
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return now()
 
 
 from fastapi import HTTPException

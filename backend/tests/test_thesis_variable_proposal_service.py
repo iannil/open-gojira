@@ -13,6 +13,7 @@ from app.models.research_run import ResearchRun
 from app.models.research_theme import ResearchTheme
 from app.models.stock import Stock
 from app.services import thesis_variable_proposal_service as svc
+from app.core.datetime_utils import now
 
 
 # ── Helpers ────────────────────────────────────────────────────────────
@@ -28,7 +29,7 @@ def _make_run(db, theme_name: str = "test theme") -> ResearchRun:
         scope_market="A_SHARE",
         triggered_by="manual",
         llm_provider="glm-test",
-        started_at=__import__("datetime").datetime.utcnow(),
+        started_at=now(),
     )
     db.add(run)
     db.flush()

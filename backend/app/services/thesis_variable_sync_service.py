@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 from app.models.financial import FinancialStatement
 from app.models.stock import Stock
 from app.services.business_pattern_service import get_pattern
+from app.core.datetime_utils import now
 
 logger = logging.getLogger(__name__)
 
@@ -167,7 +168,7 @@ def sync_stock(
             "value": value,
             "unit": tpl.get("unit") or existing.get("unit"),
             "source": "lixinger",
-            "synced_at": datetime.now(timezone.utc).isoformat()[:10],
+            "synced_at": now().isoformat()[:10],
         }
         # Preserve previously-set monitor fields (from manual edits or
         # legacy data). These are NOT managed by sync.

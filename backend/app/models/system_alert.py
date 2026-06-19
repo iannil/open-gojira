@@ -17,6 +17,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
 
 from app.db.base import Base
+from app.core.datetime_utils import now
 
 
 class SystemAlert(Base):
@@ -36,7 +37,7 @@ class SystemAlert(Base):
     """Arbitrary structured details: endpoint, error message, count, etc."""
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), nullable=False, index=True
+        DateTime, default=now(), nullable=False, index=True
     )
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
     resolved_by: Mapped[str | None] = mapped_column(String, nullable=True)

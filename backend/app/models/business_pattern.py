@@ -22,6 +22,7 @@ from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.core.datetime_utils import now
 
 
 class BusinessPattern(Base):
@@ -81,7 +82,7 @@ class BusinessPattern(Base):
     """True=seeder 启动时 upsert,builtin 核心字段 read-only;False=用户自建,完全可编辑。"""
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now()
+        DateTime, default=now()
     )
     updated_at: Mapped[datetime | None] = mapped_column(
         DateTime, onupdate=func.now(), nullable=True

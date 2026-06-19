@@ -80,11 +80,11 @@ def test_trigger_run_unknown_theme_404(client):
 
 def test_trigger_run_rate_limited_returns_409(client, db_session):
     """Q6: rate limit returns 409 (conflict)."""
-    from datetime import datetime
+    from app.core.datetime_utils import now
     from app.models.research_theme import ResearchTheme
     theme = ResearchTheme(
         name="限频", market="A_SHARE", status="active",
-        last_run_at=datetime.utcnow(),
+        last_run_at=now(),
     )
     db_session.add(theme); db_session.flush()
 

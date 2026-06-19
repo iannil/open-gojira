@@ -17,6 +17,7 @@ from sqlalchemy import DateTime, Float, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.core.datetime_utils import now
 
 
 class CashAdjustment(Base):
@@ -36,5 +37,5 @@ class CashAdjustment(Base):
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     """Free-form description (e.g. '月度入金', '应急取现')."""
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now())
     """When this row was inserted into the DB."""

@@ -5,6 +5,7 @@ from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, String, Tex
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.core.datetime_utils import now
 
 
 class AlertRule(Base):
@@ -18,7 +19,7 @@ class AlertRule(Base):
     params: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now())
     last_evaluated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     events: Mapped[List["AlertEvent"]] = relationship(
@@ -39,7 +40,7 @@ class AlertEvent(Base):
     detail: Mapped[str | None] = mapped_column(Text, nullable=True)
     payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     severity: Mapped[str] = mapped_column(String, default="info", nullable=False)
-    fired_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    fired_at: Mapped[datetime] = mapped_column(DateTime, default=now())
     acked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     acked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
 
 from app.db.base import Base
+from app.core.datetime_utils import now
 
 
 class NotificationChannel(Base):
@@ -35,5 +36,5 @@ class NotificationChannel(Base):
     )
     """all | warning_and_above | critical_only"""
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now())
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

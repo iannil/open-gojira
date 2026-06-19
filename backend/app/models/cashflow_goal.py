@@ -4,6 +4,7 @@ from sqlalchemy import DateTime, Float, Integer, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.core.datetime_utils import now
 
 
 class CashflowGoal(Base):
@@ -44,7 +45,7 @@ class CashflowGoal(Base):
     quadrant_targets_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now()
+        DateTime, default=now()
     )
     updated_at: Mapped[datetime | None] = mapped_column(
         DateTime, onupdate=func.now(), nullable=True

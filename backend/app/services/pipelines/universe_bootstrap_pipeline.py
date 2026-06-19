@@ -7,10 +7,10 @@ from datetime import date as date_type
 from typing import Any
 
 
-from app.core.datetime_utils import utcnow
 from app.models.stock import Stock
 from app.services.pipelines.base import BasePipeline, PipelineContext, PipelineResult, PipelineStatus
 from app.services.pipelines.manager import register_pipeline
+from app.core.datetime_utils import now
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ class UniverseBootstrapPipeline(BasePipeline):
             run_id=self.run_id,
             pipeline_type=self.pipeline_type,
             stock_codes=[],
-            started_at=utcnow(),
+            started_at=now(),
         )
         result = PipelineResult(
             run_id=self.run_id,
@@ -60,7 +60,7 @@ class UniverseBootstrapPipeline(BasePipeline):
             stats = self._upsert_companies(transformed)
             self.db.commit()
 
-            ctx.finished_at = utcnow()
+            ctx.finished_at = now()
             result.status = PipelineStatus.COMPLETED
             result.completed_items = 1
             result.stock_results.append(
@@ -75,7 +75,7 @@ class UniverseBootstrapPipeline(BasePipeline):
             }
         except Exception as e:
             self._logger.exception("Universe bootstrap failed: %s", e)
-            ctx.finished_at = utcnow()
+            ctx.finished_at = now()
             result.status = PipelineStatus.FAILED
             result.failed_items = 1
             result.stock_results.append(
@@ -120,7 +120,7 @@ class UniverseBootstrapPipeline(BasePipeline):
         return result
 
     def _upsert_companies(self, companies: dict[str, dict]) -> dict:
-        now = utcnow()
+        now = now()
         codes_in_response = set(companies.keys())
 
         existing_stocks = {

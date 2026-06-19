@@ -11,12 +11,12 @@ from typing import Type
 
 from sqlalchemy.orm import Session
 
-from app.core.datetime_utils import utcnow
 from app.core.events import bus, DataSyncCompleted
 from app.models.pipeline import PipelineRun
 from app.services.pipelines.base import BasePipeline, PipelineStatus
 from app.services.pipelines.dead_letter import DeadLetterQueue
 from app.services.pipelines.metrics import MetricsCollector
+from app.core.datetime_utils import now
 
 logger = logging.getLogger(__name__)
 
@@ -170,7 +170,7 @@ class PipelineManager:
             return
 
         run.status = PipelineStatus.RUNNING.value
-        run.started_at = utcnow()
+        run.started_at = now()
         db.commit()
 
         try:
@@ -180,7 +180,7 @@ class PipelineManager:
             run.status = result.status.value
             run.completed_items = result.completed_items
             run.failed_items = result.failed_items
-            run.finished_at = utcnow()
+            run.finished_at = now()
             run.summary = json.dumps(result.summary, default=str)
 
             for sr in result.stock_results:
@@ -198,7 +198,7 @@ class PipelineManager:
             logger.exception("Pipeline %s run %s failed", pipeline_type, run_id)
             db.rollback()
             run.status = PipelineStatus.FAILED.value
-            run.finished_at = utcnow()
+            run.finished_at = now()
             run.summary = json.dumps({"error": str(e)})
 
         try:
@@ -308,7 +308,7 @@ class PipelineManager:
         Only marks runs older than 10 minutes to avoid mislabeling freshly created runs.
         """
         from datetime import timedelta
-        stale_threshold = utcnow() - timedelta(minutes=10)
+        stale_threshold = now() - timedelta(minutes=10)
         stale_statuses = (PipelineStatus.RUNNING.value, PipelineStatus.PENDING.value)
         stale = db.query(PipelineRun).filter(
             PipelineRun.status.in_(stale_statuses),
@@ -318,7 +318,7 @@ class PipelineManager:
         for run in stale:
             run.status = PipelineStatus.FAILED.value
             if not run.finished_at:
-                run.finished_at = utcnow()
+                run.finished_at = now()
             logger.warning("Recovered stale run %s (was %s)", run.id, run.status)
         if count:
             db.commit()
@@ -332,7 +332,7 @@ class PipelineManager:
         from app.models.price_kline import PriceKline
         from app.models.valuation import ValuationSnapshot
 
-        today = utcnow().date()
+        today = now().date()
         result = {}
 
         for dtype, model, date_col in [
@@ -369,7 +369,7 @@ class PipelineManager:
         return result
 
     def get_api_usage(self) -> dict:
-        today = utcnow().date()
+        today = now().date()
         return {
             "today": MetricsCollector.get_daily_summary(self.db, today),
             "month": MetricsCollector.get_monthly_summary(self.db),

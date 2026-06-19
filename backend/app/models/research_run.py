@@ -6,6 +6,7 @@ from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.core.datetime_utils import now
 
 
 class ResearchRun(Base):
@@ -55,5 +56,5 @@ class ResearchRun(Base):
 
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    started_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=now())
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

@@ -6,10 +6,11 @@ from sqlalchemy.orm import Session
 
 from app.models.data_freshness import DataFreshness
 from app.services.system_alert_service import create_alert
+from app.core.datetime_utils import now
 
 
 def _utcnow_naive() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return now()
 
 
 class DataStaleError(HTTPException):

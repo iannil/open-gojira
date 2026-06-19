@@ -18,6 +18,7 @@ from app.services.data_freshness_service import (
     get_freshness_report,
 )
 from app.services.system_alert_service import list_unresolved
+from app.core.datetime_utils import now
 
 
 @pytest.fixture(autouse=True)
@@ -157,7 +158,7 @@ def test_plan_runner_checks_freshness_before_evaluating(db_session):
     # Insert stale valuation row (72h old, beyond the 48h gate).
     # NOTE: stocks also needs a row or it raises first — both are gated.
     from datetime import timezone
-    stale = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=72)
+    stale = now() - timedelta(hours=72)
     db_session.add(DataFreshness(
         category="stocks",
         last_synced_at=stale, last_success_at=stale,

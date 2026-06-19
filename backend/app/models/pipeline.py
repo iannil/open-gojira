@@ -4,6 +4,7 @@ from sqlalchemy import Date, DateTime, Integer, String, Text, UniqueConstraint, 
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.core.datetime_utils import now
 
 
 class PipelineRun(Base):
@@ -19,7 +20,7 @@ class PipelineRun(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now())
     updated_at: Mapped[datetime | None] = mapped_column(
         DateTime, onupdate=func.now(), nullable=True
     )
@@ -36,7 +37,7 @@ class PipelineCheckpoint(Base):
     stock_code: Mapped[str] = mapped_column(String, nullable=False)
     last_sync_date: Mapped[date] = mapped_column(Date, nullable=False)
     sync_version: Mapped[int] = mapped_column(Integer, default=0)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now())
 
 
 class DeadLetterRecord(Base):
@@ -52,7 +53,7 @@ class DeadLetterRecord(Base):
     retry_count: Mapped[int] = mapped_column(Integer, default=0)
     max_retries: Mapped[int] = mapped_column(Integer, default=3)
     status: Mapped[str] = mapped_column(String, default="pending")
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now())
     last_retry_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
@@ -65,4 +66,4 @@ class ApiUsageLog(Base):
     duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     cached: Mapped[int] = mapped_column(Integer, default=0)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
-    called_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    called_at: Mapped[datetime] = mapped_column(DateTime, default=now())

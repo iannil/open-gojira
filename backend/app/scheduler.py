@@ -14,6 +14,7 @@ triggered on demand from the API for testing.
 Job cron expressions and enabled state are stored in the `scheduler_jobs` table
 and loaded at startup. Changes via API hot-update the running scheduler.
 """
+from app.core.datetime_utils import now
 
 import json
 import logging
@@ -62,7 +63,7 @@ _running_jobs: set[str] = set()
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return now()
 
 
 # ── Execution tracking wrapper ────────────────────────────────────────────

@@ -4,8 +4,8 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
-from app.core.datetime_utils import utcnow
 from app.models.pipeline import PipelineCheckpoint
+from app.core.datetime_utils import now
 
 
 class CheckpointManager:
@@ -39,7 +39,7 @@ class CheckpointManager:
         if cp:
             cp.last_sync_date = last_sync_date
             cp.sync_version = sync_version
-            cp.updated_at = utcnow()
+            cp.updated_at = now()
         else:
             cp = PipelineCheckpoint(
                 pipeline_type=pipeline_type,

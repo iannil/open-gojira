@@ -275,12 +275,12 @@ def check_claim_variables(db: Session) -> ClaimVariableMonitorSummary:
         on each fresh breach (caller handles notification dispatch via handler).
 
     Returns summary dict for caller observability. Side effects:
-      - On fresh breach: UPDATE last_alerted_at = utcnow(); emit event.
+      - On fresh breach: UPDATE last_alerted_at = now(); emit event.
       - audit_log writes are performed in the EventBus handler so that
         notification_service.send() and audit happen together. This
         function only emits the event + updates last_alerted_at.
     """
-    from app.core.datetime_utils import utcnow
+    from app.core.datetime_utils import now
     from app.core.events import bus, ThesisAlertTriggered
     from app.models.research_claim_variable import ResearchClaimVariable
 
@@ -298,7 +298,7 @@ def check_claim_variables(db: Session) -> ClaimVariableMonitorSummary:
     ).all()
 
     summary.checked = len(rows)
-    dedup_cutoff = utcnow() - timedelta(hours=ALERT_DEDUP_HOURS)
+    dedup_cutoff = now() - timedelta(hours=ALERT_DEDUP_HOURS)
 
     for cv, stock, _holding in rows:
         fetcher = SOURCE_DISPATCH.get(cv.source)
@@ -363,7 +363,7 @@ def check_claim_variables(db: Session) -> ClaimVariableMonitorSummary:
         )
 
         # Update dedup stamp + flush so subsequent dedup checks see it.
-        cv.last_alerted_at = utcnow()
+        cv.last_alerted_at = now()
         db.add(cv)
         db.flush()
 

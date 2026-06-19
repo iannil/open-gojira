@@ -9,6 +9,7 @@ from app.db.session import get_db
 from app.schemas.plan import DraftExecute, DraftResponse
 from app.schemas.review import BackfillSuggestionResponse
 from app.services import audit_log_service, draft_service
+from app.core.datetime_utils import now
 
 router = APIRouter(prefix="/api/drafts", tags=["drafts"])
 
@@ -67,7 +68,7 @@ def execute_draft(
             side=side,
             price=float(payload.buy_price),
             quantity=int(payload.quantity),
-            filled_at=datetime.now(),
+            filled_at=now(),
             source="draft",
             source_ref=str(draft.id),
             note=f"Auto from draft #{draft.id}: {draft.reason}",

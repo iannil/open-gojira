@@ -21,6 +21,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.core.datetime_utils import now
 
 if TYPE_CHECKING:
     from app.models.plan import Plan
@@ -60,7 +61,7 @@ class Draft(Base):
     """Origin: 'evaluator' | 'rebalance' | 'manual'"""
 
     triggered_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), index=True
+        DateTime, default=now(), index=True
     )
     executed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 

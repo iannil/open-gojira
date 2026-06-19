@@ -11,10 +11,11 @@ from app.models.research_claim_variable import ResearchClaimVariable
 from app.models.research_run import ResearchRun
 from app.models.research_theme import ResearchTheme
 from app.models.stock import Stock
+from app.core.datetime_utils import now
 
 
 def _utcnow_naive() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return now()
 
 
 _COUNTER = [0]

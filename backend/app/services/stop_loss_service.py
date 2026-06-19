@@ -20,13 +20,14 @@ from sqlalchemy.orm import Session
 from app.models.holding_risk_rule import HoldingRiskRule
 from app.services.holding_view_service import get_holding_view
 from app.services.system_alert_service import create_alert
+from app.core.datetime_utils import now
 
 
 logger = logging.getLogger(__name__)
 
 
 def _utcnow_naive() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return now()
 
 
 @dataclass(frozen=True)

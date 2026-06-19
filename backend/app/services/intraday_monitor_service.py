@@ -14,6 +14,7 @@ poll_once():
 6. (Deferred) refresh pending_drafts if target_price drifted > 5%
 """
 from __future__ import annotations
+from app.core.datetime_utils import now
 
 import logging
 from dataclasses import dataclass, field
@@ -93,9 +94,9 @@ def poll_once(db: Session) -> PollResult:
     4. Collect events into PollResult
     5. Commit any state changes (peak_price, triggered_at)
     """
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now_dt = now()
     codes = intraday_watch_list(db)
-    result = PollResult(timestamp=now, codes_checked=len(codes), prices_fetched=0)
+    result = PollResult(timestamp=now_dt, codes_checked=len(codes), prices_fetched=0)
 
     if not codes:
         return result

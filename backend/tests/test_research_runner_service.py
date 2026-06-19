@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from app.models.research_run import ResearchRun
+from app.core.datetime_utils import now
 from app.models.research_theme import ResearchTheme
 from app.services.llm.zhipu_client import ZhipuClientError
 from app.services.research_runner_service import (
@@ -52,7 +53,7 @@ def test_trigger_run_archived_theme_raises(db_session):
 
 def test_trigger_run_rate_limit_blocks_recent(db_session, active_theme):
     """Q6: same theme within rate_limit_per_theme_minutes is blocked."""
-    active_theme.last_run_at = datetime.utcnow()
+    active_theme.last_run_at = now()
     db_session.flush()
     with pytest.raises(ResearchRunnerError, match=r"wait.*more minutes"):
         trigger_run(db_session, theme_id=active_theme.id)
@@ -60,7 +61,7 @@ def test_trigger_run_rate_limit_blocks_recent(db_session, active_theme):
 
 def test_trigger_run_after_rate_limit_window_ok(db_session, active_theme):
     """Q6: theme older than window can be triggered."""
-    active_theme.last_run_at = datetime.utcnow() - timedelta(minutes=30)
+    active_theme.last_run_at = now() - timedelta(minutes=30)
     db_session.flush()
     run = trigger_run(db_session, theme_id=active_theme.id)
     assert run.status == "running"

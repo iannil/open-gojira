@@ -7,6 +7,7 @@ from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.orm import Session
 
 from app.models.scheduler_config import JobExecution, SchedulerJob
+from app.core.datetime_utils import now
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +114,7 @@ _DISABLED_BY_DEFAULT: set[str] = {"intraday_monitor", "intraday_price_poll"}
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return now()
 
 
 def ensure_defaults(db: Session) -> int:

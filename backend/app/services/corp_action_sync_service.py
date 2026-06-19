@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from app.models.corp_action import CorpAction
 from app.models.stock import Stock
 from app.services.lixinger_client import get_lixinger_client
+from app.core.datetime_utils import now
 
 
 logger = logging.getLogger(__name__)
@@ -214,7 +215,7 @@ def detect_delistings(db: Session) -> list[CorpAction]:
             params_json={
                 "new_name": new_name,
                 "history_names": history_names,
-                "detected_at": datetime.now().isoformat(),
+                "detected_at": now().isoformat(),
             },
             source="heuristic",
             note="Detected by company list diff + profile.historyStockNames",

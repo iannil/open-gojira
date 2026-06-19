@@ -3,6 +3,7 @@
 import pytest
 
 from app import scheduler as sched_module
+from app.core.datetime_utils import now
 
 
 def test_job_registry_has_expected_jobs():
@@ -179,7 +180,7 @@ def test_recover_stale_runs_marks_old_running_as_failed(db_session):
     from app.services.pipelines.base import PipelineStatus
     from app.services.pipelines.manager import PipelineManager
 
-    old_time = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=24)
+    old_time = now() - timedelta(hours=24)
     run = PipelineRun(
         id="test-stale-run-1",
         pipeline_type="dividends",
@@ -203,12 +204,13 @@ def test_recover_stale_runs_marks_old_running_as_failed(db_session):
 
 def test_recover_stale_runs_keeps_recent_running(db_session):
     """F15: recent running pipeline (< 10 min old) should NOT be recovered."""
-    from datetime import datetime, timedelta, timezone
+    from datetime import timedelta
+    from app.core.datetime_utils import now
     from app.models.pipeline import PipelineRun
     from app.services.pipelines.base import PipelineStatus
     from app.services.pipelines.manager import PipelineManager
 
-    fresh_time = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=2)
+    fresh_time = now() - timedelta(minutes=2)
     run = PipelineRun(
         id="test-fresh-run-1",
         pipeline_type="valuations",
@@ -236,7 +238,7 @@ def test_pipeline_stale_sweep_job_recovers_stuck(db_session, monkeypatch):
     from app.services.pipelines.base import PipelineStatus
 
     # 1 hour old, no updated_at refresh (stuck thread)
-    old_time = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)
+    old_time = now() - timedelta(hours=1)
     run = PipelineRun(
         id="test-sweep-target",
         pipeline_type="dividends",
@@ -280,7 +282,7 @@ def test_research_stale_sweep_recovers_hung_run(db_session, monkeypatch):
     import app.scheduler as sched_module
 
     # Create theme + run with started_at 45 min ago (past hard threshold)
-    old_time = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=45)
+    old_time = now() - timedelta(minutes=45)
     theme = ResearchTheme(name="test theme", market="A_SHARE", status="active")
     db_session.add(theme)
     db_session.flush()
@@ -315,13 +317,14 @@ def test_research_stale_sweep_recovers_hung_run(db_session, monkeypatch):
 
 def test_research_stale_sweep_keeps_recent_running(db_session, monkeypatch):
     """F23: research run started < 15 min ago → keep running."""
-    from datetime import datetime, timedelta, timezone
+    from datetime import timedelta
+    from app.core.datetime_utils import now
     from app.models.research_run import ResearchRun
     from app.models.research_theme import ResearchTheme
     from contextlib import contextmanager
     import app.scheduler as sched_module
 
-    fresh_time = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=5)
+    fresh_time = now() - timedelta(minutes=5)
     theme = ResearchTheme(name="test theme 2", market="A_SHARE", status="active")
     db_session.add(theme)
     db_session.flush()

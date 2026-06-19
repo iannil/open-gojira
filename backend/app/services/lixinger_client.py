@@ -9,6 +9,7 @@ Defense layers (S3.4):
 - circuit breaker (threshold=5, reset=300s) with half-open probe
 - system_alert emission on circuit-open / token-quota business error
 """
+from app.core.datetime_utils import now
 
 import json
 import logging
@@ -550,7 +551,7 @@ class LixingerClient:
             if end_date:
                 payload["endDate"] = end_date
         else:
-            payload["date"] = datetime.now().strftime("%Y-%m-%d")
+            payload["date"] = now().strftime("%Y-%m-%d")
         return self._post(endpoint, payload, cache_ttl=900) or []
 
     def get_fundamentals_for_bank(self, stock_codes, date=None, start_date=None, end_date=None, metrics=None):
@@ -741,7 +742,7 @@ class LixingerClient:
         elif date:
             payload["date"] = date
         else:
-            payload["date"] = datetime.now().strftime("%Y-%m-%d")
+            payload["date"] = now().strftime("%Y-%m-%d")
         cache_ttl = 3600 if start_date else 900
         return self._post("/cn/index/fundamental", payload, cache_ttl=cache_ttl) or []
 
@@ -786,7 +787,7 @@ class LixingerClient:
         if date:
             payload["date"] = date
         else:
-            payload["date"] = datetime.now().strftime("%Y-%m-%d")
+            payload["date"] = now().strftime("%Y-%m-%d")
         return self._post(
             "/cn/industry/fundamental/sw_2021",
             payload,

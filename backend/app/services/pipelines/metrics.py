@@ -8,8 +8,8 @@ from datetime import date, timedelta
 from sqlalchemy import case, func as sa_func
 from sqlalchemy.orm import Session
 
-from app.core.datetime_utils import utcnow
 from app.models.pipeline import ApiUsageLog
+from app.core.datetime_utils import now
 
 logger = logging.getLogger(__name__)
 
@@ -84,9 +84,9 @@ class MetricsCollector:
 
     @staticmethod
     def get_monthly_summary(db: Session, year: int | None = None, month: int | None = None) -> dict:
-        now = utcnow()
-        y = year or now.year
-        m = month or now.month
+        now_dt = now()
+        y = year or now_dt.year
+        m = month or now_dt.month
         start = date(y, m, 1)
         if m == 12:
             end = date(y + 1, 1, 1)

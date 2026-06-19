@@ -4,6 +4,7 @@ from sqlalchemy import Date, DateTime, Float, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.core.datetime_utils import now
 
 
 class PriceKline(Base):
@@ -31,5 +32,5 @@ class PriceKline(Base):
     turnover: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now()
+        DateTime, default=now()
     )

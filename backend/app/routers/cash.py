@@ -1,4 +1,5 @@
 """Cash API — singleton balance + adjustment log."""
+from app.core.datetime_utils import now
 
 from datetime import datetime, timezone
 
@@ -19,7 +20,7 @@ router = APIRouter(prefix="/api/cash", tags=["cash"])
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return now()
 
 
 def _ensure_balance_row(db: Session) -> CashBalance:

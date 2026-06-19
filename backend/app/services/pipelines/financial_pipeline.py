@@ -7,11 +7,11 @@ from datetime import date, datetime
 from typing import Optional
 
 
-from app.core.datetime_utils import utcnow
 from app.models.financial import FinancialStatement
 from app.models.stock import Stock
 from app.services.pipelines.base import BasePipeline, PipelineContext
 from app.services.pipelines.manager import register_pipeline
+from app.core.datetime_utils import now
 
 logger = logging.getLogger(__name__)
 
@@ -188,5 +188,5 @@ class FinancialPipeline(BasePipeline):
         )
         if not latest:
             return False
-        days_old = (utcnow().date() - latest[0].date()).days
+        days_old = (now().date() - latest[0].date()).days
         return days_old <= 120

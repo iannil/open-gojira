@@ -41,6 +41,7 @@ from app.services.strategy_engine import evaluate as strategy_evaluate
 from app.services.strategy_engine import _resolve_field as resolve_field, _evaluate_condition
 
 from app.core.events import bus, PlanEvaluationCompleted
+from app.core.datetime_utils import now
 
 try:
     from app.core.observability import get_logger
@@ -250,9 +251,9 @@ def _upsert_candidate(
         )
     ).scalar_one_or_none()
 
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now_dt = now()
     if existing:
-        existing.last_confirmed_at = now
+        existing.last_confirmed_at = now_dt
         existing.last_eval_json = json.dumps(strategy_results)
     else:
         candidate = Candidate(
@@ -718,11 +719,11 @@ def run_plan(db: Session, plan: Plan) -> PlanRunResult:
         )
     ).scalars().all()
 
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now_dt = now()
     for c in active_candidates:
         if c.stock_code not in passed_codes and not c.pinned:
             c.status = "removed"
-            c.removed_at = now
+            c.removed_at = now_dt
             result.removed += 1
 
     # 5. Trading rules for all passing candidates (重审 #1+#4: 闸门已删)
@@ -742,7 +743,7 @@ def run_plan(db: Session, plan: Plan) -> PlanRunResult:
                 "Plan '%s': cycle gate active (cycle=%s, max=%s) — BUY drafts suppressed",
                 plan.name, result.cycle_position, plan.cycle_buy_max,
             )
-        eval_moment = datetime.now(timezone.utc).replace(tzinfo=None)
+        eval_moment = now()
         for code in passed_codes:
             try:
                 ctx = build_context(db, code)
@@ -802,7 +803,7 @@ def run_plan(db: Session, plan: Plan) -> PlanRunResult:
     # is stale — either the stock dropped out of candidates (no trading rule
     # evaluation) or trading rules no longer fire. Either way, the draft no
     # longer represents a current suggestion → supersede.
-    now_supersede = datetime.now(timezone.utc).replace(tzinfo=None)
+    now_supersede = now()
     pending_drafts = db.execute(
         select(Draft).where(
             Draft.plan_id == plan.id,
@@ -821,7 +822,7 @@ def run_plan(db: Session, plan: Plan) -> PlanRunResult:
     result.drafts_superseded = len(stale_drafts)
 
     # 6. Update run summary
-    plan.last_run_at = now
+    plan.last_run_at = now_supersede
     plan.last_run_summary = json.dumps({
         "scanned": result.scanned,
         "passed": result.passed,

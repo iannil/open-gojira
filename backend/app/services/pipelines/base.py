@@ -12,8 +12,8 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.core.datetime_utils import utcnow
 from app.services.pipelines.throttler import AdaptiveThrottler
+from app.core.datetime_utils import now
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +103,7 @@ class BasePipeline(ABC):
             run_id=self.run_id,
             pipeline_type=self.pipeline_type,
             stock_codes=stock_codes,
-            started_at=utcnow(),
+            started_at=now(),
             **kwargs,
         )
         result = PipelineResult(
@@ -137,7 +137,7 @@ class BasePipeline(ABC):
             else:
                 result.failed_items += 1
 
-        ctx.finished_at = utcnow()
+        ctx.finished_at = now()
 
         if result.status == PipelineStatus.CANCELLED:
             pass

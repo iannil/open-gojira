@@ -10,6 +10,7 @@ down the whole cockpit. Errors surface as `errors` field in the payload.
 """
 
 from __future__ import annotations
+from app.core.datetime_utils import now
 
 import threading
 import time
@@ -322,7 +323,7 @@ def _compute_psychology_alerts(db: Session, holdings: list[dict]) -> list[dict]:
     from app.models.stock import Stock
     from app.models.trade import Trade
 
-    cutoff = datetime.now() - timedelta(days=30)
+    cutoff = now() - timedelta(days=30)
     alerts: list[dict] = []
     for h in holdings:
         code = h.get("stock_code")
@@ -352,7 +353,7 @@ def _compute_psychology_alerts(db: Session, holdings: list[dict]) -> list[dict]:
         if not recent_buys:
             continue
         last_buy = max(t.filled_at for t in recent_buys)
-        days_ago = (datetime.now() - last_buy).days
+        days_ago = (now() - last_buy).days
         stock = db.get(Stock, code)
         stock_name = stock.name if stock else code
         alerts.append({
@@ -377,8 +378,8 @@ def _get_monthly_serenity_spend(db: Session) -> dict | None:
     from app.core.research_config import COST_PER_1K_TOKENS_CNY
     from app.models.research_run import ResearchRun
 
-    now = datetime.utcnow()
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    now_dt = now()
+    month_start = now_dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     row = db.query(
         func.sum(ResearchRun.llm_token_input + ResearchRun.llm_token_output),
@@ -398,7 +399,7 @@ def _get_monthly_serenity_spend(db: Session) -> dict | None:
     from app.config import settings
     budget = settings.SERENITY_MONTHLY_BUDGET_CNY
     return {
-        "month": now.strftime("%Y-%m"),
+        "month": now_dt.strftime("%Y-%m"),
         "spend_cny": round(spend, 2),
         "budget_cny": budget,
         "remaining_cny": round(max(0, budget - spend), 2),
@@ -493,6 +494,6 @@ def _get_rebalance_suggestions(db: Session) -> list[dict]:
 def _now_iso() -> str:
     from datetime import datetime, timezone
 
-    return datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
+    return now().isoformat()
 
 

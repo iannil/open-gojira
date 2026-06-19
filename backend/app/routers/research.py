@@ -13,6 +13,7 @@ Routes:
 - GET    /api/research/appearances/{code}    reverse-link for StockDetail (Q14)
 """
 from __future__ import annotations
+from app.core.datetime_utils import now
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -520,7 +521,7 @@ def approve_claim_variable(
         cv.window_periods = body.window_periods
 
     cv.status = "active"
-    cv.reviewed_at = datetime.now(timezone.utc)
+    cv.reviewed_at = now()
     cv.reviewed_by = "user"
     if body.note:
         cv.review_note = body.note
@@ -561,7 +562,7 @@ def reject_claim_variable(
         raise HTTPException(409, "variable already rejected")
 
     cv.status = "rejected"
-    cv.reviewed_at = datetime.now(timezone.utc)
+    cv.reviewed_at = now()
     cv.reviewed_by = "user"
     if body.note:
         cv.review_note = body.note
@@ -627,7 +628,7 @@ def patch_claim_variable(
 
     if body.note:
         cv.review_note = body.note
-    cv.reviewed_at = datetime.now(timezone.utc)
+    cv.reviewed_at = now()
     cv.reviewed_by = "user"
     # Editing resets dedup stamp so new threshold takes effect immediately.
     cv.last_alerted_at = None

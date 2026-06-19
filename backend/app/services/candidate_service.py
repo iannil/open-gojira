@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.candidate import Candidate
+from app.core.datetime_utils import now
 
 
 def list_all(
@@ -54,5 +55,5 @@ def update(db: Session, candidate: Candidate, *, pinned: bool | None = None, not
 
 def remove(db: Session, candidate: Candidate) -> None:
     candidate.status = "removed"
-    candidate.removed_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    candidate.removed_at = now()
     db.flush()

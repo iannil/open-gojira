@@ -4,6 +4,7 @@ from sqlalchemy import DateTime, Float, Integer, JSON, String, UniqueConstraint,
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.core.datetime_utils import now
 
 
 class FinancialStatement(Base):
@@ -77,6 +78,6 @@ class FinancialStatement(Base):
     """Core tier-1 capital adequacy ratio (核心一级资本充足率)."""
     # Raw data for flexibility
     raw_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now())
 
 

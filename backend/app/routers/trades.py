@@ -16,12 +16,13 @@ from app.models.cash_balance import CashBalance
 from app.models.trade import Trade
 from app.schemas.trade import TradeCreate, TradeListResponse, TradeResponse
 from app.services.trade_service import record_trade
+from app.core.datetime_utils import now
 
 router = APIRouter(prefix="/api/trades", tags=["trades"])
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return now()
 
 
 _OPPOSITE_SIDE = {

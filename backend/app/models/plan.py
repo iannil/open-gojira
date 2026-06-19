@@ -14,6 +14,7 @@ from sqlalchemy import Boolean, DateTime, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.core.datetime_utils import now
 
 if TYPE_CHECKING:
     from app.models.candidate import Candidate
@@ -83,7 +84,7 @@ class Plan(Base):
     is_builtin: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, index=True
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now())
     updated_at: Mapped[datetime | None] = mapped_column(
         DateTime, onupdate=func.now(), nullable=True
     )

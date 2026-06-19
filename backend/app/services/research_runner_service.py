@@ -9,6 +9,7 @@ Implements:
 - Q6 rate limit per theme (default 5 minutes)
 """
 from __future__ import annotations
+from app.core.datetime_utils import now
 
 import logging
 import threading
@@ -97,7 +98,7 @@ def trigger_run(
 
     # Q6 rate limit
     if theme.last_run_at:
-        elapsed_min = (datetime.utcnow() - theme.last_run_at).total_seconds() / 60
+        elapsed_min = (now() - theme.last_run_at).total_seconds() / 60
         min_gap = SERENITY_RUN_CONFIG["rate_limit_per_theme_minutes"]
         if elapsed_min < min_gap:
             raise ResearchRunnerError(
@@ -275,7 +276,7 @@ def _execute_single_attempt(
     run.llm_token_input = usage.get("token_input", 0)
     run.llm_token_output = usage.get("token_output", 0)
     run.llm_search_count = usage.get("search_count", 0)
-    run.completed_at = datetime.utcnow()
+    run.completed_at = now()
     db.flush()
 
     theme = db.query(ResearchTheme).filter(ResearchTheme.id == theme_id).first()
@@ -316,7 +317,7 @@ def _mark_failed(
         return
     run.status = "failed"
     run.error_message = (error or "")[:2000]
-    run.completed_at = datetime.utcnow()
+    run.completed_at = now()
     db.flush()
 
     theme = db.query(ResearchTheme).filter(ResearchTheme.id == theme_id).first()
@@ -365,8 +366,8 @@ def _check_monthly_budget(db: Session, triggered_by_run_id: int) -> None:
     """Q8: emit MonthlyBudgetExceeded if current-month spend > budget."""
     from sqlalchemy import func
 
-    now = datetime.utcnow()
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    now_dt = now()
+    month_start = now_dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     # Rough cost estimate: tokens × blended price (input+output average)
     row = db.query(
@@ -380,7 +381,7 @@ def _check_monthly_budget(db: Session, triggered_by_run_id: int) -> None:
     budget = SERENITY_RUN_CONFIG["monthly_budget_cny"]
     if spend_cny > budget:
         bus.emit(MonthlyBudgetExceeded(
-            month=now.strftime("%Y-%m"),
+            month=now_dt.strftime("%Y-%m"),
             spend_cny=round(spend_cny, 2),
             budget_cny=budget,
             triggered_by_run_id=triggered_by_run_id,
@@ -421,7 +422,7 @@ def _dump_llm_log(
                 "ranking_count": len(result.get("company_ranking", [])),
             },
             "usage": usage,
-            "dumped_at": datetime.utcnow().isoformat(),
+            "dumped_at": now().isoformat(),
         }
         log_path.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2),

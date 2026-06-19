@@ -20,6 +20,7 @@ Total value convention:
 - DIVIDEND: total_value = -(per_share * qty_held), negative
 - CORP_ACTION: total_value = 0 (no cash impact)
 """
+from app.core.datetime_utils import now
 
 from datetime import datetime
 
@@ -72,7 +73,7 @@ class Trade(Base):
 
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now())
     reversed_by_trade_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("trades.id"), nullable=True
     )

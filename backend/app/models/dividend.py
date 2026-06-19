@@ -4,6 +4,7 @@ from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, Stri
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.core.datetime_utils import now
 
 
 class DividendRecord(Base):
@@ -19,7 +20,7 @@ class DividendRecord(Base):
     total_received: Mapped[float] = mapped_column(Float, nullable=False)
     reinvested: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now()
+        DateTime, default=now()
     )
 
     # Relationships

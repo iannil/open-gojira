@@ -48,6 +48,7 @@ from datetime import date, datetime, timezone
 from typing import Optional
 
 from fastapi import HTTPException
+from app.core.datetime_utils import now
 from sqlalchemy import distinct, select
 from sqlalchemy.orm import Session
 
@@ -72,7 +73,7 @@ logger = logging.getLogger(__name__)
 
 
 def _utcnow_naive() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return now()
 
 
 def _get_trading_days(db: Session, start: date, end: date) -> list[date]:

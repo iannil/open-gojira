@@ -19,6 +19,7 @@ import pytest
 from app.models.research_claim import ResearchClaim
 from app.models.research_company_ranking import ResearchCompanyRanking
 from app.models.research_run import ResearchRun
+from app.core.datetime_utils import now
 from app.models.research_theme import ResearchTheme
 from app.models.scarce_layer import ScarceLayer
 from app.models.value_chain_layer import ValueChainLayer
@@ -50,7 +51,7 @@ def _make_run(db_session, theme_id, *, started_offset_min=0, status="completed")
         scope_time_window="3-12M",
         triggered_by="test",
         llm_provider="glm-5.1",
-        started_at=datetime.utcnow() - timedelta(minutes=started_offset_min),
+        started_at=now() - timedelta(minutes=started_offset_min),
     )
     db_session.add(run)
     db_session.flush()

@@ -6,6 +6,7 @@ from sqlalchemy import DateTime, Float, Integer, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.core.datetime_utils import now
 
 
 class Theme(Base):
@@ -23,7 +24,7 @@ class Theme(Base):
     target_weight_pct: Mapped[float] = mapped_column(
         Float, nullable=False, default=0.0
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now())
     updated_at: Mapped[datetime | None] = mapped_column(
         DateTime, onupdate=func.now(), nullable=True
     )
