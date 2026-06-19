@@ -305,10 +305,19 @@ class PipelineManager:
     def recover_stale_runs(db: Session) -> int:
         """Mark stale running/pending runs as failed (server restarted mid-execution).
 
-        Only marks runs older than 10 minutes to avoid mislabeling freshly created runs.
+        L5 fix (2026-06-19): threshold raised from 10min → 6h. 10min was right for
+        short pipelines (valuations ~60s, universe_bootstrap ~5s) but caused
+        long-running backfills (financials/dividends/klines × 5626 stocks × N years
+        ≈ 2-3h) to be misclassified as stale and marked failed while the daemon
+        thread was still actively writing data. Pipeline completion path
+        (`_execute_with_db`) overwrites status back to COMPLETED when the thread
+        finishes, but the intermediate FAILED state polluted diagnostics.
+
+        6h is a safe upper bound: real server crashes leave stale rows forever;
+        long-running backfill of all 5626 stocks finishes well under 6h.
         """
         from datetime import timedelta
-        stale_threshold = now() - timedelta(minutes=10)
+        stale_threshold = now() - timedelta(hours=6)
         stale_statuses = (PipelineStatus.RUNNING.value, PipelineStatus.PENDING.value)
         stale = db.query(PipelineRun).filter(
             PipelineRun.status.in_(stale_statuses),
