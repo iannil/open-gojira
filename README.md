@@ -411,6 +411,7 @@ FROM data_freshness;
 | L7 api_usage_logs 表 0 行 | lixinger_client 未写日志 | DataManagement 页面"API 用量"显示 0 |
 | L8 财报 pipeline 默认 granularity=y | 6 月缺 2026-Q1 季报 | 已修 API+manager+pipeline 三层透传 (`e164307`),全量 backfill 待重跑 |
 | L9 backend `--reload` 中断 daemon thread | 修改代码触发 uvicorn reload → 后台 pipeline thread 死亡,`pipeline_runs.status` 一直 `running` 无人写回 | 已实测中断 financials 季报 backfill (`a6a3a66a` 25% 后中断)。修复路径: (a) 跑 long-running pipeline 时用 `background=False` 同步模式 (b) `dev.sh` 加 `--reload-dir` 限定监听范围避开 `app/` (c) 生产模式去掉 `--reload` |
+| L10 SQLite `datetime('now')` 返回 UTC vs DB naive 北京 | SQLite 内置函数 (`datetime('now')` / `CURRENT_TIMESTAMP` / `func.now()`) 全返回 UTC。手动 raw SQL 查询跟 DB 字段比较差 8h | 代码层 0 处残留 (全用 Python `now()`)。**手动查询约定**: 用 `datetime('now', '+8 hours')` 或 `from app.core.datetime_utils import beijing_now_sql` |
 
 ---
 
