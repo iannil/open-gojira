@@ -738,27 +738,26 @@ def pipeline_stale_sweep_job() -> dict:
     pipeline_runs.status stays at 'running'. recover_stale_runs on startup
     handles process restarts; this job handles in-process thread death.
 
-    Threshold: 30 min (much longer than any legitimate pipeline; the longest
-    observed run was financials at ~2h, but that updates completed_items
-    periodically so updated_at stays fresh — we check updated_at, not
-    started_at).
+    L5 fix (2026-06-19): thresholds raised from 30min/2h → 6h/8h. The
+    original 30min was right for short pipelines (valuations ~60s) but
+    misclassified long-running backfills (financials 5626 stocks × 9 quarters
+    ≈ 2-3h) as stuck. Backfill progress is hard to detect via updated_at
+    because SQLAlchemy onupdate=func.now() fires on UPDATE only, and pipeline
+    rows are rarely updated mid-run.
+
+    6h/8h: safe upper bound. Real stuck threads will be cleaned within 8h
+    instead of 2h, but backfill of 5626 stocks finishes well under 6h.
     """
     from app.services.pipelines.manager import PipelineManager
 
     with SessionLocal() as db:
-        # recover_stale_runs checks created_at; we want to check updated_at
-        # because a long-running pipeline will have old created_at but
-        # recent updated_at if it's making progress. Use a custom query.
         from datetime import timedelta
         from app.models.pipeline import PipelineRun
         from sqlalchemy import select
 
-        threshold = _utcnow() - timedelta(minutes=30)
+        threshold = _utcnow() - timedelta(hours=6)
         stale_statuses = ("running", "pending")
-        # Use select(...).where(updated_at < threshold OR updated_at IS NULL)
-        # Be defensive: also catch started_at older than 2h regardless of
-        # updated_at (some pipelines may not refresh updated_at).
-        hard_threshold = _utcnow() - timedelta(hours=2)
+        hard_threshold = _utcnow() - timedelta(hours=8)
         result = db.execute(
             select(PipelineRun).where(
                 PipelineRun.status.in_(stale_statuses),
@@ -768,13 +767,13 @@ def pipeline_stale_sweep_job() -> dict:
         for run in result:
             updated = run.updated_at or run.started_at
             if updated is None or updated < hard_threshold:
-                # Definitely dead — older than 2h with no progress
+                # Definitely dead — older than 8h with no progress
                 run.status = "failed"
                 if not run.finished_at:
                     run.finished_at = _utcnow()
                 recovered.append(run.id)
             elif updated < threshold:
-                # Possibly dead — no progress in 30+ min
+                # Possibly dead — no progress in 6h+
                 run.status = "failed"
                 if not run.finished_at:
                     run.finished_at = _utcnow()

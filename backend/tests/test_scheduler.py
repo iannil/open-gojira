@@ -232,13 +232,18 @@ def test_recover_stale_runs_keeps_recent_running(db_session):
 
 
 def test_pipeline_stale_sweep_job_recovers_stuck(db_session, monkeypatch):
-    """F15: scheduler sweep job should mark stuck runs as failed."""
-    from datetime import datetime, timedelta, timezone
+    """F15: scheduler sweep job should mark stuck runs as failed.
+
+    L5 fix (2026-06-19): threshold raised to 6h/8h. Fixture must use > 8h
+    old timestamp to trigger sweep's hard_threshold path.
+    """
+    from datetime import timedelta
+    from app.core.datetime_utils import now
     from app.models.pipeline import PipelineRun
     from app.services.pipelines.base import PipelineStatus
 
-    # 1 hour old, no updated_at refresh (stuck thread)
-    old_time = now() - timedelta(hours=1)
+    # 10 hours old, no updated_at refresh (stuck thread, > 8h hard_threshold)
+    old_time = now() - timedelta(hours=10)
     run = PipelineRun(
         id="test-sweep-target",
         pipeline_type="dividends",
