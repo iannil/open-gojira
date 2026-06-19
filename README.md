@@ -1,13 +1,5 @@
 # Gojira — 个人股票自动驾驶舱
 
-> 一台基于 `docs/reference/invest{1,2,3}.md` 投资体系的 A 股自动驾驶系统:从全市场扫描到候选池、订单草稿、持仓审计全流程自动化。**除真实券商下单外,筛选 / 监控 / 告警 / 订单草稿 / 再平衡 / 逻辑证伪全部自动**。
->
-> **当前状态**: `v0.2-started` 🚀 (2026-06-18 21:06 wipe 进入 v0.2 起点)
-> **测试**: 1189 passed / 0 failed
-> **最新详细快照**: [`docs/progress/STATUS.md`](docs/progress/STATUS.md)
-
----
-
 ## 目录
 
 ### 第一部分:用户使用说明(主体)
@@ -417,7 +409,8 @@ FROM data_freshness;
 | L5 recover_stale_runs 10min race | long-running pipeline 中间状态被误标 failed | cosmetic,完成后 _execute_with_db 覆盖回真实状态 |
 | L6 dead_letter 不自动 resolve on pipeline 重跑成功 | pipeline 重跑成功后旧 dead_letter 永远 pending | 需手动 SQL UPDATE 清理 |
 | L7 api_usage_logs 表 0 行 | lixinger_client 未写日志 | DataManagement 页面"API 用量"显示 0 |
-| L8 财报 pipeline 默认 granularity=y | 6 月缺 2026-Q1 季报 | 正在 backfill (`a6a3a66a`,预计 ~04:20 完成) |
+| L8 财报 pipeline 默认 granularity=y | 6 月缺 2026-Q1 季报 | 已修 API+manager+pipeline 三层透传 (`e164307`),全量 backfill 待重跑 |
+| L9 backend `--reload` 中断 daemon thread | 修改代码触发 uvicorn reload → 后台 pipeline thread 死亡,`pipeline_runs.status` 一直 `running` 无人写回 | 已实测中断 financials 季报 backfill (`a6a3a66a` 25% 后中断)。修复路径: (a) 跑 long-running pipeline 时用 `background=False` 同步模式 (b) `dev.sh` 加 `--reload-dir` 限定监听范围避开 `app/` (c) 生产模式去掉 `--reload` |
 
 ---
 
@@ -1483,6 +1476,31 @@ WHERE created_at > datetime('now', '-30 seconds');
 "
 # > 0 = 实际在跑,ignore status=failed
 ```
+
+#### 11.3.3.5 症状: pipeline status=running 但 N 小时无新插入
+
+**根因**: L9 known limitation — backend `--reload` 模式下,修改代码触发 uvicorn 重启,后台 daemon thread 死亡,`pipeline_runs.status` 没人写回。
+
+**判断方法**:
+```bash
+# 看 backend 进程 ELAPSED 时间 vs 启动时间
+ps -p $(cat .dev-pids/backend.pid) -o pid,etime,command
+
+# 如果 ELAPSED << 启动到现在的 wall clock,说明进程重启过
+# 验证: 看 log 最新 timestamp
+tail -1 .dev-logs/backend.log | python3 -c "import json,sys; print(json.loads(sys.stdin.read())['timestamp'])"
+```
+
+**修复路径**:
+- **方案 A** (短期): 标记 pipeline 失败 + 重跑
+  ```bash
+  sqlite3 backend/data/gojira.db "UPDATE pipeline_runs SET status='failed' WHERE id='<run_id>';"
+  # 然后重跑(避免改代码触发再次 reload)
+  ```
+- **方案 B** (中期): long-running pipeline 用 `background=False` 同步模式,跑完才返回
+- **方案 C** (长期): `dev.sh` 加 `--reload-dir app/routers` 限定监听范围,跑 backfill 时改 `app/services/pipelines/` 不会触发 reload
+
+**预防**: 跑 1 小时以上的 backfill 期间不要改 backend 代码。
 
 #### 11.3.4 症状: pipeline dead_letter 累积
 
