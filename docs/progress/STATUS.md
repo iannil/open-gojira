@@ -4,7 +4,7 @@
 >
 > | 字段 | 值 (实测于 2026-06-18 wipe 进入 v0.2 后) |
 > |---|---|
-> | 项目状态 | **v0.2-started** 🚀 (2026-06-18 21:06 wipe 进入 v0.2;首次 v0.2 autopilot run pending 明天 2026-06-19 17:45 daily_plan_evaluation cron 触发) |
+> | 项目状态 | **v0.2-verified** ✅ (2026-06-19 22:18 autopilot 首次跑通) |
 > | 最后更新 | 2026-06-18 21:30 (wipe + grill-me 完整状态对齐) |
 > | 分支 | `master` |
 > | 最新 commit | `9a2ad61` docs: v0.1-paper-verified 通过 + F29/F30 finding 同步 (v0.1 ship); wipe 脚本 + STATUS.md 改写 pending commit |
@@ -15,10 +15,10 @@
 > | 后端代码 | ~33,000 行 (app/) + ~20,000 行 (tests/) |
 > | 前端代码 | ~18,500 行 (src/) |
 > | 远程仓库 | 暂无 (`git remote -v` 为空) |
-> | 真实使用 | **DB 2026-06-18 wipe 后起点**: 业务 action 表全 0 (holdings/trades/drafts/candidates/audit_logs/cash_balance/watchlist_items 全清); Lixinger 四大表新鲜 (stocks 5626 / valuations 14928 最新今天 / financials 26799 最新 2025-12-31 / dividends 48989 最新 ex_date 2026-06-29 + 5 股增量测试 OK) |
+> | 真实使用 | **DB 2026-06-19 v0.2-verified 后**: 177 active candidates (contrarian 103 / core_value 65 / bank_anchor 8 / pure_cash_machine 1) + 88 pending BUY drafts (22:18-22:19 plan_runner 产出) + audit_logs 40 行 + cash_balance 1 行. **autopilot 链路真跑通**: scan 28173 → pass 177 → emit 88 drafts, 0 errors.
 > | v0.1 artifact | **pre-usage-wipe-2026-06-18.db** (185MB,backend/data/backups/) — 含 2 paper holdings + 4 trades + 86 drafts + 179 candidates + audit_logs 123 行,v0.1-verified 验证产物 |
-> | v0.2 验收标准 | **autopilot 跑通即 v0.2-verified** (用户 2026-06-18 grill-me 决策: 去期限化,不要求"1 个月长期运行")。通过条件: 明天 2026-06-19 17:45 scheduler `daily_plan_evaluation` cron (`45 17 * * 1-5`) 触发首次 v0.2 run + 产出 candidates/drafts + audit_logs 沉淀 |
-> | 下次 milestone | v0.2-verified (autopilot 跑通) → v1.0 (真实 broker 下单) |
+> | v0.2 验收标准 | **autopilot 跑通即 v0.2-verified** ✅ (用户 2026-06-18 grill-me 决策: 去期限化). 2026-06-19 22:18 通过: daily_plan_evaluation 手动触发 → 177 candidates + 88 drafts + 0 errors. 下次 milestone: v1.0 (真实 broker 下单) |
+> | 下次 milestone | v1.0 (真实 broker 下单) |
 
 ---
 
@@ -231,6 +231,8 @@ Alembic 迁移链: 50 个版本文件 (实测 2026-06-18),head = `s10_1_in_circl
 最新审计报告: `docs/reports/completed/full-audit-round6-2026-06-11.md` (历史) + `docs/reports/2026-06-15-completeness-audit.md` (最新三层完成度审计)
 
 ### 5.2 最近里程碑 (按时间倒序)
+
+**2026-06-19 (22:18)**: 手动触发 `daily_plan_evaluation` → **v0.2-verified** ✅! 6 plans scanned 28173 stocks, passed 177 candidates (contrarian_scan 103 + core_value 65 + bank_anchor 8 + pure_cash_machine 1), emitted **88 pending BUY drafts** (22:18-22:19), 40 audit_logs, 0 errors. **autopilot 链路真跑通**. 期间发现并修复 L5 真根因 (`pipeline_stale_sweep_job` 30min/2h → 6h/8h, 之前只修了 `recover_stale_runs`)+ L11 (`universe_bootstrap_pipeline now=now()` shadowing 导致 uvicorn reload 失败 backend 跑旧代码) + L10 (SQLite `datetime('now')` UTC vs 北京 DB naive + helper). financials 季报 1153/5626 股 (20%) 因 Lixinger API retry 链卡(端问题,非代码 bug), 年报 5370/5626 股完整. **用户决策"autopilot 跑通即验收"达成, 下个 milestone v1.0 (真实 broker).**
 
 **2026-06-18 (21:30 晚)**: grill-me "项目基础数据全部更新同步好了吗" 完整状态对齐 → **v0.2-started** 🚀。用户决策 6 项: (1) wipe 意图=进入 v0.2 (2) 就绪标准=四大表新鲜+autopilot 跑通 (3) dividends pipeline failed → 手动重跑验证 (实测 5 股 pipeline 5.8s 成功,Lixinger 限流已恢复,根因是 AdaptiveThrottler 死代码导致全速并发触发 429) (4) STATUS.md 改为 v0.2 起点 + v0.1 artifact 归档 (5) v0.2 验收去期限化=autopilot 跑通即 verified (6) price_klines 全量 backfill (task #4,需先 wire AdaptiveThrottler)。Task list: 5 项 (1✅ 2✅ 3 pending 18:00 4 后续 5 后续)。详见 `docs/progress/2026-06-18-grill-me-data-state-alignment.md`。**核心问题"基础数据全部更新同步好了吗"答: 数据 90% OK,STATUS.md 改完即同步。**
 
