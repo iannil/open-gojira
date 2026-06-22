@@ -68,7 +68,7 @@ import type {
   ThemeExposureItem,
 } from '../../api/types';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 // ── helpers ───────────────────────────────────────────────────────────
 
@@ -478,32 +478,41 @@ function GoalNavigator({
   const progress = data.goal_progress ?? 0;
   const progressPct = Math.min(progress * 100, 100);
   const isUnset = data.target_annual_cashflow === 0;
+  const dyrMeetsGoal = data.weighted_dyr != null && data.weighted_dyr >= 0.045;
   return (
     <Card
-      className="gojira-card"
+      className="gojira-card cockpit-goal-card"
       bordered={false}
-      style={{ marginBottom: 16 }}
+      style={{ marginBottom: 'var(--sp-4)' }}
       extra={
         <Button size="small" onClick={onEdit}>
           {isUnset ? '设定目标' : '编辑目标'}
         </Button>
       }
     >
-      <Row gutter={24} align="middle">
+      <Row gutter={32} align="middle">
         <Col xs={24} md={10}>
-          <Text type="secondary" style={{ fontSize: 12 }}>
+          <Text type="secondary" style={{ fontSize: 'var(--fs-xs)' }}>
             现金流目标进度（<span className="num">{data.goal_multiple}</span>× 年开销）
           </Text>
-          <Title level={2} style={{ margin: '4px 0' }}>
-            <span className="num">
-              {data.goal_progress != null
-                ? `${(progress * 100).toFixed(1)}%`
-                : '尚未设定目标'}
+          {data.goal_progress != null ? (
+            <span className="cockpit-goal-progress-num">
+              {(progress * 100).toFixed(1)}%
             </span>
-          </Title>
-          <Progress percent={progressPct} strokeColor={progressColor(progress)} showInfo={false} />
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            <span className="num">{formatCurrency(data.annual_passive_cashflow, data.currency)}</span> /{' '}
+          ) : (
+            <span className="cockpit-goal-progress-num is-unset">
+              尚未设定目标
+            </span>
+          )}
+          <Progress
+            percent={progressPct}
+            strokeColor={progressColor(progress)}
+            showInfo={false}
+            size="small"
+          />
+          <Text className="cockpit-goal-meta">
+            <span className="num">{formatCurrency(data.annual_passive_cashflow, data.currency)}</span>
+            {' / '}
             <span className="num">{formatCurrency(data.target_annual_cashflow, data.currency)}</span>
           </Text>
         </Col>
@@ -515,14 +524,13 @@ function GoalNavigator({
             suffix="%"
             styles={{
               content: {
-                color:
-                  data.weighted_dyr != null && data.weighted_dyr >= 0.045
-                    ? 'var(--green-600)'
-                    : 'var(--red-600)',
+                color: dyrMeetsGoal ? 'var(--green-600)' : 'var(--red-600)',
+                fontSize: '28px',
+                fontWeight: 'var(--fw-semibold)',
               },
             }}
           />
-          <Text type="secondary" style={{ fontSize: 12 }}>
+          <Text type="secondary" style={{ fontSize: 'var(--fs-xs)' }}>
             目标 4.5% 以上
           </Text>
         </Col>
@@ -532,6 +540,12 @@ function GoalNavigator({
             value={data.total_portfolio_value}
             precision={0}
             formatter={(v) => formatCurrency(Number(v), data.currency)}
+            styles={{
+              content: {
+                fontSize: '28px',
+                fontWeight: 'var(--fw-semibold)',
+              },
+            }}
           />
         </Col>
       </Row>
@@ -566,15 +580,17 @@ function DraftList({
     {
       title: '方向',
       dataIndex: 'side',
-      width: 64,
+      width: 60,
       render: (side: string) => (
-        <Tag color={side === 'BUY' ? 'green' : 'red'}>{DRAFT_SIDE_LABEL[side] ?? side}</Tag>
+        <Tag color={side === 'BUY' ? 'green' : 'red'} style={{ margin: 0 }}>
+          {DRAFT_SIDE_LABEL[side] ?? side}
+        </Tag>
       ),
     },
     {
       title: '标的',
       dataIndex: 'code',
-      width: 160,
+      width: 180,
       render: (code: string, r: CockpitDraft) => (
         <Link to={`/stock/${code}`}>{r.stock_name ? `${r.stock_name} ${code}` : code}</Link>
       ),
@@ -583,42 +599,43 @@ function DraftList({
       title: '评分',
       dataIndex: 'qiu_score',
       width: 56,
-      render: (v: number | null) => v ?? '—',
+      align: 'right',
+      render: (v: number | null) => <span className="num">{v ?? '—'}</span>,
       sorter: (a: CockpitDraft, b: CockpitDraft) => (a.qiu_score ?? 0) - (b.qiu_score ?? 0),
       defaultSortOrder: 'descend',
     },
     {
-      title: '比例',
-      width: 100,
+      title: '影响',
+      width: 180,
       render: (_: unknown, r: CockpitDraft) =>
-        r.side === 'BUY'
-          ? `+组合 ${formatPct(r.add_pct, 1)}`
-          : `−仓位 ${formatPct(r.reduce_pct_of_position, 0)}`,
+        r.side === 'BUY' ? (
+          <span className="num text-positive">+组合 {formatPct(r.add_pct, 1)}</span>
+        ) : (
+          <div className="cockpit-impact-cell">
+            <span className="num text-negative">−仓位 {formatPct(r.reduce_pct_of_position, 0)}</span>
+            <DraftAvailableCell code={r.code} />
+          </div>
+        ),
     },
     { title: '触发原因', dataIndex: 'reason', ellipsis: true },
     {
-      title: '可卖份额',
-      width: 200,
-      render: (_: unknown, r: CockpitDraft) =>
-        r.side === 'SELL' ? <DraftAvailableCell code={r.code} /> : '—',
-    },
-    {
       title: '档位',
-      width: 160,
+      width: 120,
       render: (_: unknown, r: CockpitDraft) => (
         <Space size={4}>
-          <Tag>{`${STEP_KIND_LABEL[r.step_kind] ?? r.step_kind}[${r.step_index}]`}</Tag>
-          {r.source === 'rebalance' && <Tag color="orange">系统</Tag>}
+          <Tag style={{ margin: 0 }}>{`${STEP_KIND_LABEL[r.step_kind] ?? r.step_kind}[${r.step_index}]`}</Tag>
+          {r.source === 'rebalance' && <Tag color="orange" style={{ margin: 0 }}>系统</Tag>}
         </Space>
       ),
     },
     {
       title: '操作',
-      width: 170,
+      width: 180,
+      align: 'right',
       render: (_: unknown, r: CockpitDraft) => (
-        <Space size={4}>
+        <Space size={6} wrap={false}>
           <Button size="small" type="primary" loading={executePending} onClick={() => onExecute(r.id)}>
-            标记已成交
+            已成交
           </Button>
           <Button size="small" danger loading={cancelPending} onClick={() => onCancel(r.id)}>
             取消
@@ -629,10 +646,10 @@ function DraftList({
   ];
   return (
     <Card
-      className="gojira-card"
+      className="gojira-card cockpit-drafts-card"
       bordered={false}
       title={`今日订单草稿 (${drafts.length})`}
-      style={{ marginBottom: 16 }}
+      style={{ marginBottom: 'var(--sp-4)' }}
       extra={
         drafts.length > 0 && (
           <Space>
@@ -1059,6 +1076,7 @@ export default function CockpitPage() {
       />
 
       <div className="cockpit-grid">
+        {/* ── Row 1: market state (cycle + theme exposure) ───────────── */}
         <div className="cockpit-span-8">
           <CycleDashboardCard temperature={data.market_temperature} cycle={data.cycle} />
         </div>
@@ -1072,19 +1090,21 @@ export default function CockpitPage() {
           )}
         </div>
 
-        <div className="cockpit-span-full">
+        {/* ── Row 2: today's research + pending claims (paired) ──────── */}
+        <div className="cockpit-span-16">
           <SerenitySummaryCard summary={data.serenity_summary ?? null} />
         </div>
-
-        <div className="cockpit-span-full">
+        <div className="cockpit-span-8">
           <PendingClaimVariablesBadge />
         </div>
 
+        {/* ── Row 3: rebalancing (needs width — table with 7 cols) ───── */}
         <div className="cockpit-span-full">
           <RebalancingSuggestionsCard suggestions={data.rebalance_suggestions ?? []} />
         </div>
 
-        <div className="cockpit-span-full">
+        {/* ── Row 4: dividend projection + thesis alerts (paired) ────── */}
+        <div className="cockpit-span-12">
           <Card className="gojira-card" bordered={false} title="股息预测" style={{ marginBottom: 0 }} size="small">
             {data.dividend_projection && data.dividend_projection.next_12m_expected > 0 ? (
               <>
@@ -1137,23 +1157,30 @@ export default function CockpitPage() {
           </Card>
         </div>
 
-        <div className="cockpit-span-full">
+        <div className="cockpit-span-12">
           {data.thesis_alerts && data.thesis_alerts.length > 0 ? (
-            <Alert
-              type="warning"
-              showIcon
-              message={`${data.thesis_alerts.length} 个论点变量越界`}
-              description={data.thesis_alerts.map((a) => a.message).join('；')}
-            />
+            <Card className="gojira-card" bordered={false} title={`论点告警 (${data.thesis_alerts.length})`} style={{ marginBottom: 0 }}>
+              <Space direction="vertical" style={{ width: '100%' }} size="small">
+                {data.thesis_alerts.map((a, i) => (
+                  <Alert
+                    key={i}
+                    type="warning"
+                    showIcon
+                    message={a.message}
+                  />
+                ))}
+              </Space>
+            </Card>
           ) : (
-            <Card className="gojira-card" bordered={false} style={{ marginBottom: 0 }}>
+            <Card className="gojira-card" bordered={false} title="论点告警" style={{ marginBottom: 0 }}>
               <Empty description="论点变量均正常" image={Empty.PRESENTED_IMAGE_SIMPLE} />
             </Card>
           )}
         </div>
 
+        {/* ── Row 5: portfolio risk + quadrant + unacked alerts ──────── */}
         {/* D4 (2026-06-17 invest-alignment): invest2 §7 平方差魔咒实时指标 */}
-        <Col span={8}>
+        <div className="cockpit-span-8">
           <Card className="gojira-card" title="组合风险" bordered={false}>
             {data.portfolio_risk && data.portfolio_risk.has_holdings ? (
               <div>
@@ -1238,15 +1265,16 @@ export default function CockpitPage() {
               />
             )}
           </Card>
-        </Col>
+        </div>
 
-        <div className="cockpit-span-12">
+        <div className="cockpit-span-8">
           <QuadrantPie data={data.quadrant} />
         </div>
-        <div className="cockpit-span-12">
+        <div className="cockpit-span-8">
           <AlertsList alerts={data.alerts} />
         </div>
 
+        {/* ── Row 6: holdings + plans (paired) ───────────────────────── */}
         <div className="cockpit-span-14">
           <HoldingsTable items={data.holdings.items} />
         </div>
@@ -1254,6 +1282,7 @@ export default function CockpitPage() {
           <PlansList plans={data.plans} />
         </div>
 
+        {/* ── Row 7: pending corp actions (full-width, hidden when empty) ── */}
         <div className="cockpit-span-full">
           <PendingCorpActionsCard />
         </div>

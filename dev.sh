@@ -18,6 +18,16 @@ frontend_pidfile() { echo "$PID_DIR/frontend.pid"; }
 is_alive() { [[ -n "${1:-}" ]] && kill -0 "$1" 2>/dev/null; }
 read_pid() { [[ -f "$1" ]] && cat "$1" || true; }
 
+clear_port() {
+  local port="$1" leftover
+  leftover=$(lsof -ti :"$port" 2>/dev/null || true)
+  if [[ -n "$leftover" ]]; then
+    echo "[Clear] Killing orphan process on port $port (PID $(echo "$leftover" | tr '\n' ' '))"
+    echo "$leftover" | xargs kill -9 2>/dev/null || true
+    sleep 1
+  fi
+}
+
 stop_service() {
   local name="$1" pidfile="$2" port="${3:-}" pid
   pid=$(read_pid "$pidfile")
@@ -91,6 +101,10 @@ start_all() {
     sleep 1
   fi
 
+  # Ensure ports are free even if pidfiles are stale (orphaned uvicorn --reload children)
+  clear_port 3001
+  clear_port 3000
+
   echo "Starting Gojira development environment..."
   echo ""
   run_migrate
@@ -159,6 +173,10 @@ start_foreground() {
   ensure_pid_dir
   cleanup() { echo ""; stop_all; }
   trap cleanup EXIT INT TERM
+
+  # Ensure ports are free even if pidfiles are stale (orphaned uvicorn --reload children)
+  clear_port 3001
+  clear_port 3000
 
   echo "Starting Gojira development environment..."
   echo ""
