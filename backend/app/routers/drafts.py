@@ -1,13 +1,13 @@
-"""Order-draft endpoints (autopilot's "应买/应卖" list)."""
+"""Order-draft endpoints (autopilot's "应买/应卖" list).
 
-from datetime import date
+v2 (2026-06-24): simplified. v1 backfill-suggestion endpoint removed (draft_matcher_service deleted).
+"""
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.schemas.plan import DraftExecute, DraftResponse
-from app.schemas.review import BackfillSuggestionResponse
+from app.schemas.draft import DraftExecute, DraftResponse
 from app.services import audit_log_service, draft_service
 from app.core.datetime_utils import now
 
@@ -54,13 +54,8 @@ def execute_draft(
     draft = draft_service.execute(db, draft_id)
     audit_payload = {"holding_id": payload.holding_id}
 
-    # 重审 #2 (2026-06-13): merge execute + trade entry into one step.
-    # When broker fill (buy_price + quantity) is provided, record a Trade
-    # atomically — user no longer needs to re-enter the same fill on
-    # TradesPage. source_ref ties the trade back to this draft.
     if payload.buy_price and payload.quantity:
         from app.services.trade_service import record_trade
-        from datetime import datetime
         side = "BUY" if draft.side == "BUY" else "SELL"
         trade = record_trade(
             db,
@@ -75,13 +70,6 @@ def execute_draft(
         )
         audit_payload["auto_trade_id"] = trade.id
 
-        # F29 (2026-06-18): materialize a Holding for BUY so Cockpit
-        # portfolio_summary (which reads holdings table) reflects the new
-        # position. Industry-cap (F20) is enforced via create_holding's
-        # force param; pass through user-supplied force to allow conscious
-        # override (matches /api/portfolio pattern). On breach without force,
-        # raise 409 and let the whole transaction roll back (atomic with the
-        # trade above).
         if payload.auto_create_holding and side == "BUY":
             from app.services.holding_service import create_holding
             from datetime import date as _date
@@ -90,13 +78,11 @@ def execute_draft(
                 "buy_date": _date.today(),
                 "buy_price": float(payload.buy_price),
                 "quantity": int(payload.quantity),
-                "stop_profit_price": 0.0,  # 0 = disabled; user can edit later
+                "stop_profit_price": 0.0,
                 "trade_rationale": draft.reason,
             }, force=force)
             audit_payload["auto_holding_id"] = holding.id
 
-    if payload.discipline_checklist:
-        audit_payload["discipline_checklist"] = payload.discipline_checklist
     audit_log_service.write(
         db,
         entity_type="draft",
@@ -125,13 +111,3 @@ def cancel_draft(draft_id: int, db: Session = Depends(get_db)):
     )
     db.commit()
     return _to_response(draft)
-
-
-@router.get("/{draft_id}/backfill-suggestion", response_model=BackfillSuggestionResponse)
-def get_backfill_suggestion(draft_id: int, db: Session = Depends(get_db)):
-    """Get a smart backfill suggestion for a draft."""
-    from app.services.draft_matcher_service import suggest
-    result = suggest(db, draft_id)
-    if result is None:
-        return {"action": "none", "message": "Draft not found"}
-    return result.to_dict()

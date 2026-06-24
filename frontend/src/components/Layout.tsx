@@ -3,18 +3,11 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   DashboardOutlined,
   AppstoreOutlined,
-  ScheduleOutlined,
-  LineChartOutlined,
-  ThunderboltOutlined,
-  UserOutlined,
   DatabaseOutlined,
   ClockCircleOutlined,
   TransactionOutlined,
-  BarChartOutlined,
   BellOutlined,
   FileTextOutlined,
-  ClusterOutlined,
-  SearchOutlined,
 } from '@ant-design/icons';
 
 import { SystemAlertBanner } from './SystemAlertBanner';
@@ -37,27 +30,10 @@ const NAV_GROUPS: Array<{
     ],
   },
   {
-    label: '策略',
-    items: [
-      { key: '/research', label: '研究', labelEn: 'Research', icon: <SearchOutlined /> },
-      { key: '/strategies', label: '策略库', labelEn: 'Strategies', icon: <ThunderboltOutlined /> },
-      { key: '/business-patterns', label: '商业模式', labelEn: 'Patterns', icon: <ClusterOutlined /> },
-      { key: '/plans', label: '预案', labelEn: 'Plans', icon: <ScheduleOutlined /> },
-    ],
-  },
-  {
     label: '执行',
     items: [
-      { key: '/candidates', label: '候选池', labelEn: 'Candidates', icon: <UserOutlined /> },
       { key: '/drafts', label: '草稿', labelEn: 'Drafts', icon: <FileTextOutlined /> },
       { key: '/trades', label: '成交流水', labelEn: 'Trades', icon: <TransactionOutlined /> },
-    ],
-  },
-  {
-    label: '反思',
-    items: [
-      { key: '/review', label: '复盘', labelEn: 'Review', icon: <LineChartOutlined /> },
-      { key: '/backtest', label: '回测', labelEn: 'Backtest', icon: <BarChartOutlined /> },
     ],
   },
   {
@@ -76,11 +52,10 @@ export default function Layout() {
 
   return (
     <div className="app-shell">
-      {/* ── Top Navigation ─────────────────────────────────────────────── */}
       <header className="topnav" role="navigation" aria-label="主导航">
         <div className="topnav-brand">
           <span className="topnav-brand-name">Gojira</span>
-          <span className="topnav-brand-tagline">自动驾驶舱</span>
+          <span className="topnav-brand-tagline">自动驾驶舱 v2</span>
         </div>
 
         <nav className="topnav-nav" aria-label="功能导航">
@@ -120,7 +95,7 @@ export default function Layout() {
           ))}
         </nav>
 
-        <div className="topnav-version">v1.0</div>
+        <div className="topnav-version">v2.0</div>
       </header>
 
       <main className="main-content">

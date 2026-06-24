@@ -165,16 +165,7 @@ def sync_stocks_from_lixinger(db: Session, client: "Optional[LixingerClient]" = 
     except Exception:
         logger.exception("Industry sync failed, continuing without industry data")
 
-    # ── Phase 3: Re-infer business_pattern_id (industry-driven) ─────────
-    # Skip stocks whose business_pattern_inferred_at is NULL with non-NULL
-    # business_pattern_id (= user has manually overridden).
-    if industry_updated > 0:
-        try:
-            from app.services.business_pattern_service import infer_all_stocks
-            infer_summary = infer_all_stocks(db)
-            logger.info("Business pattern re-inferred: %s", infer_summary)
-        except Exception:
-            logger.exception("Business pattern inference failed (continuing)")
+    # v2: Phase 3 (business_pattern inference) removed — concept dropped.
 
     result = SyncResult(
         total_fetched=len(all_companies),

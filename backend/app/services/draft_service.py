@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import HTTPException
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
 from app.models.draft import Draft
-from app.models.plan import Plan
 from app.core.events import bus, DraftCreated
 from app.core.datetime_utils import now
 
@@ -41,7 +40,7 @@ def list_pending(db: Session) -> list[Draft]:
 def emit(
     db: Session,
     *,
-    plan: Plan,
+    plan: Optional[Any] = None,
     stock_code: str,
     side: str,
     step_kind: str,
@@ -51,39 +50,14 @@ def emit(
     reduce_pct_of_position: Optional[float] = None,
     suggested_quantity: Optional[int] = None,
 ) -> Optional[Draft]:
-    """Persist a Draft for a candidate stock evaluated by the plan.
-
-    Idempotent: if a pending draft with the same plan/stock/step already exists,
-    update it in place instead of creating a duplicate.
-
-    Cooldown: if a non-pending draft for the same plan/stock/step exists within
-    the cooldown period, skip emission and return None.
+    """v2 stub: emit() is preserved for backward compatibility but no longer
+    takes a Plan. v2 draft generation will be added in Phase 5 via
+    draft_generator.py.
     """
-    # Cooldown check: skip if a recent non-pending draft exists within cooldown period
-    if plan.trading_rules_json:
-        try:
-            from app.schemas.plan import TradingRules
-            rules = TradingRules.model_validate_json(plan.trading_rules_json)
-            if rules.cooldown_days > 0:
-                cutoff = _utcnow() - timedelta(days=rules.cooldown_days)
-                recent = db.execute(
-                    select(Draft).where(
-                        Draft.plan_id == plan.id,
-                        Draft.code == stock_code,
-                        Draft.step_kind == step_kind,
-                        Draft.step_index == step_index,
-                        Draft.status.in_(["executed", "cancelled"]),
-                        Draft.triggered_at >= cutoff,
-                    )
-                ).scalar_one_or_none()
-                if recent:
-                    return None  # Within cooldown, skip
-        except Exception:
-            pass  # Best-effort cooldown check
+    plan_id = getattr(plan, "id", None) if plan else None
 
     existing = db.execute(
         select(Draft).where(
-            Draft.plan_id == plan.id,
             Draft.code == stock_code,
             Draft.step_kind == step_kind,
             Draft.step_index == step_index,
@@ -103,7 +77,7 @@ def emit(
                 draft_id=existing.id,
                 stock_code=stock_code,
                 direction=side,
-                plan_id=plan.id,
+                plan_id=plan_id,
                 add_pct=add_pct,
                 reduce_pct_of_position=reduce_pct_of_position,
             ))
@@ -113,7 +87,7 @@ def emit(
         return existing
 
     draft = Draft(
-        plan_id=plan.id,
+        plan_id=plan_id,
         code=stock_code,
         side=side,
         step_kind=step_kind,
@@ -130,7 +104,7 @@ def emit(
             draft_id=draft.id,
             stock_code=stock_code,
             direction=side,
-            plan_id=plan.id,
+            plan_id=plan_id,
             add_pct=add_pct,
             reduce_pct_of_position=reduce_pct_of_position,
         ))

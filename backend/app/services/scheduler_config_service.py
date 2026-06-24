@@ -25,30 +25,17 @@ DEFAULT_JOBS: dict[str, dict] = {
         "cron_expr": "0 17 * * 1-5",
         "description": "每日估值快照（PE/PB/股息率）",
     },
-    "daily_cycle_assessment": {
-        "cron_expr": "5 17 * * 1-5",
-        "description": "市场周期评估（沪深300 PE/PB 百分位）",
-    },
     "daily_kline_sync": {
         "cron_expr": "15 17 * * 1-5",
         "description": "日K线同步（关注+持仓股）",
     },
     "daily_prev_close_sync": {
         "cron_expr": "20 17 * * 1-5",
-        "description": "prev_close同步（持仓+关注+候选股，涨跌停校验用）",
+        "description": "prev_close同步（持仓+候选股，涨跌停校验用）",
     },
     "alert_evaluation": {
         "cron_expr": "30 17 * * 1-5",
         "description": "警报规则评估",
-    },
-    "thesis_evaluation": {
-        # v2 Q6'-A2: independent job at 17:32 (after alert_evaluation at 17:30)
-        "cron_expr": "32 17 * * 1-5",
-        "description": "论点变量监控（check_held_stocks + check_claim_variables）",
-    },
-    "daily_plan_evaluation": {
-        "cron_expr": "45 17 * * 1-5",
-        "description": "预案自动评估（筛选+评分）",
     },
     "daily_deep_sync": {
         "cron_expr": "0 18 * * 1-5",
@@ -66,22 +53,6 @@ DEFAULT_JOBS: dict[str, dict] = {
         "cron_expr": "30 4 5 1,4,7,10 *",
         "description": "季度股东数据刷新",
     },
-    "weekly_rebalancing_review": {
-        "cron_expr": "0 10 * * 0",
-        "description": "周度再平衡检查",
-    },
-    "monthly_thesis_variable_sync": {
-        "cron_expr": "30 4 1 * *",
-        "description": "月度论点变量同步",
-    },
-    "weekly_business_pattern_inference": {
-        "cron_expr": "30 4 * * 0",
-        "description": "周度 BusinessPattern 推断（跳过用户已 override 的股票）",
-    },
-    "intraday_monitor": {
-        "cron_expr": "*/5 9-14 * * 1-5",
-        "description": "盘中价格监控（每5分钟检查止盈告警，默认关闭）",
-    },
     "weekly_dividend_sync": {
         "cron_expr": "0 9 * * 1",
         "description": "周度分红历史同步（持仓+关注+候选股）",
@@ -94,23 +65,15 @@ DEFAULT_JOBS: dict[str, dict] = {
         "cron_expr": "*/5 9-14 * * 1-5",
         "description": "盘中价格轮询（每5分钟，工作日 9-14 点；job 内还会做 trading_day + 时段校验）",
     },
-    "weekly_research_refresh": {
-        "cron_expr": "0 8 * * 1",  # Monday 8am Asia/Shanghai
-        "description": "周度 serenity 研究自动刷新（auto_refresh_freq=weekly 的主题；Q12 跳过 last_run_status=failed）",
-    },
     "pipeline_stale_sweep": {
         "cron_expr": "*/15 * * * *",  # every 15 min
         "description": "F15: 周期性清理 stuck pipeline runs (后台线程死亡但 status=running 的孤儿记录)",
-    },
-    "research_stale_sweep": {
-        "cron_expr": "*/10 * * * *",  # every 10 min (F23: serenity worker hang 更频繁)
-        "description": "F23: 周期性清理 stuck serenity research runs (GLM SSL hang 导致 worker thread 永久阻塞)",
     },
 }
 
 
 # Jobs disabled by default (opt-in via API)
-_DISABLED_BY_DEFAULT: set[str] = {"intraday_monitor", "intraday_price_poll"}
+_DISABLED_BY_DEFAULT: set[str] = {"intraday_price_poll"}
 
 
 def _utcnow() -> datetime:

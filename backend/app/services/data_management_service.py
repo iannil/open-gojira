@@ -1,4 +1,8 @@
-"""Data management service — stock pool, data status, cleanup, sync delegation."""
+"""Data management service — stock pool, data status, cleanup, sync delegation.
+
+v2 (2026-06-24): Watchlist concept removed. Pool = held stocks only.
+Will be replaced by stock_lifecycle-based pool in Phase 2.
+"""
 
 import logging
 
@@ -7,20 +11,19 @@ from sqlalchemy.orm import Session
 
 from app.models.dividend import DividendRecord
 from app.models.financial import FinancialStatement
+from app.models.holding import Holding
 from app.models.price_kline import PriceKline
 from app.models.stock import Stock
 from app.models.valuation import ValuationSnapshot
-from app.models.watchlist import WatchlistItem
 
 logger = logging.getLogger(__name__)
 
 
 def get_watched_stock_codes(db: Session) -> set[str]:
-    """Get all watched + held stock codes."""
-    from app.models.holding import Holding
-    held = {r[0] for r in db.query(Holding.stock_code).filter(Holding.sell_date.is_(None)).all()}
-    watched = {r[0] for r in db.query(WatchlistItem.stock_code).distinct().all()}
-    return held | watched
+    """Get all held stock codes (v2: watchlist concept deferred to stock_lifecycle)."""
+    return {
+        r[0] for r in db.query(Holding.stock_code).filter(Holding.sell_date.is_(None)).all()
+    }
 
 
 def get_all_active_stock_codes(db: Session) -> list[str]:
@@ -33,7 +36,7 @@ def get_all_active_stock_codes(db: Session) -> list[str]:
 
 
 def list_stock_pool(db: Session) -> list[dict]:
-    """List all stocks in the pool with data completeness info."""
+    """List all held stocks with data completeness info."""
     all_codes = get_watched_stock_codes(db)
     if not all_codes:
         return []
@@ -41,7 +44,6 @@ def list_stock_pool(db: Session) -> list[dict]:
     stocks = db.query(Stock).filter(Stock.code.in_(all_codes)).all()
     stock_map = {s.code: s for s in stocks}
 
-    # Batch query completeness
     val_codes = {r[0] for r in db.query(ValuationSnapshot.stock_code).filter(
         ValuationSnapshot.stock_code.in_(all_codes)
     ).distinct().all()}
@@ -58,13 +60,6 @@ def list_stock_pool(db: Session) -> list[dict]:
         DividendRecord.stock_code.in_(all_codes)
     ).distinct().all()}
 
-    # Watchlist added_at
-    added_at_map: dict[str, str | None] = {}
-    items = db.query(WatchlistItem).filter(WatchlistItem.stock_code.in_(all_codes)).all()
-    for item in items:
-        if item.stock_code not in added_at_map or (item.added_at and added_at_map.get(item.stock_code) is None):
-            added_at_map[item.stock_code] = str(item.added_at) if item.added_at else None
-
     result = []
     for code in sorted(all_codes):
         s = stock_map.get(code)
@@ -76,7 +71,7 @@ def list_stock_pool(db: Session) -> list[dict]:
             "industry": s.industry,
             "tier": s.tier,
             "security_theme": s.security_theme,
-            "added_at": added_at_map.get(code),
+            "added_at": None,
             "data_completeness": {
                 "has_valuation": code in val_codes,
                 "has_financial": code in fin_codes,
@@ -107,22 +102,15 @@ def search_stocks(db: Session, keyword: str) -> list[dict]:
 
 
 def add_to_pool(db: Session, stock_codes: list[str]) -> int:
-    """Add stocks to the default watchlist group."""
-    from app.services import watchlist_service as svc
-    group = svc.get_or_create_default_group(db)
-    return svc.bulk_add_items(db, group.id, stock_codes)
+    """v2 stub: watchlist concept deferred to stock_lifecycle."""
+    logger.warning("add_to_pool stubbed in v2; will be replaced by stock_lifecycle")
+    return 0
 
 
 def remove_from_pool(db: Session, stock_codes: list[str]) -> int:
-    """Remove stocks from all watchlist groups."""
-    items = db.query(WatchlistItem).filter(
-        WatchlistItem.stock_code.in_(stock_codes)
-    ).all()
-    count = len(items)
-    for item in items:
-        db.delete(item)
-    db.flush()
-    return count
+    """v2 stub: watchlist concept deferred to stock_lifecycle."""
+    logger.warning("remove_from_pool stubbed in v2; will be replaced by stock_lifecycle")
+    return 0
 
 
 def get_data_status(db: Session) -> dict:

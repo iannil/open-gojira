@@ -1,4 +1,8 @@
-"""Market data endpoints — indices, index K-line, cycle assessment."""
+"""Market data endpoints — indices, index K-line.
+
+v2 (2026-06-24): cycle assessment, dividend projection, thesis alerts removed
+(v1 services deleted). Will be replaced by v2 Pipelines.
+"""
 
 from datetime import date, timedelta
 
@@ -6,13 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.schemas.market import (
-    CycleAssessmentResponse,
-    DividendProjectionResponse,
-    IndexKlineResponse,
-    ThesisAlertResponse,
-)
-from app.services.cycle_assessment_service import assess_cycle
+from app.schemas.market import IndexKlineResponse
 from app.services.lixinger_client import LixingerError, get_lixinger_client
 from app.services.market_service import fetch_market_indices
 
@@ -47,25 +45,3 @@ def api_get_index_kline(code: str, days: int = 365):
             for r in rows or []
         ],
     }
-
-
-@router.get("/cycle", response_model=CycleAssessmentResponse)
-def api_get_cycle_assessment(db: Session = Depends(get_db)):
-    """Current market cycle assessment (PE percentile based)."""
-    assessment = assess_cycle(db)
-    return assessment.model_dump()
-
-
-@router.get("/dividend-projection", response_model=DividendProjectionResponse)
-def api_get_dividend_projection(db: Session = Depends(get_db)):
-    """Projected dividend income for next 12 months."""
-    from app.services.dividend_projector_service import project
-    return project(db).model_dump()
-
-
-@router.get("/thesis-alerts", response_model=list[ThesisAlertResponse])
-def api_get_thesis_alerts(db: Session = Depends(get_db)):
-    """Check thesis variable thresholds for all held stocks."""
-    from app.services.thesis_monitor_service import check_held_stocks
-    alerts = check_held_stocks(db)
-    return [a.model_dump() for a in alerts]

@@ -39,7 +39,6 @@ from app.models.scheduler_config import SchedulerJob
 from app.models.valuation import ValuationSnapshot
 from app.services import (
     alert_service,
-    watchlist_service,
 )
 from app.services.dividend_service import fetch_and_store_from_lixinger
 from app.services.financial_service import fetch_and_store_financials
@@ -850,30 +849,25 @@ def research_stale_sweep_job() -> dict:
 # ── Job Registry ──────────────────────────────────────────────────────────
 
 # Maps job_id → unwrapped function (tracking is applied during scheduling)
+# v2 (2026-06-24): v1 jobs removed (thesis_evaluation, daily_plan_evaluation,
+# weekly_rebalancing_review, daily_cycle_assessment, monthly_thesis_variable_sync,
+# weekly_business_pattern_inference, intraday_monitor, weekly_research_refresh,
+# research_stale_sweep). These will be replaced by v2 LLM Pipelines in later phases.
 JOB_REGISTRY = {
     "daily_universe_bootstrap": daily_universe_bootstrap_job,
     "daily_base_sync": daily_base_sync_job,
     "daily_deep_sync": daily_deep_sync_job,
     "daily_snapshot": daily_snapshot_job,
-    "daily_cycle_assessment": daily_cycle_assessment_job,
     "alert_evaluation": alert_evaluation_job,
-    "thesis_evaluation": thesis_evaluation_job,
     "daily_kline_sync": daily_kline_sync_job,
     "daily_prev_close_sync": daily_prev_close_sync_job,
     "monthly_dividend_sync": monthly_dividend_sync_job,
     "quarterly_financials_refresh": quarterly_financials_refresh_job,
     "quarterly_shareholders_refresh": quarterly_shareholders_refresh_job,
-    "daily_plan_evaluation": daily_plan_evaluation_job,
-    "weekly_rebalancing_review": weekly_rebalancing_review_job,
-    "monthly_thesis_variable_sync": _monthly_thesis_variable_sync_job,
-    "weekly_business_pattern_inference": weekly_business_pattern_inference_job,
-    "intraday_monitor": intraday_monitor_job,
     "weekly_dividend_sync": weekly_dividend_sync_job,
     "daily_corp_action_apply": daily_corp_action_apply_job,
     "intraday_price_poll": intraday_price_poll_job,
-    "weekly_research_refresh": _weekly_research_refresh_job,
     "pipeline_stale_sweep": pipeline_stale_sweep_job,
-    "research_stale_sweep": research_stale_sweep_job,
 }
 
 

@@ -442,13 +442,9 @@ def on_thesis_alert_triggered(event: ThesisAlertTriggered) -> None:
 
 
 # Register handlers with the event bus
-bus.subscribe(DataSyncCompleted, on_valuation_sync_reassess_strategies)
-bus.subscribe(DataSyncCompleted, on_financials_sync_thesis_variables)
+# v2 (2026-06-24): v1 handlers unsubscribed (strategy reassessment, thesis variable
+# sync, position advisor, plan alerts, thesis alert, research handlers). These will
+# be replaced by v2 LLM Pipeline event handlers in later phases.
 bus.subscribe(DataSyncCompleted, on_kline_sync_price_alert)
-bus.subscribe(DraftCreated, on_draft_check_position)
 bus.subscribe(DraftCreated, on_draft_audit_log)
-bus.subscribe(PlanEvaluationCompleted, on_plan_completed_check_alerts)
-bus.subscribe(ResearchRunFailed, on_research_run_failed)
 bus.subscribe(MonthlyBudgetExceeded, on_monthly_budget_exceeded)
-bus.subscribe(ResearchRunCompleted, on_research_run_propose_claim_variables)
-bus.subscribe(ThesisAlertTriggered, on_thesis_alert_triggered)

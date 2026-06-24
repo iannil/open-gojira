@@ -28,9 +28,15 @@ from app.models.cash_balance import CashBalance
 from app.models.stock import Stock
 from app.models.trade import Trade
 from app.services.fee_calculator_service import compute_fees
-from app.services.holding_view_service import available_quantity_at
 from app.services.price_validator_service import assert_tradable
 from app.core.datetime_utils import now
+
+
+def _available_quantity_at(db: Session, code: str, at_time=None) -> int:
+    """v2 simplified: just Holding.quantity (draft-frozen logic removed)."""
+    from app.models.holding import Holding
+    h = db.query(Holding).filter(Holding.stock_code == code, Holding.sell_date.is_(None)).first()
+    return int(h.quantity) if h else 0
 
 
 class InsufficientBalanceError(HTTPException):

@@ -23,7 +23,7 @@ from app.models.cash_balance import CashBalance
 from app.models.corp_action import CorpAction
 from app.models.stock import Stock
 from app.models.trade import Trade
-from app.services.holding_view_service import get_holding_view
+from app.models.holding import Holding
 from app.services.system_alert_service import create_alert
 from app.core.datetime_utils import now
 
@@ -237,8 +237,8 @@ def process_one(db: Session, action: CorpAction) -> CorpAction:
         return action
 
     # Find current qty held for this stock (only open positions)
-    holdings = [h for h in get_holding_view(db) if h["stock_code"] == action.stock_code]
-    qty_held = holdings[0]["total_quantity"] if holdings else 0
+    holding = db.query(Holding).filter(Holding.stock_code == action.stock_code).first()
+    qty_held = holding.quantity if holding else 0
 
     applier = _APPLIERS.get(action.action_type)
     if not applier:

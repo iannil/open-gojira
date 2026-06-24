@@ -405,24 +405,11 @@ def update_qiu_score(code: str, payload: QiuScoreInput, db: Session = Depends(ge
 
 @router.get("/{code}/thesis-templates", response_model=ThesisTemplatesResponse)
 def get_thesis_templates(code: str, db: Session = Depends(get_db)):
-    """Return thesis variable template for a stock's business pattern.
-
-    Backwards-compatible: returns empty templates if stock has no business_pattern_id
-    (instead of using industry string). Frontend should encourage users to set
-    business_pattern_id via the Industry Context panel.
-    """
+    """v2 stub: thesis templates removed (business_pattern concept dropped)."""
     stock = db.query(Stock).filter(Stock.code == code).first()
     if not stock:
         raise HTTPException(status_code=404, detail=f"Stock {code} not found")
-    from app.services.thesis_variable_sync_service import get_template_for_pattern
-    templates = get_template_for_pattern(db, stock.business_pattern_id)
-    pattern_name = None
-    if stock.business_pattern_id is not None:
-        from app.services.business_pattern_service import get_pattern
-        pattern = get_pattern(db, stock.business_pattern_id)
-        if pattern:
-            pattern_name = pattern.name
-    return {"industry": pattern_name or stock.industry, "templates": templates}
+    return {"industry": stock.industry, "templates": []}
 
 
 @router.patch("/{code}/business-pattern", response_model=StockResponse)
@@ -431,24 +418,8 @@ def patch_stock_business_pattern(
     payload: dict,
     db: Session = Depends(get_db),
 ):
-    """Manually override a stock's business_pattern_id.
-
-    Sets inferred_at=None to mark the association as user-driven (auto-inference
-    will not overwrite it on subsequent syncs). Pass business_pattern_id=null to
-    clear the association.
-    """
-    from app.services.business_pattern_service import override_stock_pattern
-    stock = db.query(Stock).filter(Stock.code == code).first()
-    if not stock:
-        raise HTTPException(status_code=404, detail=f"Stock {code} not found")
-    pattern_id = payload.get("business_pattern_id")
-    try:
-        stock = override_stock_pattern(db, code, pattern_id)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
-    db.commit()
-    db.refresh(stock)
-    return stock_to_response(stock, db)
+    """v2 stub: business_pattern concept removed."""
+    raise HTTPException(status_code=410, detail="business_pattern removed in v2")
 
 
 @router.patch("/{code}/resource-flags", response_model=StockResponse)
@@ -502,12 +473,8 @@ def sync_stocks_from_lixinger(db: Session = Depends(get_db)):
 
 @router.get("/{code}/bank-blindbox")
 def api_get_bank_blindbox(code: str, db: Session = Depends(get_db)):
-    """Bank blind-box analysis (dividend + region + OCF/NI matching)."""
-    from app.services.bank_analyzer_service import analyze
-    result = analyze(db, code)
-    if result is None:
-        raise HTTPException(status_code=404, detail=f"Stock {code} not found")
-    return result.to_dict()
+    """v2 stub: bank analyzer removed."""
+    raise HTTPException(status_code=410, detail="bank_analyzer removed in v2")
 
 
 @router.get("/{code}/price-band", response_model=PriceBandResponse)

@@ -50,25 +50,13 @@ def stock_to_response(stock: Stock, db: Session) -> dict:
             logger.warning("Failed to parse qiu_detail_json for %s", stock.code)
             qiu_detail = None
 
-    # Resolve BusinessPattern attributes (if associated)
+    # v2: BusinessPattern concept removed
     bp_name = None
     bp_first_principle = None
     bp_power_tier = None
-    if stock.business_pattern_id is not None:
-        from app.models.business_pattern import BusinessPattern
-        bp = db.get(BusinessPattern, stock.business_pattern_id)
-        if bp is not None:
-            bp_name = bp.name
-            bp_first_principle = bp.first_principle_variable
-            bp_power_tier = bp.power_tier_baseline
 
-    # G3: forward DYR (预期股息率) — 3-year avg per-share / latest close
+    # v2: dividend_projector removed (will be replaced by v2 Pipeline)
     forward_dyr = None
-    try:
-        from app.services.dividend_projector_service import compute_forward_dyr_for_stock
-        forward_dyr = compute_forward_dyr_for_stock(db, stock.code)
-    except Exception:
-        logger.warning("compute_forward_dyr_for_stock failed for %s", stock.code, exc_info=True)
 
     return {
         "code": stock.code,

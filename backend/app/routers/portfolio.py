@@ -27,11 +27,13 @@ from app.services.holding_service import (
     sell_holding,
     update_holding,
 )
-from app.services.holding_view_service import (
-    available_quantity_at,
-    frozen_quantity_at,
-    get_holding_view,
-)
+
+
+def _available_quantity_at(db: Session, code: str) -> int:
+    """v2 simplified: just Holding.quantity (frozen-by-draft logic removed)."""
+    from app.models.holding import Holding
+    h = db.query(Holding).filter(Holding.stock_code == code, Holding.sell_date.is_(None)).first()
+    return int(h.quantity) if h else 0
 
 router = APIRouter(prefix="/api/portfolio", tags=["portfolio"])
 
@@ -102,10 +104,9 @@ def get_available_quantity(code: str, db: Session = Depends(get_db)):
     if not db.query(Stock).filter(Stock.code == code).first():
         raise HTTPException(status_code=404, detail=f"Stock {code} not found")
     now_dt = now()
-    available = available_quantity_at(db, code, now_dt)
-    frozen = frozen_quantity_at(db, code, now_dt)
-    holdings = [h for h in get_holding_view(db) if h["stock_code"] == code]
-    total = int(holdings[0]["total_quantity"]) if holdings else 0
+    available = _available_quantity_at(db, code)
+    frozen = 0  # v2 simplified: no draft-frozen concept
+    total = available
     return AvailableQuantityResponse(
         code=code,
         available=available,
