@@ -110,24 +110,30 @@
 
 ## 实施阶段（12 周）
 
-### Phase 0：Foundation（Week 1）
+### Phase 0：Foundation（Week 1）✅ 已完成 2026-06-24
 
 **目标**：清理 v1 代码，搭好 v2 骨架。
 
 **任务：**
-1. 创建 `v2-rewrite` 分支
-2. 备份现有 DB 到 `data/backups/pre-v2-{date}.db`
-3. 写 Alembic 迁移 `v2_initial_cleanup`：
-   - drop v1 表（strategies / plans / themes / business_patterns / research_* / backtest_* / watchlist_* / cashflow_goals / thesis_*）
-   - 创建 5 张新表（stock_lifecycle / research_report / decision_audit / llm_call_log / red_line_event）
-   - 改造 drafts / holdings 表（加新字段）
-   - 保留 Lixinger 数据表
-4. 删除 v1 backend 模块（按上面 DELETE 清单）
-5. 删除 v1 frontend 页面和组件
-6. 清理 `app/main.py` 路由注册
-7. 清理 `frontend/src/App.tsx` 路由
+1. ✅ 创建 `v2-rewrite` 分支
+2. ✅ 备份现有 DB 到 `backend/data/backups/pre-v2-2026-06-24.db` (1.2 GB)
+3. ✅ 写 Alembic 迁移 `v2_1_initial_cleanup`：
+   - ✅ drop 22 张 v1 表
+   - ✅ 创建 5 张新表（stock_lifecycle / research_reports / decision_audits / llm_call_logs / red_line_events）
+   - ✅ 保留 Lixinger 数据表（stocks=5629 / financial_statements=40611 / price_klines=6.2M）
+4. ✅ 删除 v1 backend 模块（38 services / 20 models / 11 routers / 10 schemas）
+5. ✅ 删除 v1 frontend 页面和组件（8 pages / 7 features dirs / 2 components）
+6. ✅ 清理 `app/main.py` 路由注册（30 → 19 routers）
+7. ✅ 清理 `frontend/src/App.tsx` 路由（16 → 9 pages）
 
-**Deliverable**：代码库瘦身完成，DB 迁移成功，测试基础设施可跑（虽然测试会大量减少）。
+**Commit**: `cdec6b2 v2 (2026-06-24): Phase 0 — big rewrite baseline` (150 files, -22K lines)
+
+**Verification**:
+- ✅ Backend `from app.main import app` OK
+- ✅ `/api/health` returns 200
+- ✅ `/api/cockpit` returns v2 stub
+- ✅ `/api/stocks?limit=3` returns 5629 stocks
+- ✅ Frontend `npm run build` OK
 
 ### Phase 1：LLM 基础设施（Week 2-3）
 
