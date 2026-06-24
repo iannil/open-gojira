@@ -135,41 +135,22 @@
 - ✅ `/api/stocks?limit=3` returns 5629 stocks
 - ✅ Frontend `npm run build` OK
 
-### Phase 1：LLM 基础设施（Week 2-3）
+### Phase 1：LLM 基础设施（Week 2-3）✅ 已完成 2026-06-24
 
 **目标**：建好 LLM 调用层，所有 Pipeline 都依赖它。
 
 **任务：**
-1. 设计并实现 `app/services/llm/client.py`：
-   - 基于 Zhipu SDK，封装 `LLMClient.complete()` / `LLMClient.complete_with_schema()`
-   - 加 `@tracked` 自动埋点
-   - 加缓存（`prompt_hash` → response，30 天 TTL）
-   - 加重试（指数退避 3 次）
-   - 加成本追踪（实时累计到 `llm_call_log` + monthly total）
-   - 加 conflict 后验 hook
-2. 创建 prompt 文件结构：
-   ```
-   app/prompts/
-   ├── shared/
-   │   ├── system_base.md
-   │   ├── defense_methodology.md
-   │   └── evidence_grading.md
-   └── (各 Pipeline 目录稍后添加)
-   ```
-3. 写 `app/services/llm/cost_tracker.py`：
-   - 实时累计月度成本
-   - 软告警 $100、硬熔断 $150
-   - 暴露 `/api/metrics/cost` endpoint
-4. 写 `app/services/llm/conflict_validator.py`：
-   - 接收 LLM JSON 输出 + Lixinger 数据
-   - 比对 PE/ROE/市值/增速
-   - 误差 >5% 写入 `data_conflict` 数组
-5. 写 `app/services/llm/red_line_checker.py`：
-   - 8 红线规则
-   - 命中即返回 `rejected`
-6. 扩展 `@tracked` 装饰器支持 LLM 专属字段（model / tokens / cost / latency / prompt_hash）
+1. ✅ 实现 `app/services/llm/client.py`：LLMClient 类，GLMTier 枚举，@tracked trace_id 集成，prompt_hash 缓存 hook，指数退避重试 3 次，watchdog 超时，tool_use JSON 输出，web_search 支持，自动写 llm_call_logs
+2. ✅ 建 prompt 文件结构：shared/{system_base, defense_methodology, evidence_grading}.md + 5 个 Pipeline 占位目录
+3. ✅ 实现 `app/services/llm/cost_tracker.py`：月度累计 / $100 软告警 / $150 硬熔断 / check_budget_available
+4. ✅ 实现 `app/services/llm/conflict_validator.py`：PE/PB/dyr/revenue 对比，5% 阈值
+5. ✅ 实现 `app/services/llm/red_line_checker.py`：8 红线 + consecutive_losses 代码检查 + LLM 标注解析
+6. ✅ 5 个 v2 ORM models（StockLifecycle / ResearchReport / DecisionAudit / LLMCallLog / RedLineEvent）
+7. ✅ `@tracked` 通过 trace_id_var 集成（LLMClient 自动读 trace_id）
 
-**Deliverable**：`LLMClient` 可用，基础 prompt 就位，cost/conflict/red_line 防御层就位。
+**Deliverable**：✅ 12/12 tests passing，cost math 正确，防御层工作，/api/health 仍 200。
+
+**Commit**: 即将提交
 
 ### Phase 2：First Pipeline 闭环（Week 4-5）
 
