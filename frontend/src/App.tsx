@@ -15,6 +15,7 @@ const DataManagementPage = lazy(() => import('./pages/DataManagementPage'));
 const SchedulerPage = lazy(() => import('./pages/SchedulerPage'));
 const MonitoringPage = lazy(() => import('./pages/MonitoringPage'));
 const DraftsPage = lazy(() => import('./pages/DraftsPage'));
+const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 
 // DEV-ONLY primitives preview route. Vite tree-shakes the dynamic import
 // out of production builds because the false branch is dead code.
@@ -86,6 +87,7 @@ function App() {
                     <Route index element={<CockpitPage />} />
                     <Route path="universe" element={<UniversePage />} />
                     <Route path="drafts" element={<DraftsPage />} />
+                    <Route path="reports" element={<ReportsPage />} />
                     <Route path="trades" element={<TradesPage />} />
                     <Route path="stock/:code" element={<StockDetailPage />} />
                     <Route path="data-management" element={<DataManagementPage />} />

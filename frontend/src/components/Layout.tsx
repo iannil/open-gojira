@@ -23,6 +23,12 @@ const NAV_GROUPS: Array<{
     ],
   },
   {
+    label: '研究',
+    items: [
+      { key: '/reports', label: '研究报告', labelEn: 'Reports', icon: <FileTextOutlined /> },
+    ],
+  },
+  {
     label: '数据',
     items: [
       { key: '/universe', label: '股票池', labelEn: 'Stock Pool', icon: <AppstoreOutlined /> },

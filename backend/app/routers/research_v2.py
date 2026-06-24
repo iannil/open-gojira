@@ -6,13 +6,21 @@ Exposes:
   GET  /api/research/{stock_code}/history      all reports for stock
   GET  /api/research/reports                   recent reports across stocks
   GET  /api/research/health                    pipeline health (cost, conflicts)
+
+Security notes (per decision 1: single-user, no auth):
+  - MISSING_AUTHORIZATION / DATA_ENUMERATION / CACHE_BYPASS: by design
+    (v2 is personal single-user system; ADR-008 in v1 also covers this)
+  - Rate limiting + budget pre-check on trigger_research prevents accidental
+    spend runaway
+  - Generic error messages on failure (no exception detail leak)
 """
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
@@ -21,10 +29,17 @@ from app.db.session import get_db
 from app.models.research_report import ResearchReport
 from app.models.stock import Stock
 from app.services import lifecycle_service
-from app.services.llm.cost_tracker import get_monthly_spend
+from app.services.llm.cost_tracker import check_budget_available, get_monthly_spend
 from app.services.pipelines.llm import deep_research_pipeline
+from app.core.rate_limit import limiter
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/research", tags=["research"])
+
+# Per-decision 9: $150/month hard cap. Pre-check before expensive Pipeline.
+# Rate limit: max 10 trigger calls/min (defense against accidental loops).
+TRIGGER_RATE_LIMIT = "10/minute"
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────
@@ -70,7 +85,9 @@ def health(db: Session = Depends(get_db)) -> dict:
 
 
 @router.post("/{stock_code}", response_model=ResearchReportFull)
+@limiter.limit(TRIGGER_RATE_LIMIT)
 def trigger_research(
+    request: Request,
     stock_code: str,
     payload: ResearchTriggerRequest | None = None,
     db: Session = Depends(get_db),
@@ -78,6 +95,8 @@ def trigger_research(
     """Trigger deep_research_pipeline for a stock.
 
     Skips if existing research within 30 days, unless force=True.
+    Pre-checks monthly budget before running.
+    Rate-limited to 10/min (per security review).
     """
     payload = payload or ResearchTriggerRequest()
 
@@ -85,6 +104,11 @@ def trigger_research(
     stock = db.query(Stock).filter(Stock.code == stock_code).first()
     if stock is None:
         raise HTTPException(404, f"Stock not found: {stock_code}")
+
+    # Budget pre-check (per decision 9: hard cap $150)
+    allowed, reason = check_budget_available(db)
+    if not allowed:
+        raise HTTPException(429, f"LLM budget exhausted: {reason}")
 
     # 30-day cache check (unless force)
     if not payload.force and not lifecycle_service.needs_research(db, stock_code, cache_days=30):
@@ -109,9 +133,15 @@ def trigger_research(
             db_session=db,
         )
         db.commit()
-    except Exception as exc:
+    except ValueError as exc:
+        # Known validation errors — safe to surface
         db.rollback()
-        raise HTTPException(502, f"deep_research failed: {exc}") from exc
+        raise HTTPException(400, str(exc)) from exc
+    except Exception as exc:
+        # Log details server-side, return generic message (per security review)
+        db.rollback()
+        logger.exception("deep_research failed for %s", stock_code)
+        raise HTTPException(502, "deep_research failed; see server logs") from exc
 
     # Fetch persisted report
     report = db.query(ResearchReport).filter(
