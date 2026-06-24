@@ -152,42 +152,22 @@
 
 **Commit**: 即将提交
 
-### Phase 2：First Pipeline 闭环（Week 4-5）
+### Phase 2：First Pipeline 闭环（Week 4-5）✅ 已完成 2026-06-24
 
-**目标**：跑通 quality_screen + deep_research 端到端，验证架构。
+**目标**：跑通 deep_research 端到端，验证架构。（quality_screen 推迟到 Phase 4）
 
 **任务：**
-1. 实现 `stock_lifecycle` 状态机服务：
-   - `enter_state(stock_code, new_state, reason)`
-   - 状态转换校验
-   - 历史记录写入
-2. 实现 `quality_screen_pipeline`：
-   - 规则筛选（7 条硬指标，复用 Lixinger）
-   - LLM 边界判断（灰色地带公司）
-   - 通过 → 写入 watchlist 状态
-3. 写 deep_research 的 prompts：
-   ```
-   app/prompts/deep_research/v1/
-   ├── system_base.md
-   ├── data_collection.md
-   ├── duan_master.md
-   ├── buffett_master.md
-   ├── munger_master.md
-   ├── lilu_master.md
-   └── synthesis.md
-   ```
-4. 实现 `deep_research_pipeline`：
-   - 6 步：data_collect → 4 masters 并行 → synthesis
-   - 输出 JSON + Markdown 双格式
-   - 写入 `research_report` 表
-   - 更新 `stock_lifecycle` 到 `researched` 状态
-5. 集成防御层（conflict_validator + red_line_checker）
-6. 写最小 API：
-   - `POST /api/research/{stock_code}` 触发 deep_research
-   - `GET /api/research/{stock_code}/latest` 获取最新报告
-7. CLI 工具：`python -m app.cli.research 00700.HK`
+1. ✅ 实现 `stock_lifecycle` 状态机：enter_state / mark_researched / needs_research (30天缓存) / count_by_state
+2. ⏸ quality_screen_pipeline 推迟到 Phase 4
+3. ✅ 写 deep_research 7 个 prompts（system + data_collection + 4 masters + synthesis）
+4. ✅ 实现 `deep_research_pipeline`：6 步流（gather → data_collect → 4 masters 并行 → synthesis），集成 conflict_validator + red_line_checker
+5. ✅ 集成防御层（5% conflict + 8 red lines）
+6. ✅ API：`POST /api/research/{code}` + `/latest` + `/history` + `/reports` + `/health`
+7. ✅ CLI：`python -m app.cli.research 600519 --model opus --force`
 
-**Deliverable**：可以命令行触发单公司深度研究，产出 ai-berkshire 风格报告。
+**Deliverable**：✅ 命令行触发单公司深度研究，产出 ai-berkshire 风格 markdown 报告。20/20 v2 tests passing。
+
+**Commit**: 即将提交
 
 ### Phase 3：Dashboard MVP（Week 6）
 
