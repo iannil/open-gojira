@@ -69,6 +69,19 @@ DEFAULT_JOBS: dict[str, dict] = {
         "cron_expr": "*/15 * * * *",  # every 15 min
         "description": "F15: 周期性清理 stuck pipeline runs (后台线程死亡但 status=running 的孤儿记录)",
     },
+    # ── v2 LLM Pipeline jobs (2026-06-24) ─────────────────────────────
+    "v2_quality_screen_weekly": {
+        "cron_expr": "0 17 * * 6",  # every Saturday 17:00
+        "description": "v2: quality_screen_pipeline 全市场扫描 → watchlist",
+    },
+    "v2_deep_research_weekly": {
+        "cron_expr": "30 17 * * 6",  # every Saturday 17:30 (after quality_screen)
+        "description": "v2: deep_research_pipeline 对 watchlist 前 10 家深度研究",
+    },
+    "v2_thesis_tracker_weekly": {
+        "cron_expr": "0 18 * * 6",  # every Saturday 18:00
+        "description": "v2: thesis_tracker_pipeline 对持仓每周复核论文",
+    },
 }
 
 

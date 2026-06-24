@@ -846,13 +846,101 @@ def research_stale_sweep_job() -> dict:
         return {"recovered": len(recovered), "ids": recovered}
 
 
+# ── v2 LLM Pipeline jobs (2026-06-24) ─────────────────────────────────────
+
+
+def v2_quality_screen_job() -> dict:
+    """v2: weekly quality_screen on full universe → watchlist."""
+    from app.services.pipelines.llm import quality_screen_pipeline
+    with SessionLocal() as db:
+        try:
+            summary = quality_screen_pipeline.screen_universe(db, limit=200)
+            db.commit()
+            logger.info("v2_quality_screen: %s", summary)
+            return summary
+        except Exception:
+            db.rollback()
+            logger.exception("v2_quality_screen_job failed")
+            return {"error": str(Exception)}
+
+
+def v2_deep_research_job() -> dict:
+    """v2: weekly deep_research on top 10 watchlist stocks.
+
+    Per decision 7: weekly cadence, 30-day cache window per stock.
+    """
+    from app.services.pipelines.llm import deep_research_pipeline
+    from app.models.stock_lifecycle import StockLifecycle
+    from app.services import lifecycle_service
+
+    with SessionLocal() as db:
+        try:
+            # Pick top 10 watchlist stocks needing research
+            candidates = (
+                db.query(StockLifecycle.stock_code)
+                .filter(StockLifecycle.current_state == "watchlist")
+                .order_by(StockLifecycle.entered_state_at.desc())
+                .limit(10)
+                .all()
+            )
+            codes = [c[0] for c in candidates]
+            results = {"attempted": len(codes), "completed": 0, "skipped_cache": 0, "failed": 0}
+            for code in codes:
+                if not lifecycle_service.needs_research(db, code, cache_days=30):
+                    results["skipped_cache"] += 1
+                    continue
+                try:
+                    deep_research_pipeline.run(code, db_session=db)
+                    db.commit()
+                    results["completed"] += 1
+                except Exception:
+                    db.rollback()
+                    logger.exception("v2_deep_research failed for %s", code)
+                    results["failed"] += 1
+            logger.info("v2_deep_research: %s", results)
+            return results
+        except Exception:
+            logger.exception("v2_deep_research_job failed")
+            return {"error": "see logs"}
+
+
+def v2_thesis_tracker_job() -> dict:
+    """v2: weekly thesis_tracker on all active holdings."""
+    from app.services.pipelines.llm import thesis_tracker_pipeline
+    from app.models.holding import Holding
+
+    with SessionLocal() as db:
+        try:
+            holdings = (
+                db.query(Holding.stock_code)
+                .filter(Holding.sell_date.is_(None))
+                .all()
+            )
+            codes = [h[0] for h in holdings]
+            results = {"attempted": len(codes), "completed": 0, "failed": 0}
+            for code in codes:
+                try:
+                    thesis_tracker_pipeline.run(code, db_session=db)
+                    db.commit()
+                    results["completed"] += 1
+                except Exception:
+                    db.rollback()
+                    logger.exception("v2_thesis_tracker failed for %s", code)
+                    results["failed"] += 1
+            logger.info("v2_thesis_tracker: %s", results)
+            return results
+        except Exception:
+            logger.exception("v2_thesis_tracker_job failed")
+            return {"error": "see logs"}
+
+
 # ── Job Registry ──────────────────────────────────────────────────────────
 
 # Maps job_id → unwrapped function (tracking is applied during scheduling)
 # v2 (2026-06-24): v1 jobs removed (thesis_evaluation, daily_plan_evaluation,
 # weekly_rebalancing_review, daily_cycle_assessment, monthly_thesis_variable_sync,
 # weekly_business_pattern_inference, intraday_monitor, weekly_research_refresh,
-# research_stale_sweep). These will be replaced by v2 LLM Pipelines in later phases.
+# research_stale_sweep). Replaced by v2 LLM Pipelines below.
 JOB_REGISTRY = {
     "daily_universe_bootstrap": daily_universe_bootstrap_job,
     "daily_base_sync": daily_base_sync_job,
@@ -868,6 +956,10 @@ JOB_REGISTRY = {
     "daily_corp_action_apply": daily_corp_action_apply_job,
     "intraday_price_poll": intraday_price_poll_job,
     "pipeline_stale_sweep": pipeline_stale_sweep_job,
+    # v2 LLM Pipelines
+    "v2_quality_screen_weekly": v2_quality_screen_job,
+    "v2_deep_research_weekly": v2_deep_research_job,
+    "v2_thesis_tracker_weekly": v2_thesis_tracker_job,
 }
 
 
