@@ -31,6 +31,7 @@ from app.routers import (
     notifications as notifications_router,
     observability as observability_router,
     portfolio,
+    research_v2 as research_v2_router,
     scheduler as scheduler_router,
     stocks,
     system_alerts as system_alerts_router,
@@ -240,3 +241,4 @@ app.include_router(fee_configs_router.router)
 app.include_router(system_alerts_router.router)
 app.include_router(corp_actions_router.router)
 app.include_router(notifications_router.router)
+app.include_router(research_v2_router.router)
