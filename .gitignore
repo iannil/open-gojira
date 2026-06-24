@@ -52,3 +52,5 @@ Thumbs.db
 .playwright-mcp/
 
 invest*.md
+
+docs/reference/*

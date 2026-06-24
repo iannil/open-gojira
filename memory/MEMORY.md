@@ -7,55 +7,66 @@
 
 ## 项目上下文
 
-- **定位**: 个人股票自动驾驶舱 (策略→预案→候选→草稿→持仓→审计,全流程自动化)
+- **定位**: 个人股票自动驾驶舱 (规则+LLM 混合 → 全流程自动化,除券商下单外)
 - **技术栈**: FastAPI (Python 3.14) + React 19 + SQLite (WAL) + Ant Design 6 + ECharts 6
-- **当前状态**: **1181 测试通过** (2026-06-18 grill-me + F14-F28 全修后),6 内置 plan 4 可用 (plan 1/3/4/5),backtest engine + serenity 真实跑通,3 个 sweep/watchdog 防 stuck/hang
+- **当前状态**: **2026-06-24 v2 大重写 Phase 0 完成**。基于新参考 ai-berkshire + serenity-skill,通过 grill-me 锁定 26 条决策,已删除 v1 代码 ~22K 行,5 张 v2 表已建,backend/frontend 验证通过
+- **评判锚点**: `docs/active/redesign-decisions-v2.md` (26 决策) — **任何代码/功能必须能追溯到这 26 条之一**,否则 over-engineering。冲突时:此文件 > docs/active/ 其他 > docs/progress/ > memory
+- **实施计划**: `docs/active/v2-implementation-plan.md` (8 Phase / 12 周)。当前 Phase 0 已完成,下一步 Phase 1 (LLM 基础设施)
+- **分支**: `v2-rewrite` (从 master 切出)
 - **远程仓库**: 暂无 (P1 待办)
-- **LLM 接手指南**: `docs/active/project-state.md` (综合导航,5 分钟建立完整画面)
+
+## v2 核心范式 (2026-06-24 重设)
+
+- **混合架构**: 上层规则筛选 / 中层 LLM 深度研究 / 下层规则+人工审批
+- **LLM 模型栈**: GLM 4.8 (后勤) / GLM 5.1 (战术) / GLM 5.2 (战略,top 3 候选) — 替代 Claude
+- **数据源**: Lixinger + Zhipu web_search tool (Phase 1),二期加本地公告采集
+- **5 核心 Pipeline**: quality_screen / deep_research / thesis_tracker / news_pulse / earnings_review
+- **deep_research 内部**: 4 大师 (段永平/巴菲特/芒格/李录) 并行 + Team Lead 综合,6 LLM 调用/家,JSON + Markdown 双输出
+- **漏斗容量**: 观察池 30-50 / 候选池 3-5 / Draft 0-3/月,30 天 re-research 缓存
+- **Draft 触发**: D 全条件 (价格入区间 + 论文健康 + 组合有空间),仓位 10/30/20,TTL 7 天
+- **卖出**: 1+2+3+5 (论文证伪 / 估值 1.3x / 仓位 15% / 基本面恶化),不做止损
+- **防御**: 3 层 (Prompt + 代码后验 5% + Pipeline 熔断 20%) + 8 红线否决
+- **预算**: 生产 $150/月 + 测试 $100/月,GLM 实际预估 $20-40/月
+- **UX**: 信号优先 dashboard,1-click inline 审批,仅应用内通知
+- **测试**: Unit + Integration + Eval Set 20-30 家 + Snapshot + E2E
+- **DB**: 大重写,保留 Lixinger 数据,不迁移用户决策数据
+- **部署**: Docker dev/prod 两环境
+
+## v1 已废弃 (docs/archive/v1/)
+
+- `redesign-decisions-v1.md` (14 决策,基于 invest{1,2,3}.md)
+- ADR 0002-0006 (Phase 1 manual→Phase 2 auto / reliability gate / split worker / etc.)
+- `2026-06-24-implementation-audit.md` (~5000 LOC 待删审计)
 
 ## 用户偏好
 
 (用户首次明确表达偏好时,在此追加)
 
-## 关键决策 (ADR-style)
-
-1. **统一预案模型**: 筛选+交易合并到 Plan,删除 PlanExecHistory/PlanTemplate/resource_profiles/portfolio_settings/bank_profiles 表
-2. **Pydantic-first 序列化**: ORM→Response 走 schemas + response_model,禁裸 dict (详见 `docs/standards/serialization.md`)
-3. **Lixinger 唯一数据源**: 不接 Yahoo/Tushare/AKShare
-4. **SQLite + WAL**: 单机部署,不引入 PostgreSQL
-5. **EventBus 异步非阻塞**: 与 Scheduler 互补;数据到达后的自动响应链
-6. **可观测性装饰器驱动**: 158 函数自动埋点;`OBSERVABILITY_LEVEL=full|compact|off`
-7. **行业模板硬编码**: 内置 6 策略 + 4 预案硬编码在 `builtin_seeder.py`,不读外部 JSON
-8. **个人使用无认证**: CORS/Rate Limit/文件上传校验等基础防护已就位
-9. **前端页面接口 = TanStack Query** (2026-06-13, 方向已定未实施): 12 个页面统一用 TanStack Query + feature-folder + `<QueryBoundary>` + `useToastMutation`。服务端状态只活缓存里,页面退化为哑渲染器。否决自制 hook(无竞态护栏)与配置框架(dashboard 打架)。规格见 `docs/progress/2026-06-13-page-interface-tanstack-query.md`,迁移分 Phase 0-5。
-
 ## 经验教训
 
-- **Plan DSL AND/OR 逻辑** (2026-06-11 第 6 轮 P0): `_strategy_definitely_fails` 不能逐条 strategy 独立判断,必须考虑 plan 级 composition。OR 预案在 AND 实现下完全失效,这是深层逻辑缺陷,需要整体审计才能发现
-- **权重计算基数** (2026-06-11 第 6 轮 P0): 持仓权重必须统一用市值 (current_value),不能用成本基数 (buy_price × quantity)。前后检查也要用相同基数
-- **price 不可用 vs 持平** (2026-06-11 第 6 轮 P0): 价格获取失败时 `total_pnl` 应为 None 而非 0,前端显示"数据不可用"。否则用户无法区分
-- **Pydantic dataclass 转换** (2026-06-11 第 6 轮 P2): 所有 domain dataclass (RebalanceSuggestion/CycleAssessment/DividendProjection/ThesisAlert) 必须转 Pydantic 才能用 `.model_dump()` 序列化
-- **LIKE 通配符注入** (2026-06-11 第 6 轮 P1): search_stocks 必须转义 `%` 和 `_`,否则可枚举全量股票
-- **EventBus 异步非阻塞** (2026-06-11 第 6 轮 P2): emit 而非 emit_async 会阻塞主流程;失败 handler 不能影响业务
-- **Scheduler 并发保护** (2026-06-11 第 6 轮 P1): `run_job_now` 必须 threading.Lock + running set,否则可耗尽 API 配额
-- **APScheduler day_of_week 是 0=Mon 不是 0=Sun** (2026-06-18 F14): `CronTrigger.from_crontab()` 不翻译,所有 crontab `1-5` 配置错位一天。修法: `cron_to_trigger` 加 `_translate_dow_field` 翻译层
-- **Lixinger 完全不提供 stock_code → 申万行业映射** (2026-06-18 F20): `/cn/company` 只有 10 字段无 industry,`/cn/industry/constituents/sw_2021` 永远返回 0。`stocks.industry` 实际存的是 `fsTableType`,需 AkShare 才能彻底修
-- **测试隔离要看 `SessionLocal` 不只看 `get_db`** (2026-06-18 F16): scheduler jobs / event_handlers / pipeline manager 用 `SessionLocal()` 直接创建 session,绕过 FastAPI DI。修法: conftest.py 加 `_session_module.SessionLocal = TestSessionLocal`
-- **死代码模式重复出现** (2026-06-18): F4 (AdaptiveThrottler) / F15 (recover_stale_runs) / daily_industry_sync 都是定义了但从未 wire 的代码。建议加 lint 规则: 公共方法必须有 ≥1 调用方
-- **AVG(DPS) 算法不能含 0** (2026-06-18 F17): 恢复期股票 DPS=0 会拉低 AVG。`forward_dyr` 应该用 Lixinger dyr × stability (3y 派息年数/3)
-- **GLM SDK httpx timeout 失效** (2026-06-18 F23/F26): "连接开但无数据"场景下 SSL read 永久阻塞。需 ThreadPoolExecutor + future.result(timeout=N) 在 Python 层强制超时
-- **闰年 Feb 29 触发 backtest ValueError** (2026-06-18 F28): `date(day.year - years, day.month, day.day)` 在 day=Feb 29 + years=N 到非闰年时 raise。修法: try/except fallback 到 Feb 28
-- **测试通过 ≠ 真实链路跑通** (2026-06-18 F1 教训): ship 必须真实 DB 端到端验证,不只 fixture+unit test
+- **Plan DSL AND/OR 逻辑** (v1 第 6 轮 P0): `_strategy_definitely_fails` 不能逐条 strategy 独立判断,必须考虑 plan 级 composition。v2 已删除 Plan 概念,此教训归档
+- **权重计算基数** (v1 第 6 轮 P0): 持仓权重必须统一用市值 (current_value),不能用成本基数。v2 仍然适用
+- **Pydantic dataclass 转换** (v1 第 6 轮 P2): 所有 domain dataclass 必须转 Pydantic 才能用 `.model_dump()` 序列化
+- **LIKE 通配符注入** (v1 第 6 轮 P1): search_stocks 必须转义 `%` 和 `_`
+- **EventBus 异步非阻塞** (v1 第 6 轮 P2): emit 而非 emit_async 会阻塞主流程
+- **Scheduler 并发保护** (v1 第 6 轮 P1): `run_job_now` 必须 threading.Lock + running set
+- **APScheduler day_of_week 是 0=Mon 不是 0=Sun** (v1 F14): `CronTrigger.from_crontab()` 不翻译,所有 crontab `1-5` 配置错位一天。v2 仍适用
+- **Lixinger 完全不提供 stock_code → 申万行业映射** (v1 F20): 需 AkShare 才能彻底修
+- **测试隔离要看 `SessionLocal` 不只看 `get_db`** (v1 F16): scheduler jobs / event_handlers / pipeline manager 用 `SessionLocal()` 直接创建 session
+- **GLM SDK httpx timeout 失效** (v1 F23/F26): "连接开但无数据"场景下 SSL read 永久阻塞。需 ThreadPoolExecutor + future.result(timeout=N) 在 Python 层强制超时。**v2 LLMClient 设计要遵循**
+- **闰年 Feb 29 触发 backtest ValueError** (v1 F28): try/except fallback 到 Feb 28
+- **测试通过 ≠ 真实链路跑通** (v1 F1 教训): ship 必须真实 DB 端到端验证,不只 fixture+unit test
+- **大重写必须先备份 DB** (2026-06-24 v2): 即使是Phase 0 删表也要先 backup,中途回滚成本高
 
-## 文档导航 (与 docs/ 一致)
+## 文档导航 (v2)
 
-- `docs/progress/STATUS.md` — 项目当前状态真相 (AI 首读)
-- `docs/active/roadmap.md` — 下一步计划
+- `docs/active/redesign-decisions-v2.md` — **评判锚点(AI 首读)**,26 决策
+- `docs/active/v2-implementation-plan.md` — 8 Phase 实施计划
+- `docs/archive/v1/` — v1 废弃文档 (redesign-decisions-v1 / ADRs / 审计)
 - `docs/standards/serialization.md` — 序列化标准
 - `docs/templates/` — 文档骨架
-- `docs/reports/completed/` — 已完成的修改 (含 4 轮审计)
-- `docs/reports/` — 验收报告
-- `docs/reference/` — 投资理论 + 设计规格
+- `docs/reference/ai-berkshire/` — 四大师方法论参考 (gitignored)
+- `docs/reference/serenity-skill/` — 产业链卡点方法论参考 (gitignored)
 
 ## 维护规则
 
@@ -63,4 +74,3 @@
 - 信息过时立即更新或移除
 - 与 `memory/daily/` 配合:daily 是日志,本文件是浓缩
 - 与 `docs/` 配合:docs 是详细版,本文件是高频访问版
-- 若记忆与 `docs/progress/STATUS.md` 冲突,以 STATUS.md 为准 (实测最新)
