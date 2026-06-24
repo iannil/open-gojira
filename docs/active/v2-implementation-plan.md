@@ -169,26 +169,26 @@
 
 **Commit**: 即将提交
 
-### Phase 3：Dashboard MVP（Week 6）
+### Phase 3：Dashboard MVP（Week 6）✅ 已完成 2026-06-24
 
-**目标**：前端能看报告，能 1-click 审批。
+**目标**：前端能看报告，能触发研究。（1-click 审批 + CSV 导入推迟到 Phase 5）
 
 **任务：**
-1. FastAPI OpenAPI → 前端 TypeScript 类型（`openapi-typescript`）
-2. 改造 `CockpitPage` 为信号优先布局：
-   - 顶部：待办信号（Drafts）
-   - 中部：持仓概览
-   - 底部：候选池 + 观察池
-3. 实现 `ReportsPage`：
-   - markdown 渲染（react-markdown）
-   - 按公司 / Pipeline 类型 / 时间筛选
-   - 同公司历史对比视图
-4. 实现 1-click inline 审批：
-   - 批准按钮
-   - 拒绝弹窗（必填理由）
-5. 简单的持仓 CSV 导入向导（3 步：上传 → 字段映射 → 确认）
+1. ⏸ OpenAPI codegen 推迟到 Phase 8（v2 已用 typed client.ts）
+2. ✅ 改造 `CockpitPage` 为信号优先：4 stat cards + budget 告警 + 待办 signals 占位 + 最近报告表（60s 自动刷新）+ lifecycle 漏斗可视化
+3. ✅ 实现 `ReportsPage`：master-detail 布局，左列筛选（pipeline 类型 + 股票代码搜索），右侧 markdown 渲染（react-markdown）+ 冲突/红线 alert
+4. ✅ 改造 `StockDetailPage`：触发面板（模型层选择 + web_search 开关 + force 跳过缓存）+ 最新报告 markdown + 历史列表
+5. ⏸ 1-click 审批推迟到 Phase 5（需要 Draft 生成）
+6. ⏸ CSV 导入推迟到 Phase 5（需要后端 bulk endpoint）
 
-**Deliverable**：MVP 闭环可视化，能 import 持仓、看报告、审批 Drafts。
+**安全加固（per 自动安全审查）**：
+- ✅ `rate_limit.py` 共享 limiter（避免 main↔routers 循环依赖）
+- ✅ `POST /api/research/{code}` 加 `@limiter.limit("10/minute")` + 预算预检 + 异常细节不泄露
+- ✅ 3 项其他发现（auth / data enum / cache bypass）按 decision 1 单用户设计声明 by-design
+
+**Deliverable**：✅ 前端 build OK，触发研究 → markdown 报告全链路可视化。20/20 v2 tests passing。
+
+**Commit**: `b83d2e3`
 
 ### Phase 4：完整 Pipeline 套件（Week 7-8）
 
