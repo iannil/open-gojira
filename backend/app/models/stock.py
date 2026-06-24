@@ -53,9 +53,9 @@ class Stock(Base):
     hq_region: Mapped[str | None] = mapped_column(String, nullable=True)
     """Headquarter region (省/市), used for bank blind-box analysis."""
     business_pattern_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("business_patterns.id"), nullable=True, index=True
+        Integer, nullable=True, index=True
     )
-    """FK to BusinessPattern — 该股票归属的生意模式(煤化工/电解铝/药店零售/...)。nullable 表示未关联(歧义或无匹配)。"""
+    """v2: business_pattern concept removed. Column kept for backward compat (plain int, no FK)."""
     business_pattern_inferred_at: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True
     )

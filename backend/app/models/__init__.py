@@ -5,6 +5,7 @@ from app.models.cash_adjustment import CashAdjustment
 from app.models.corp_action import CorpAction
 from app.models.cash_balance import CashBalance
 from app.models.data_freshness import DataFreshness
+from app.models.decision_audit import DecisionAudit
 from app.models.dividend import DividendRecord
 from app.models.draft import Draft
 from app.models.financial import FinancialStatement
@@ -12,10 +13,14 @@ from app.models.historical_financial import HistoricalFinancial
 from app.models.historical_kline import HistoricalKline
 from app.models.historical_valuation import HistoricalValuation
 from app.models.holding import Holding
+from app.models.llm_call_log import LLMCallLog
 from app.models.pipeline import PipelineRun
 from app.models.price_kline import PriceKline
+from app.models.red_line_event import RedLineEvent
+from app.models.research_report import ResearchReport
 from app.models.scheduler_config import JobExecution, SchedulerJob
 from app.models.stock import Stock
+from app.models.stock_lifecycle import StockLifecycle
 from app.models.system_alert import SystemAlert
 from app.models.trade import Trade
 from app.models.trading_calendar import TradingCalendar
@@ -46,4 +51,10 @@ __all__ = [
     "DataFreshness",
     "TradingCalendar",
     "PipelineRun",
+    # v2 LLM Pipeline models
+    "StockLifecycle",
+    "ResearchReport",
+    "DecisionAudit",
+    "LLMCallLog",
+    "RedLineEvent",
 ]
