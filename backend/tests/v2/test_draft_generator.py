@@ -88,13 +88,26 @@ def test_price_above_aggressive_no_draft(setup_db):
         db.close()
 
 
-def test_non_buy_report_ignored(setup_db):
+def test_pass_report_ignored(setup_db):
+    db = SessionLocal()
+    try:
+        _seed_report(db, rec="PASS")
+        out = _gen(db, 100.0)
+        assert out["generated"] == 0
+        assert out["scanned"] == 0  # PASS excluded from scan (not actionable)
+    finally:
+        db.close()
+
+
+def test_hold_report_in_zone_generates(setup_db):
+    """decision 9: trigger is price-in-zone + thesis healthy, not rec==BUY.
+    A HOLD report whose price entered a buy tier still generates a draft."""
     db = SessionLocal()
     try:
         _seed_report(db, rec="HOLD")
-        out = _gen(db, 100.0)
-        assert out["generated"] == 0
-        assert out["scanned"] == 0
+        out = _gen(db, 100.0)  # in aggressive tier
+        assert out["generated"] == 1
+        assert db.query(Draft).filter_by(side="BUY").one().strategy_tier == "aggressive"
     finally:
         db.close()
 

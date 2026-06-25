@@ -24,6 +24,7 @@ from app.models.draft import Draft
 from app.models.research_report import (
     PIPELINE_DEEP_RESEARCH,
     REC_BUY,
+    REC_HOLD,
     STATUS_COMPLETED,
     ResearchReport,
 )
@@ -43,16 +44,26 @@ TIER_STEP_INDEX = {"aggressive": 0, "steady": 1}
 
 
 def _tier_for_price(price: float, ranges: dict[str, Any]) -> Optional[str]:
-    """Which buy tier contains the current price? aggressive > steady > (skip).
+    """Pick the buy tier for the current price using ceiling thresholds.
 
-    保守型不生成 (decision 10) → conservative range returns None. Price above the
-    aggressive range (too expensive) also returns None.
+    The three zones are buy *ceilings* (cheaper = deeper). A price at or below
+    the aggressive ceiling is buyable; how deep it sits decides the tier:
+      price > aggressive.max          → None (太贵，超出最高买点)
+      steady.max < price ≤ agg.max    → "aggressive" (含 zone 间 gap / 低于激进下沿)
+      conservative.max < price ≤ steady.max → "steady"
+      price ≤ conservative.max        → None (保守型不生成, decision 10)
+    Threshold form avoids gaps between zones swallowing a valid buy price.
     """
-    for tier in ("aggressive", "steady"):
-        r = ranges.get(tier) or {}
-        lo, hi = r.get("min"), r.get("max")
-        if lo is not None and hi is not None and lo <= price <= hi:
-            return tier
+    agg_max = (ranges.get("aggressive") or {}).get("max")
+    std_max = (ranges.get("steady") or {}).get("max")
+    con_max = (ranges.get("conservative") or {}).get("max")
+    if agg_max is None or price > agg_max:
+        return None
+    if std_max is not None and price > std_max:
+        return "aggressive"
+    if con_max is not None and price > con_max:
+        return "steady"
+    # price ≤ conservative ceiling → 保守型不生成 (manual judgment territory)
     return None
 
 
@@ -73,14 +84,17 @@ def _cancel_expired(db: Session) -> int:
     return len(rows)
 
 
-def _latest_buy_reports(db: Session) -> list[ResearchReport]:
-    """Latest completed BUY deep_research report per stock, within cache window."""
+def _latest_actionable_reports(db: Session) -> list[ResearchReport]:
+    """Latest completed actionable (BUY/HOLD) deep_research report per stock,
+    within the cache window. PASS/rejected reports are excluded."""
     cutoff = now() - timedelta(days=REPORT_CACHE_DAYS)
+    # decision 9: 触发键于「价格入区间 + 论文未 INVALIDATED」，不限 recommendation==BUY。
+    # BUY/HOLD 都有 price_ranges 买区且论文健康 → 价格闸决定; PASS/rejected 排除。
     rows = db.execute(
         select(ResearchReport)
         .where(
             ResearchReport.pipeline_type == PIPELINE_DEEP_RESEARCH,
-            ResearchReport.recommendation == REC_BUY,
+            ResearchReport.recommendation.in_([REC_BUY, REC_HOLD]),
             ResearchReport.status == STATUS_COMPLETED,
             ResearchReport.created_at >= cutoff,
         )
@@ -114,11 +128,13 @@ def generate_buy_drafts(
             return q.get("current") if q else None
 
     expired = _cancel_expired(db)
-    reports = _latest_buy_reports(db)
+    reports = _latest_actionable_reports(db)
 
     summary = holding_service.get_portfolio_summary(db)
     cash_ratio = float(summary.get("cash_ratio_pct") or 0.0)
-    total_value = float(summary.get("total_value") or 0.0)
+    # sizing base = grand total (equity + cash), not equity alone (decision 10
+    # 仓位% 是占整个组合，含现金)。
+    grand_total = float(summary.get("total_value") or 0.0) + float(summary.get("cash_reserve") or 0.0)
     weight_by_code = {
         h["stock_code"]: float(h.get("weight_pct") or 0.0)
         for h in (summary.get("holdings") or [])
@@ -148,7 +164,7 @@ def generate_buy_drafts(
 
         add_pct = TIER_SIZING_PCT[tier]
         suggested_quantity = (
-            int(total_value * (add_pct / 100.0) / price) if total_value > 0 else None
+            int(grand_total * (add_pct / 100.0) / price) if grand_total > 0 else None
         )
         r = ranges.get(tier) or {}
         target_price = r.get("max")  # 区间上沿作为目标买价
