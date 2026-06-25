@@ -9,11 +9,12 @@
 
 - **定位**: 个人股票自动驾驶舱 (规则+LLM 混合 → 全流程自动化,除券商下单外)
 - **技术栈**: FastAPI (Python 3.14) + React 19 + SQLite (WAL) + Ant Design 6 + ECharts 6
-- **当前状态**: **2026-06-24 v2 大重写 Phase 0 完成**。基于新参考 ai-berkshire + serenity-skill,通过 grill-me 锁定 26 条决策,已删除 v1 代码 ~22K 行,5 张 v2 表已建,backend/frontend 验证通过
-- **评判锚点**: `docs/active/redesign-decisions-v2.md` (26 决策) — **任何代码/功能必须能追溯到这 26 条之一**,否则 over-engineering。冲突时:此文件 > docs/active/ 其他 > docs/progress/ > memory
-- **实施计划**: `docs/active/v2-implementation-plan.md` (8 Phase / 12 周)。当前 Phase 0 已完成,下一步 Phase 1 (LLM 基础设施)
-- **分支**: `v2-rewrite` (从 master 切出)
-- **远程仓库**: 暂无 (P1 待办)
+- **当前状态**: **2026-06-25 trading-philosophy 双引擎 + v2 service 层清理完成**。全套测试 **552 passed / 0 failed**(自 v2-rewrite 后首次全绿)。双引擎评分核心 + serenity theme_scan 引擎已建,v1-leftover 服务/测试已清理
+- **评判锚点(两份互补)**:
+  - `docs/standards/trading-philosophy.md` — **交易思想权威**(双引擎/hybrid/评分 profile/去重×3/弃用清单)。取代 invest{1,2,3} 散落约定
+  - `docs/active/redesign-decisions-v2.md` (26 决策) — **工程决策锚点**。任何代码必须能追溯,否则 over-engineering
+- **实施计划**: `docs/active/v2-implementation-plan.md`。trading-philosophy Phase 2 已基本完成,剩 §7 Draft dual-thesis(绑 Phase-5 draft_generator)+ Phase-3 cockpit dashboard 重建
+- **分支**: `master`(v2 已并入);**远程仓库**: 暂无
 
 ## v2 核心范式 (2026-06-24 重设)
 
@@ -40,7 +41,26 @@
 
 ## 用户偏好
 
-(用户首次明确表达偏好时,在此追加)
+- **交互简洁**:常用「继续」「先 commit」等极简指令推进;偏好我做完一段就停下汇报,而非一口气大改
+- **commit 拆分**:倾向按逻辑拆成多个 commit(feature / cleanup / fix 分开),不要一个巨型 commit
+- **决策前先调查**:涉及金钱路径/财务语义/feature scope 的分叉,要先调查 v2 意图(读设计文档+代码)再给方案,不擅自猜;真 bug 可直接修,scope 决策要确认
+- **遵循 grill-me**:重大设计先 grill 锁定决策再动代码
+
+## v2 双引擎交易体系 (2026-06-25 trading-philosophy.md)
+
+- **双引擎**:价值复利 (ai-berkshire 四大师:段/巴/芒/李) + 产业链卡点 (serenity)。两条选股来源,不互相裁决
+- **hybrid 汇合**:serenity 选股 (WHICH) + ai-berkshire 估值/8红线 (PRICE+RISK) → 一张草稿
+- **评分 hybrid**:LLM 算分=advisory,**Python 按 source profile 复核为权威分**;`PROFILE_WEIGHTS` 按 source 切(quality_screen 复利 / theme_scan 主题:李录降权+卡点维度)
+- **去重×3**:① 持久优势三镜(卡点≈护城河≈好生意)同源**整师折叠**封顶(advantage_source 枚举) ② 证据分级**两层**(条目级 strong/med/weak/lead + 包级 A/B/C,各自归属 evidence_grading / defense_methodology) ③ 失败机制:serenity 失败条件**并入芒格** failure_scenarios(§4.3)
+- **trade↔holding = Holding-only**:持仓来自 CSV 导入,trades 是独立账本,**无 trade→holding 同步**;`_available_quantity_at` 读 Holding,无 trade-T+1
+- **notifications = 仅 in-app**:外部渠道(NotificationChannel)已弃用,`notification_service.dispatch_alert` 是 no-op,告警走 system_alert_service
+
+## 关键决策 (2026-06-25)
+
+- **trading-philosophy.md 放 docs/standards/**(不是 docs/reference/ —— 后者整目录被 gitignore)
+- **Alembic 已压缩为单一基线** `v2_baseline_squash`(down_revision=None,从 Base.metadata.create_all 建全量 schema)。原 52 条迁移因 base 被删而断根、空库无法 upgrade,故 squash。**现有 DB 须 `alembic stamp v2_baseline_squash --purge` 一次**(旧 version_num 已不存在,普通 stamp 会失败)
+- **§7 Draft dual-thesis 绑 Phase-5**:v2 无 BUY-draft 生成流程(emit 是无调用方 stub),现在加 Draft 字段=死字段反模式,推迟到 draft_generator 落地时一并做
+- **cockpit = Phase-3 stub**:v2 cockpit router 是有意 stub,旧 cockpit_service 已删(孤立 v1)。信号优先 dashboard 待 Phase-3 重建
 
 ## 经验教训
 
@@ -57,10 +77,15 @@
 - **闰年 Feb 29 触发 backtest ValueError** (v1 F28): try/except fallback 到 Feb 28
 - **测试通过 ≠ 真实链路跑通** (v1 F1 教训): ship 必须真实 DB 端到端验证,不只 fixture+unit test
 - **大重写必须先备份 DB** (2026-06-24 v2): 即使是Phase 0 删表也要先 backup,中途回滚成本高
+- **v2-rewrite 留下大量 v1-leftover** (2026-06-25): service 层多个孤立/半坏服务(cockpit/cashflow/market_temp/universe/notification)靠惰性 import 或 try/except 掩盖,app 能启动但端点崩;旧 tests/ 树有 ~60 个测已删 v1 功能的死测试 + ~25 个 stale 断言。教训:大重写后必须跑**全套**测试(不只新测试)+ 逐 live 服务 grep 已删模块引用
+- **死测试 vs 真 bug 要分辨** (2026-06-25 #15): collection error 的多是 v1 死测试(删);但「测现存 v2 代码却失败」的可能是真 bug(如 universe_service 引用已删模型致 /universe 崩)。不能一律删
+- **Lixinger 数据表是 squash 基线的前提** (2026-06-25): alembic 从空库 upgrade 失败的根因是早期 base 迁移被删;凡删迁移文件要确认不破坏 down_revision 链
 
 ## 文档导航 (v2)
 
-- `docs/active/redesign-decisions-v2.md` — **评判锚点(AI 首读)**,26 决策
+- `docs/standards/trading-philosophy.md` — **交易思想权威**(双引擎/评分/去重×3/弃用清单/as-is→to-be)
+- `docs/reports/completed/2026-06-25-legacy-cleanup-test-and-migration.md` — 本轮清理完整记录(测试/迁移/服务)
+- `docs/active/redesign-decisions-v2.md` — **工程决策锚点(AI 首读)**,26 决策
 - `docs/active/v2-implementation-plan.md` — 8 Phase 实施计划
 - `docs/archive/v1/` — v1 废弃文档 (redesign-decisions-v1 / ADRs / 审计)
 - `docs/standards/serialization.md` — 序列化标准
