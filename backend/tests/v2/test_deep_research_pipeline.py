@@ -330,6 +330,34 @@ def test_pipeline_theme_profile_injects_scarcity(setup_db):
         db.close()
 
 
+def test_pipeline_failure_conditions_folded_into_munger_only(setup_db):
+    """§4.3: serenity 失败条件 are appended to 芒格's prompt (to merge into
+    failure_scenarios), and NOT to the other masters'."""
+    db = SessionLocal()
+    try:
+        _setup_stock(db, "600519")
+        mock_client = _build_mock_client()
+        conds = ["替代技术 CPO 被硅光取代", "对手大幅扩产致毛利恶化"]
+        deep_research_pipeline.run(
+            "600519", source="theme_scan", scarcity_score=4.0,
+            failure_conditions=conds, db_session=db, llm_client=mock_client,
+        )
+        # Inspect the per-master prompts captured by the mock client.
+        prompts = {
+            kw["pipeline_type"]: kw["user_prompt"]
+            for _, kw in mock_client.complete.call_args_list
+            if kw.get("pipeline_type", "").startswith("deep_research.")
+        }
+        munger_prompt = prompts["deep_research.munger"]
+        assert "serenity 已识别的失败条件" in munger_prompt
+        assert conds[0] in munger_prompt and conds[1] in munger_prompt
+        # other masters must NOT receive them
+        for m in ("duan", "buffett", "lilu"):
+            assert conds[0] not in prompts[f"deep_research.{m}"]
+    finally:
+        db.close()
+
+
 def test_pipeline_red_line_marks_rejected(setup_db):
     """If LLM flags a red line, report status=rejected + red_line_event written."""
     db = SessionLocal()

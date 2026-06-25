@@ -137,9 +137,11 @@ source == "theme_scan"      →  主题 profile
 | serenity 失败条件 | 什么证据会证明这个**论点错** | 论点证伪清单 | serenity |
 | 8 红线 | 是否命中硬性否决项 | 二元否决（pass/veto） | ai-berkshire |
 
-**提案规则**：
+**规则（已实现 2026-06-25）**：
 - 芒格 failure_scenarios 与 serenity 失败条件**高度同义**，在主题 profile 下**合并到芒格的 failure_scenarios 字段**（serenity 的卡点专属失败条件——替代覆盖/对手扩产/认证流失——作为子项并入），避免两份「会出错清单」。
 - 8 红线**保持独立**，它是二元否决底线，不参与评分加权，两引擎共同遵守。
+
+> 实现：`deep_research.run(failure_conditions=[...])` → `_build_master_prompt` 仅给**芒格**追加「serenity 已识别的失败条件」段落，指示并入 `failure_scenarios`（不另列）；`research_v2` 路由加 `failure_conditions` 参数透传；munger_master.md 文档说明；e2e 测试断言仅芒格 prompt 收到、其余三师不收到。theme_scan 候选已携带 `failure_conditions`（CANDIDATE_RANK_SCHEMA），手动衔接时由请求体传入。
 
 ### 4.4 8 红线（共同底线，不去重，强调归属）
 
@@ -223,7 +225,7 @@ deep_research_schema.py 旧策略死引用                  ⚠️ 1 处残留
 2. ~~`deep_research` 加 profile 切换~~ **已完成**：`run(source=)` 按 source 选 `PROFILE_WEIGHTS`（复利/主题）；主题 profile 降权李录 + 新增 scarcity 维度 + 重归一化；scoring.py 实现 + 单测。
 3. ~~`synthesis` 加同源优势封顶逻辑~~ **已完成**（§4.1：scoring.py 整师折叠 + advantage_source 枚举入 schema/prompt + e2e 测试）。
 4. ~~合并三处来源优先级清单为一份共享引用~~ **已完成**（§4.2：统一清单入 evidence_grading.md，另两处改为引用；三处清单原本互相**冲突**已消除）。
-5. **主题 profile 下合并芒格 failure_scenarios 与 serenity 失败条件**（§4.3，已确认）。
+5. ~~主题 profile 下合并芒格 failure_scenarios 与 serenity 失败条件~~ **已完成**（§4.3）：`deep_research.run(failure_conditions=)` 仅注入芒格 prompt（并入 failure_scenarios，不另列）+ munger_master.md 说明 + research 路由 `failure_conditions` 参数 + e2e 测试（仅芒格收到）。
 6. ~~`shared/*.md` 措辞清洗~~ **已完成**：A/B/C 包级权威落 defense_methodology、strong/med/weak/lead 条目级落 evidence_grading，system_base 改为双指针；删除 system_base 里重复的 A/B/C。
 7. **Draft schema 扩展**：携带 serenity thesis + ai-berkshire 价格区间双字段。
 8. ~~删除旧策略死引用~~ **已核实无需做**（§6，误报）。

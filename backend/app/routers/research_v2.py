@@ -53,6 +53,8 @@ class ResearchTriggerRequest(BaseModel):
     source: str = "quality_screen"  # quality_screen | theme_scan
     # serenity 卡点 score handed in when source=theme_scan (§3 reuse).
     scarcity_score: float | None = None
+    # serenity 失败条件 from theme_scan; folded into 芒格 failure_scenarios (§4.3).
+    failure_conditions: list[str] | None = None
 
 
 class ResearchReportSummary(BaseModel):
@@ -134,6 +136,7 @@ def trigger_research(
             stock_code,
             source=payload.source,
             scarcity_score=payload.scarcity_score,
+            failure_conditions=payload.failure_conditions,
             model_tier=tier,
             use_web_search=payload.use_web_search,
             db_session=db,

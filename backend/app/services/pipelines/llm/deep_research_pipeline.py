@@ -225,6 +225,7 @@ def _build_master_prompt(
     master: str,
     input_data: DeepResearchInput,
     data_brief: dict[str, Any],
+    failure_conditions: Optional[list[str]] = None,
 ) -> str:
     """Assemble user message for a master step (段永平/巴菲特/芒格/李录)."""
     instructions = load_prompt(PIPELINE_NAME, f"{master}_master", PROMPT_VERSION)
@@ -236,10 +237,21 @@ def _build_master_prompt(
         },
         "data_brief": data_brief,
     }
-    return (
+    prompt = (
         f"{instructions}\n\n"
         f"# 研究数据\n\n```json\n{json.dumps(payload, ensure_ascii=False, indent=2)}\n```"
     )
+    # §4.3 失败机制合并 (trading-philosophy.md): theme_scan 已识别的 serenity
+    # 失败条件并入芒格 failure_scenarios，避免两份「会出错清单」。仅芒格收到。
+    if master == "munger" and failure_conditions:
+        conds = "\n".join(f"- {c}" for c in failure_conditions)
+        prompt += (
+            "\n\n# serenity 已识别的失败条件（来自 theme_scan）\n\n"
+            "以下是产业链卡点视角识别的证伪点。**必须并入你的 failure_scenarios**"
+            "（作为子项评估其概率/触发信号/下行幅度），不要另列成第二份清单：\n\n"
+            f"{conds}"
+        )
+    return prompt
 
 
 def _build_synthesis_prompt(
@@ -293,6 +305,7 @@ def run(
     *,
     source: str = DEFAULT_SOURCE,
     scarcity_score: Optional[float] = None,
+    failure_conditions: Optional[list[str]] = None,
     model_tier: GLMTier = GLMTier.SONNET,
     use_web_search: bool = True,
     db_session: Optional[Session] = None,
@@ -306,6 +319,8 @@ def run(
             scoring weight profile (trading-philosophy.md §3)
         scarcity_score: serenity 卡点 score (1-5) handed in by theme_scan; injected
             as the 'scarcity' dimension for the theme profile (reuse, no re-assess)
+        failure_conditions: serenity 失败条件 from theme_scan; folded into 芒格's
+            failure_scenarios (§4.3 merge — one "what could go wrong" list)
         model_tier: GLM tier (default SONNET for normal, OPUS for top candidates)
         use_web_search: enable web_search in data_collection step
         db_session: caller's session; else creates own
@@ -333,7 +348,8 @@ def run(
 
         # Steps 2-5: 4 masters in parallel
         master_outputs = _run_masters_parallel(
-            client, db, input_data, data_brief, model_tier
+            client, db, input_data, data_brief, model_tier,
+            failure_conditions=failure_conditions,
         )
 
         # Step 6: synthesis
@@ -462,6 +478,7 @@ def _run_masters_parallel(
     input_data: DeepResearchInput,
     data_brief: dict[str, Any],
     model_tier: GLMTier,
+    failure_conditions: Optional[list[str]] = None,
 ) -> dict[str, dict[str, Any]]:
     """Steps 2-5: 4 masters in parallel."""
     masters = [
@@ -472,7 +489,9 @@ def _run_masters_parallel(
     ]
 
     def _run_one(master_name: str, schema: dict) -> tuple[str, dict]:
-        prompt = _build_master_prompt(master_name, input_data, data_brief)
+        prompt = _build_master_prompt(
+            master_name, input_data, data_brief, failure_conditions=failure_conditions
+        )
         # Each master gets its own DB session to avoid thread conflicts
         with SessionLocal() as master_db:
             response = client.complete(
