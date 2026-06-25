@@ -396,31 +396,47 @@ export interface ThesisAlert {
   message: string;
 }
 
+// ── v2 信号优先 cockpit (decision 19) ─────────────────────────────────────
+
+export interface CockpitReportItem {
+  id: number;
+  stock_code: string;
+  pipeline_type: string;
+  overall_score: number | null;
+  recommendation: string | null;
+  evidence_grade: string | null;
+  status: string;
+  created_at: string | null;
+}
+
+export interface CockpitAlertV2 {
+  id: number;
+  severity: string;
+  category: string;
+  message: string;
+  created_at: string | null;
+}
+
 export interface CockpitResponse {
   as_of: string;
-  cashflow: CockpitCashflow;
+  // 顶部：待办信号
   drafts: CockpitDraft[];
-  holdings: {
-    items: CockpitHoldingItem[];
-    warnings: string[];
-    summary?: string | null;
+  drafts_pending_count: number;
+  // 中部：持仓概览
+  portfolio: {
+    summary: Record<string, number | null>;
+    holdings: CockpitHoldingItem[];
   };
-  quadrant: CockpitQuadrant[];
+  // 底部：候选池 + 观察池（lifecycle 状态计数）
+  pipeline_counts: Record<string, number>;
+  // 应用内通知
   alerts: {
-    items: CockpitAlertItem[];
-    unacked_count: number;
+    items: CockpitAlertV2[];
+    critical_count: number;
   };
-  plans: CockpitPlanSummary[];
+  // 信号 + 报告
+  recent_reports: CockpitReportItem[];
   errors: string[];
-  market_temperature?: number | null;
-  rebalance_suggestions?: RebalanceSuggestion[];
-  cycle?: CycleAssessment;
-  theme_exposure?: ThemeExposureItem[];
-  dividend_projection?: DividendProjection;
-  thesis_alerts?: ThesisAlert[];
-  portfolio_risk?: PortfolioRisk;
-  serenity_summary?: SerenityCockpitSummary | null;
-  serenity_monthly_spend_cny?: SerenityMonthlySpend | null;
 }
 
 /**
