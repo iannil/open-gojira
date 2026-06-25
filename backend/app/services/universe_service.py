@@ -4,13 +4,21 @@ import logging
 from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session
 
-from app.models.candidate import Candidate
 from app.models.holding import Holding
 from app.models.stock import Stock
+from app.models.stock_lifecycle import (
+    STATE_CANDIDATE,
+    STATE_RESEARCHED,
+    STATE_SIGNALED,
+    STATE_WATCHLIST,
+    StockLifecycle,
+)
 from app.models.valuation import ValuationSnapshot
-from app.models.watchlist import WatchlistItem
 from app.schemas.stock import UniverseItem
 from app.services.holding_service import _get_cached_price
+
+# v2: the watchlist/candidate models were replaced by stock_lifecycle states.
+_WATCHED_STATES = (STATE_WATCHLIST, STATE_RESEARCHED, STATE_CANDIDATE, STATE_SIGNALED)
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +29,12 @@ def build_universe_view(db: Session) -> list[UniverseItem]:
     held_codes = {
         r[0] for r in db.query(Holding.stock_code).filter(Holding.sell_date.is_(None)).all()
     }
-    watched_codes = {r[0] for r in db.query(WatchlistItem.stock_code).distinct().all()}
+    watched_codes = {
+        r[0]
+        for r in db.query(StockLifecycle.stock_code)
+        .filter(StockLifecycle.current_state.in_(_WATCHED_STATES))
+        .all()
+    }
     all_codes = held_codes | watched_codes
 
     if not all_codes:
@@ -30,11 +43,13 @@ def build_universe_view(db: Session) -> list[UniverseItem]:
     stocks = db.query(Stock).filter(Stock.code.in_(all_codes)).all()
     stock_map = {s.code: s for s in stocks}
 
-    # Active candidates
-    candidate_rows = db.query(Candidate).filter(Candidate.status == "active").all()
-    candidate_map: dict[str, int] = {}
-    for c in candidate_rows:
-        candidate_map[c.stock_code] = candidate_map.get(c.stock_code, 0) + 1
+    # v2: "candidate" is a lifecycle state (one state per stock), not a pool.
+    candidate_codes = {
+        r[0]
+        for r in db.query(StockLifecycle.stock_code)
+        .filter(StockLifecycle.current_state == STATE_CANDIDATE)
+        .all()
+    }
 
     # Latest valuation per stock (bulk)
     val_sub = db.query(
@@ -73,7 +88,7 @@ def build_universe_view(db: Session) -> list[UniverseItem]:
         s = stock_map.get(code)
         if not s:
             continue
-        cand_count = candidate_map.get(code, 0)
+        cand_count = 1 if code in candidate_codes else 0
         v = val_map.get(code)
         is_held = code in held_codes
         weight = None
