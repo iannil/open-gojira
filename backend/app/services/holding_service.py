@@ -301,15 +301,18 @@ def _holding_to_dict(holding: Holding, db: Session, stocks_map: dict | None = No
 
 
 def _get_or_init_settings(db: Session):
-    """Fetch (or lazy-create) the singleton cashflow_goals row (now includes portfolio settings)."""
-    from app.models.cashflow_goal import CashflowGoal
-    s = db.query(CashflowGoal).filter(CashflowGoal.id == 1).first()
-    if not s:
-        s = CashflowGoal(id=1, cash_reserve=0.0, target_weighted_dyr=0.045)
-        db.add(s)
-        db.flush()
-        db.refresh(s)
-    return s
+    """v2 portfolio settings (cashflow_goal removed, v2-implementation-plan.md).
+
+    cash_reserve comes from the real CashBalance ledger (singleton id=1);
+    target_weighted_dyr is a methodology constant (4.5% target).
+    """
+    from types import SimpleNamespace
+
+    from app.models.cash_balance import CashBalance
+
+    cb = db.query(CashBalance).filter(CashBalance.id == 1).first()
+    cash_reserve = float(cb.balance) if cb and cb.balance is not None else 0.0
+    return SimpleNamespace(cash_reserve=cash_reserve, target_weighted_dyr=0.045)
 
 
 def _latest_dyr(db: Session, stock_code: str) -> float | None:

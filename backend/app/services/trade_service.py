@@ -157,7 +157,7 @@ def record_trade(
 
         # 2. T+1 check (SELL only) — NEVER bypassed (exchange would reject).
         if side == "SELL":
-            available = available_quantity_at(db, stock_code, filled_at)
+            available = _available_quantity_at(db, stock_code, filled_at)
             if quantity > available:
                 raise InsufficientQuantityError(
                     stock_code, quantity, available, filled_at,
