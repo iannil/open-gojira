@@ -6,6 +6,7 @@ import pytest
 
 from app.models.broker_fee_config import BrokerFeeConfig
 from app.models.cash_balance import CashBalance
+from app.models.holding import Holding
 from app.models.stock import Stock
 
 
@@ -14,6 +15,12 @@ def setup(client, db_session):
     db_session.add(Stock(
         code="600519", name="贵州茅台", exchange="sh",
         listing_status="normally_listed", prev_close=100.0,
+    ))
+    # v2: SELL availability reads Holding (no trade->holding sync). Seed a
+    # position so SELL tests can sell.
+    db_session.add(Holding(
+        stock_code="600519", buy_date=date(2026, 6, 11), buy_price=100.0,
+        quantity=100, stop_profit_price=130.0,
     ))
     db_session.add(Stock(
         code="000001", name="平安银行", exchange="sz",

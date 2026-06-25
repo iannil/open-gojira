@@ -1,10 +1,17 @@
-"""Test GET /api/portfolio/{code}/available endpoint."""
-from datetime import date, datetime, timedelta
+"""Test GET /api/portfolio/{code}/available endpoint.
+
+v2 (trading-philosophy 决策 2026-06-25): the v1 trade-based T+1 model
+(settled / frozen computed from trades) was replaced by a simple Holding read —
+``available == total == Holding.quantity``, ``frozen`` always 0 (no freeze
+concept). Positions come from Holding (CSV import), not from BUY trades.
+"""
+from datetime import date
 
 import pytest
 
 from app.models.broker_fee_config import BrokerFeeConfig
 from app.models.cash_balance import CashBalance
+from app.models.holding import Holding
 from app.models.stock import Stock
 
 
@@ -27,35 +34,16 @@ def setup(client, db_session):
     db_session.flush()
 
 
-def _yesterday_trade(client, code, side, price, qty, days_ago=1):
-    """Record a trade N days before today (settled, no longer frozen)."""
-    filled = datetime.now() - timedelta(days=days_ago)
-    resp = client.post("/api/trades", json={
-        "stock_code": code,
-        "side": side,
-        "price": price,
-        "quantity": qty,
-        "filled_at": filled.isoformat(),
-        "source": "manual",
-    })
-    assert resp.status_code == 201, resp.text
-
-
-def _today_trade(client, code, side, price, qty):
-    """Record a trade happening today."""
-    resp = client.post("/api/trades", json={
-        "stock_code": code,
-        "side": side,
-        "price": price,
-        "quantity": qty,
-        "filled_at": datetime.now().isoformat(),
-        "source": "manual",
-    })
-    assert resp.status_code == 201, resp.text
+def _add_holding(db, code, quantity, sell_date=None):
+    db.add(Holding(
+        stock_code=code, buy_date=date(2026, 6, 11), buy_price=100.0,
+        quantity=quantity, stop_profit_price=130.0, sell_date=sell_date,
+    ))
+    db.flush()
 
 
 def test_available_no_position(client, setup):
-    """No trades at all → all zeros."""
+    """No holding → all zeros."""
     resp = client.get("/api/portfolio/600519/available")
     assert resp.status_code == 200
     data = resp.json()
@@ -65,9 +53,9 @@ def test_available_no_position(client, setup):
     assert data["total"] == 0
 
 
-def test_available_only_settled_buy(client, setup):
-    """Yesterday's BUY: available = total = qty, frozen = 0."""
-    _yesterday_trade(client, "600519", "BUY", 100.0, 200, days_ago=1)
+def test_available_from_holding(client, setup, db_session):
+    """Holding qty → available = total = qty, frozen = 0 (no T+1 freeze in v2)."""
+    _add_holding(db_session, "600519", 200)
     resp = client.get("/api/portfolio/600519/available")
     assert resp.status_code == 200
     data = resp.json()
@@ -76,38 +64,12 @@ def test_available_only_settled_buy(client, setup):
     assert data["total"] == 200
 
 
-def test_available_today_buy_frozen(client, setup):
-    """Today's BUY is frozen, not available."""
-    _today_trade(client, "600519", "BUY", 100.0, 100)
+def test_available_excludes_sold_holding(client, setup, db_session):
+    """A holding with sell_date set is closed → not counted as available."""
+    _add_holding(db_session, "600519", 200, sell_date=date(2026, 6, 12))
     resp = client.get("/api/portfolio/600519/available")
     assert resp.status_code == 200
-    data = resp.json()
-    assert data["available"] == 0
-    assert data["frozen"] == 100
-    assert data["total"] == 100
-
-
-def test_available_mixed_settled_and_today(client, setup):
-    """Yesterday's BUY 300 + today's BUY 100 → available 300, frozen 100."""
-    _yesterday_trade(client, "600519", "BUY", 100.0, 300, days_ago=1)
-    _today_trade(client, "600519", "BUY", 105.0, 100)
-    resp = client.get("/api/portfolio/600519/available")
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["available"] == 300
-    assert data["frozen"] == 100
-    assert data["total"] == 400
-
-
-def test_available_after_partial_sell(client, setup):
-    """Settled BUY 200 - SELL 80 → available 120."""
-    _yesterday_trade(client, "600519", "BUY", 100.0, 200, days_ago=2)
-    _yesterday_trade(client, "600519", "SELL", 110.0, 80, days_ago=1)
-    resp = client.get("/api/portfolio/600519/available")
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["available"] == 120
-    assert data["total"] == 120
+    assert resp.json()["available"] == 0
 
 
 def test_available_stock_not_found(client, setup):
@@ -115,9 +77,9 @@ def test_available_stock_not_found(client, setup):
     assert resp.status_code == 404
 
 
-def test_available_other_stock_unaffected(client, setup):
-    """BUY on 600519 should not affect available of 000001."""
-    _yesterday_trade(client, "600519", "BUY", 100.0, 500, days_ago=1)
+def test_available_other_stock_unaffected(client, setup, db_session):
+    """A holding on 600519 must not affect 000001's available."""
+    _add_holding(db_session, "600519", 500)
     resp = client.get("/api/portfolio/000001/available")
     assert resp.status_code == 200
     data = resp.json()

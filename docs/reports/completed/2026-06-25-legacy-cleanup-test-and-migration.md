@@ -93,3 +93,34 @@ tests/test_thesis_alert_handler.py     tests/test_trade_service.py
 tests/test_trade_service_constraints.py tests/test_trades_api.py
 ```
 优先级建议：先看守护核心资金路径的 `test_trade_service(_constraints)` / `test_trades_api` / `test_holding_service` / `test_available_quantity_api`（T+1 / 费用 / 卖出约束）。
+
+## 5. 任务 #15 进展：81-failure triage（2026-06-25）
+
+### 已删（确认 v1-dead：测已删功能）
+`test_plan_runner_cycle_gate`、`test_plan_scheduler_job`（import 已删 `plan_runner`）、`test_research_router`（candidate/research_*）、`test_business_patterns_router`（business_pattern）、`test_risk_rules_api`（端点 404，router 已移除）。**清掉 45 failures。**
+
+### 已修真实 bug（live 服务残留死引用）
+- **`universe_service`**：import 已删 `candidate` + `watchlist` 模型 → `/api/stocks/universe`（UniversePage）崩溃。重构为用 `StockLifecycle` 状态（watched=watchlist/researched/candidate/signaled；candidate=该状态）。`test_stocks` 50 passed。
+
+### 新发现（同类 v1-leftover 服务，待决策/重构）
+- 🔴 **`notification_service`（live bug）**：整个服务基于已删的 `NotificationChannel`（senders/dispatch/CRUD 全是 channel）；被 `scheduler` + `event_handlers` 调用（job 失败告警）。v2 已弃用 notification_channels（计划明列），替代是 in-app `system_alert_service`。需决策：把 notification_service 重构为仅 in-app / 删除并让调用方直接走 system_alert_service。`notifications` router 已是 stub（仅 /channels+/health），`test_notifications_api` 测的 CRUD 端点已不存在 → stale。
+
+### ✅ #15 全部完成：全套测试 551 passed / 0 failed
+
+经过逐文件 triage，全套测试首次自 v2-rewrite 后全绿。轨迹：**130 → 81（已提交）→ 35 → 0**。
+
+**两项决策（用户 2026-06-25）**：
+1. trade↔holding 保持 Holding-only（trades 是账本，无 trade→holding 同步）。
+2. notification_service 重构为仅 in-app system_alert。
+
+**本轮处理明细**：
+- **真实 live bug 修复**：`universe_service`（candidate/watchlist→StockLifecycle 状态）、`notification_service`（重构为 in-app-only no-op dispatch，去 NotificationChannel）。
+- **删 v1-dead 测试**：plan_runner_cycle_gate / plan_scheduler_job / research_router / business_patterns_router / risk_rules_api（整文件）+ scheduler 内 thesis_evaluation×2 / research_stale_sweep×2 + scheduler_alerting 内 plan freshness。
+- **stale 测试改写为 v2**：
+  - trades 系列（trade_service / trade_service_constraints / trades_api / available_quantity_api）：SELL 改为先建 Holding（v2 持仓源），删 trade-T+1 断言。
+  - notifications_api：改断言 v2 stub（channels 已删）。
+  - event_bus：handler 注册断言改为 v2 registry（去 PlanEvaluationCompleted）。
+  - scheduler：JOB_REGISTRY 断言改为 v2 实际任务集。
+  - corp_action_processor / corp_action_api：qty_held 来自 Holding → 测试补种 Holding。
+
+> **模式总结（已闭环）**：v2-rewrite 在 service 层留下一串 v1-leftover（cockpit/cashflow/market_temp/universe/notifications），靠惰性 import 或 try/except 掩盖；旧 tests/ 树有大量测已删 v1 功能的死测试 + 测现存 v2 代码的 stale 断言。#13-#15 系统清理后：3+1 个孤立/死服务删除或重构、5 个 live 生产 bug 修复（cockpit 路径 / holding / trade 卖出 / universe / notification）、~60 个死测试删除、~25 个 stale 测试改写为 v2 模型。全套 551 passed。

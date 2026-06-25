@@ -113,14 +113,16 @@ class TestEventHandlers:
             h(event)
 
     def test_handlers_register_on_import(self):
-        from app.core.events import bus, DataSyncCompleted, PlanEvaluationCompleted, DraftCreated
+        # v2: PlanEvaluationCompleted dropped (plans removed). Registry now
+        # (event_handlers.py:448-450): DataSyncCompleted→price_alert,
+        # DraftCreated→audit_log, MonthlyBudgetExceeded→budget handler.
+        from app.core.events import bus, DataSyncCompleted, DraftCreated, MonthlyBudgetExceeded
         reg = bus.get_registry()
         assert DataSyncCompleted in reg
-        assert PlanEvaluationCompleted in reg
         assert DraftCreated in reg
-        assert len(reg[DataSyncCompleted]) == 3  # valuation, financials, kline
-        assert len(reg[DraftCreated]) == 2  # position check, audit log
-        assert len(reg[PlanEvaluationCompleted]) == 1  # check alerts
+        assert MonthlyBudgetExceeded in reg
+        assert len(reg[DataSyncCompleted]) == 1  # on_kline_sync_price_alert
+        assert len(reg[DraftCreated]) == 1  # on_draft_audit_log
 
     def test_max_stocks_limit_applied(self):
         from app.core.events import DataSyncCompleted

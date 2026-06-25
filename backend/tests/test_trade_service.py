@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from app.db.base import Base
 from app.models.cash_balance import CashBalance
 from app.models.broker_fee_config import BrokerFeeConfig
+from app.models.holding import Holding
 from app.models.stock import Stock
 from app.models.trade import Trade
 from app.services.trade_service import (
@@ -15,6 +16,15 @@ from app.services.trade_service import (
     InsufficientBalanceError,
     NoActiveFeeConfigError,
 )
+
+
+def _add_holding(db, code="600519", quantity=100, buy_price=1680.0, buy_date=date(2026, 6, 11)):
+    """v2: sellable quantity comes from Holding (CSV import), not BUY trades."""
+    db.add(Holding(
+        stock_code=code, buy_date=buy_date, buy_price=buy_price,
+        quantity=quantity, stop_profit_price=buy_price * 1.3,
+    ))
+    db.flush()
 
 
 # ---------------------------------------------------------------------------
@@ -78,7 +88,8 @@ def test_record_buy_creates_trade_and_updates_cash(db_session, setup):
 
 
 def test_record_sell_updates_cash_inflow(db_session, setup):
-    # 先买再卖
+    # v2: 持仓来自 Holding; BUY 交易记现金支出, SELL 卖出 Holding 头寸
+    _add_holding(db_session, quantity=100, buy_price=1680.0)
     record_trade(db_session, stock_code="600519", side="BUY",
                  price=1680.0, quantity=100,
                  filled_at=datetime(2026, 6, 11, 10, 30), source="manual")
@@ -153,10 +164,8 @@ def test_historical_fee_config_selected_by_filled_at(db_session, setup):
         effective_from=date(2022, 1, 1), is_active=True,
     ))
     db_session.flush()
-    # Seed an earlier BUY so SELL has T+1 available quantity.
-    record_trade(db_session, stock_code="600519", side="BUY",
-                 price=1680.0, quantity=100,
-                 filled_at=datetime(2022, 5, 31, 10, 0), source="manual")
+    # v2: seed a Holding so the SELL has available quantity (no trade->holding sync).
+    _add_holding(db_session, quantity=100, buy_price=1680.0, buy_date=date(2022, 5, 31))
     # 用 2022-06-01 成交日; price out of band for setup prev_close=1680,
     # use force=True to focus this test on fee-config selection.
     trade = record_trade(db_session, stock_code="600519", side="SELL",

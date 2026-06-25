@@ -8,7 +8,19 @@ from sqlalchemy.orm import sessionmaker
 from app.db.base import Base
 from app.models.cash_balance import CashBalance
 from app.models.broker_fee_config import BrokerFeeConfig
+from app.models.holding import Holding
 from app.models.stock import Stock
+
+
+def _add_holding(db, code="600519", quantity=100, buy_price=100.0):
+    """v2: sellable quantity comes from Holding (CSV import), not from BUY
+    trades (no trade->holding sync). Tests exercising a successful SELL seed a
+    Holding first."""
+    db.add(Holding(
+        stock_code=code, buy_date=date(2026, 6, 11), buy_price=buy_price,
+        quantity=quantity, stop_profit_price=buy_price * 1.3,
+    ))
+    db.flush()
 from app.services.trade_service import (
     record_trade,
     InsufficientQuantityError,
@@ -60,38 +72,22 @@ def setup(db_session):
     db_session.flush()
 
 
-# --- T+1 校验 ----------------------------------------------------------------
+# --- available quantity 校验 (v2: 基于 Holding, 无 trade-T+1) -----------------
+# v1 的 trade-based T+1 (今日买入今日冻结) 已弃用: v2 持仓来自 CSV, available
+# 读 Holding.quantity, 无日期冻结逻辑 (trading-philosophy 决策 2026-06-25).
 
-def test_sell_today_buy_raises_t_plus_1(db_session, setup):
-    """今日买入的份额今日不能卖."""
-    # 6/12 买 100 股
-    record_trade(db_session, stock_code="600519", side="BUY",
-                 price=100.0, quantity=100,
-                 filled_at=datetime(2026, 6, 12, 10, 0), source="manual")
-    # 同日试图卖
-    with pytest.raises(InsufficientQuantityError):
-        record_trade(db_session, stock_code="600519", side="SELL",
-                     price=101.0, quantity=100,
-                     filled_at=datetime(2026, 6, 12, 14, 0), source="manual")
-
-
-def test_sell_yesterday_buy_ok(db_session, setup):
-    """昨日买入今日可卖."""
-    record_trade(db_session, stock_code="600519", side="BUY",
-                 price=100.0, quantity=100,
-                 filled_at=datetime(2026, 6, 11, 10, 0), source="manual")
-    # 应该 pass
+def test_sell_full_holding_ok(db_session, setup):
+    """v2: 持有 100 (Holding) 可全部卖出."""
+    _add_holding(db_session, quantity=100)
     trade = record_trade(db_session, stock_code="600519", side="SELL",
                          price=101.0, quantity=100,
                          filled_at=datetime(2026, 6, 12, 14, 0), source="manual")
     assert trade.quantity == -100
 
 
-def test_sell_partial_of_yesterday_buy_ok(db_session, setup):
-    """部分卖出昨日买的(够)."""
-    record_trade(db_session, stock_code="600519", side="BUY",
-                 price=100.0, quantity=200,
-                 filled_at=datetime(2026, 6, 11, 10, 0), source="manual")
+def test_sell_partial_of_holding_ok(db_session, setup):
+    """v2: 持有 200 (Holding) 部分卖出 100 (够)."""
+    _add_holding(db_session, quantity=200)
     trade = record_trade(db_session, stock_code="600519", side="SELL",
                          price=101.0, quantity=100,
                          filled_at=datetime(2026, 6, 12, 14, 0), source="manual")
@@ -99,10 +95,8 @@ def test_sell_partial_of_yesterday_buy_ok(db_session, setup):
 
 
 def test_sell_exceeding_available_raises(db_session, setup):
-    """试图卖超过昨日买的."""
-    record_trade(db_session, stock_code="600519", side="BUY",
-                 price=100.0, quantity=100,
-                 filled_at=datetime(2026, 6, 11, 10, 0), source="manual")
+    """试图卖超过持仓 (Holding 100, 卖 200)."""
+    _add_holding(db_session, quantity=100)
     with pytest.raises(InsufficientQuantityError):
         record_trade(db_session, stock_code="600519", side="SELL",
                      price=101.0, quantity=200,
@@ -185,17 +179,14 @@ def test_force_bypass_price_check(db_session, setup):
     assert trade.note is not None and "force" in trade.note.lower()
 
 
-def test_force_does_not_bypass_t_plus_1(db_session, setup):
-    """force 只旁路价格校验,不旁路 T+1."""
-    record_trade(db_session, stock_code="600519", side="BUY",
-                 price=100.0, quantity=100,
-                 filled_at=datetime(2026, 6, 12, 10, 0), source="manual")
+def test_force_does_not_bypass_quantity_check(db_session, setup):
+    """force 只旁路价格校验, 不旁路 available-quantity 校验."""
     with pytest.raises(InsufficientQuantityError):
         record_trade(
             db_session, stock_code="600519", side="SELL",
             price=101.0, quantity=100,
             filled_at=datetime(2026, 6, 12, 14, 0), source="manual",
-            force=True,  # T+1 still enforced
+            force=True,  # quantity check still enforced (no holding)
         )
 
 
