@@ -25,6 +25,7 @@ def test_job_registry_has_expected_jobs():
         "daily_corp_action_apply",
         "intraday_price_poll",
         "pipeline_stale_sweep",
+        "daily_draft_generation",
         "v2_deep_research_weekly",
         "v2_quality_screen_weekly",
         "v2_thesis_tracker_weekly",

@@ -227,7 +227,7 @@ deep_research_schema.py 旧策略死引用                  ⚠️ 1 处残留
 4. ~~合并三处来源优先级清单为一份共享引用~~ **已完成**（§4.2：统一清单入 evidence_grading.md，另两处改为引用；三处清单原本互相**冲突**已消除）。
 5. ~~主题 profile 下合并芒格 failure_scenarios 与 serenity 失败条件~~ **已完成**（§4.3）：`deep_research.run(failure_conditions=)` 仅注入芒格 prompt（并入 failure_scenarios，不另列）+ munger_master.md 说明 + research 路由 `failure_conditions` 参数 + e2e 测试（仅芒格收到）。
 6. ~~`shared/*.md` 措辞清洗~~ **已完成**：A/B/C 包级权威落 defense_methodology、strong/med/weak/lead 条目级落 evidence_grading，system_base 改为双指针；删除 system_base 里重复的 A/B/C。
-7. **Draft schema 扩展**：携带 serenity thesis + ai-berkshire 价格区间双字段。
+7. ~~Draft schema 扩展：携带 serenity thesis + ai-berkshire 价格区间双字段~~ **已完成**（Phase-5 draft_generator）：Draft 加 `price_ranges_json`（ai-berkshire 三策略区间）+ `serenity_thesis`（卡点，仅 theme_scan 来源）+ `target_price`/`strategy_tier`/`sizing_logic`/`thesis_status`/`expires_at`/`research_report_id`。`draft_generator.generate_buy_drafts` 按决策 9/10 生成（价格入区间 + 论文健康 + 现金≥20%/单股<10%，激进8%/稳健4%/保守不生成，TTL 7天）+ `daily_draft_generation` 调度 + 8 测试。行业<30%闸跳过（F20）。
 8. ~~删除旧策略死引用~~ **已核实无需做**（§6，误报）。
 9. ~~文档注明 `quality_screen` 7 硬规则与 8 红线的重叠角色~~ **已完成**（§4.4：注释加在 quality_screen_pipeline.py docstring：7 规则=前置粗筛 / 8 红线=研究后否决，重叠但角色不同）。
 

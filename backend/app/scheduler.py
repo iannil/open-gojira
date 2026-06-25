@@ -934,6 +934,27 @@ def v2_thesis_tracker_job() -> dict:
             return {"error": "see logs"}
 
 
+def daily_draft_generation_job() -> dict:
+    """Phase 5 (decision 9/10): generate BUY drafts from fresh BUY research
+    reports whose price entered a buy tier (激进/稳健) + portfolio has space;
+    cancel expired drafts (TTL 7d)."""
+    from app.services import draft_generator
+
+    with SessionLocal() as db:
+        try:
+            result = draft_generator.generate_buy_drafts(db)
+            db.commit()
+            logger.info(
+                "daily_draft_generation: generated=%s expired=%s scanned=%s",
+                result["generated"], result["expired_cancelled"], result["scanned"],
+            )
+            return result
+        except Exception:
+            db.rollback()
+            logger.exception("daily_draft_generation_job failed")
+            return {"error": "see logs"}
+
+
 # ── Job Registry ──────────────────────────────────────────────────────────
 
 # Maps job_id → unwrapped function (tracking is applied during scheduling)
@@ -956,6 +977,7 @@ JOB_REGISTRY = {
     "daily_corp_action_apply": daily_corp_action_apply_job,
     "intraday_price_poll": intraday_price_poll_job,
     "pipeline_stale_sweep": pipeline_stale_sweep_job,
+    "daily_draft_generation": daily_draft_generation_job,
     # v2 LLM Pipelines
     "v2_quality_screen_weekly": v2_quality_screen_job,
     "v2_deep_research_weekly": v2_deep_research_job,
