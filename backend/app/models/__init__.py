@@ -21,6 +21,7 @@ from app.models.research_report import ResearchReport
 from app.models.scheduler_config import JobExecution, SchedulerJob
 from app.models.stock import Stock
 from app.models.stock_lifecycle import StockLifecycle
+from app.models.theme_scan_report import ThemeScanReport
 from app.models.system_alert import SystemAlert
 from app.models.trade import Trade
 from app.models.trading_calendar import TradingCalendar
@@ -54,6 +55,7 @@ __all__ = [
     # v2 LLM Pipeline models
     "StockLifecycle",
     "ResearchReport",
+    "ThemeScanReport",
     "DecisionAudit",
     "LLMCallLog",
     "RedLineEvent",

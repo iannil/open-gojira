@@ -36,6 +36,7 @@ from app.routers import (
     scheduler as scheduler_router,
     stocks,
     system_alerts as system_alerts_router,
+    theme_scan as theme_scan_router,
     trades as trades_router,
     valuation,
 )
@@ -242,3 +243,4 @@ app.include_router(system_alerts_router.router)
 app.include_router(corp_actions_router.router)
 app.include_router(notifications_router.router)
 app.include_router(research_v2_router.router)
+app.include_router(theme_scan_router.router)

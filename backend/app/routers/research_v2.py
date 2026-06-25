@@ -49,6 +49,10 @@ class ResearchTriggerRequest(BaseModel):
     force: bool = False  # bypass 30-day cache
     model_tier: str = "sonnet"  # sonnet | opus | haiku
     use_web_search: bool = True
+    # trading-philosophy.md §3: sourcing engine selects the scoring profile.
+    source: str = "quality_screen"  # quality_screen | theme_scan
+    # serenity 卡点 score handed in when source=theme_scan (§3 reuse).
+    scarcity_score: float | None = None
 
 
 class ResearchReportSummary(BaseModel):
@@ -128,6 +132,8 @@ def trigger_research(
     try:
         result = deep_research_pipeline.run(
             stock_code,
+            source=payload.source,
+            scarcity_score=payload.scarcity_score,
             model_tier=tier,
             use_web_search=payload.use_web_search,
             db_session=db,

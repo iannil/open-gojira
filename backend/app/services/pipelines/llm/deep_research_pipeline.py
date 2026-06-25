@@ -55,6 +55,12 @@ from app.services.llm.red_line_checker import (
     write_red_line_events,
 )
 from app.services import lifecycle_service
+from app.core.scoring_config import DEFAULT_SOURCE
+from app.services.llm.scoring import (
+    compute_overall_score,
+    recommend,
+    score_divergence,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -285,6 +291,8 @@ def _summarize_klines(klines: list[dict]) -> dict:
 def run(
     stock_code: str,
     *,
+    source: str = DEFAULT_SOURCE,
+    scarcity_score: Optional[float] = None,
     model_tier: GLMTier = GLMTier.SONNET,
     use_web_search: bool = True,
     db_session: Optional[Session] = None,
@@ -294,6 +302,10 @@ def run(
 
     Args:
         stock_code: A-share code
+        source: sourcing engine ("quality_screen" | "theme_scan") — selects the
+            scoring weight profile (trading-philosophy.md §3)
+        scarcity_score: serenity 卡点 score (1-5) handed in by theme_scan; injected
+            as the 'scarcity' dimension for the theme profile (reuse, no re-assess)
         model_tier: GLM tier (default SONNET for normal, OPUS for top candidates)
         use_web_search: enable web_search in data_collection step
         db_session: caller's session; else creates own
@@ -334,12 +346,44 @@ def run(
         red_line_hits = _run_red_line_check(db, stock_code, synthesis)
 
         rejected = bool(red_line_hits)
-        recommendation = REC_PASS if rejected else synthesis.get("recommendation", REC_PASS)
+
+        # Hybrid scoring (trading-philosophy.md §3): the LLM's overall_score is
+        # advisory. Recompute the authoritative score from each master's own
+        # 1-5 score under the source profile, derive the recommendation, and
+        # log when the LLM diverges (prompt-drift signal).
+        per_master_scores = {
+            name: out["score"]
+            for name, out in master_outputs.items()
+            if isinstance(out, dict) and isinstance(out.get("score"), (int, float))
+        }
+        advantage_sources = {
+            name: out.get("advantage_source")
+            for name, out in master_outputs.items()
+            if isinstance(out, dict)
+        }
+        # theme_scan hands in the 卡点 score (reuse, §3): inject as the 'scarcity'
+        # dimension so the theme profile weights it; its advantage_source is
+        # chain_scarcity so it joins the §4.1 same-source collapse.
+        if scarcity_score is not None:
+            per_master_scores["scarcity"] = scarcity_score
+            advantage_sources["scarcity"] = "chain_scarcity"
+        llm_score = synthesis.get("overall_score")
+        authoritative_score = compute_overall_score(
+            per_master_scores, source, advantage_sources=advantage_sources
+        )
+        divergence = score_divergence(llm_score, authoritative_score)
+        if divergence["divergent"]:
+            logger.warning(
+                "deep_research score divergence %s: llm=%.2f python=%.2f delta=%.2f source=%s",
+                stock_code, llm_score, authoritative_score, divergence["delta"], source,
+            )
+
+        recommendation = REC_PASS if rejected else recommend(authoritative_score)
 
         # Persist
         result = DeepResearchResult(
             stock_code=stock_code,
-            overall_score=synthesis.get("overall_score"),
+            overall_score=authoritative_score,
             recommendation=recommendation,
             evidence_grade=synthesis.get("evidence_grade", "B"),
             markdown_report=synthesis.get("markdown_report", ""),
@@ -347,6 +391,15 @@ def run(
                 "data_brief": data_brief,
                 "masters": master_outputs,
                 "synthesis": synthesis,
+                "scoring": {
+                    "source": source,
+                    "authoritative_score": authoritative_score,
+                    "llm_advisory_score": llm_score,
+                    "divergent": divergence["divergent"],
+                    "delta": divergence["delta"],
+                    "per_master_scores": per_master_scores,
+                    "advantage_sources": advantage_sources,
+                },
             },
             data_conflicts=conflicts,
             red_line_hits=red_line_hits,

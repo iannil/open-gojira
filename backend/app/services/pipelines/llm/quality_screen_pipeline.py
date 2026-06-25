@@ -15,6 +15,12 @@ handles ambiguous cases. Output → watchlist state.
 Stocks that pass all 7 → enter watchlist.
 Stocks with 1-2 borderline → LLM judges (worth tracking or not).
 Stocks that fail 3+ rules → skip (stay in universe).
+
+Relationship to the 8 红线 (trading-philosophy.md §4.4): these 7 rules are a
+cheap *pre-filter* (SQL layer, decides what's worth researching). The 8 红线
+in defense_methodology.md are the *post-research* binary veto (LLM layer,
+applied at synthesis). They partially overlap (rule 1 NOT-ST ≈ 红线 重大违规/
+退市; rule 7 营收不崩 ≈ 红线 连年亏损 预警) but play different roles — keep both.
 """
 from __future__ import annotations
 

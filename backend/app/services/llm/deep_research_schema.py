@@ -6,6 +6,18 @@ structured output.
 """
 from __future__ import annotations
 
+from app.core.scoring_config import ADVANTAGE_SOURCES
+
+
+# Primary "持久优势" tag for the §4.1 same-source cap. Nullable: emit null when
+# the master's score is not advantage-driven. Enum sourced from scoring_config
+# so the LLM contract and the Python grouping never drift.
+ADVANTAGE_SOURCE_FIELD = {
+    "type": ["string", "null"],
+    "enum": [*ADVANTAGE_SOURCES, None],
+    "description": "主导该评分的单一持久优势来源；若评分非优势驱动则为 null",
+}
+
 
 # Common evidence sub-schema (reused across all master outputs)
 EVIDENCE_ITEM = {
@@ -97,6 +109,7 @@ DUAN_MASTER_SCHEMA = {
         "circle_reasoning": {"type": "string"},
         "mirror_test_passed": {"type": "boolean"},
         "mirror_test_statement": {"type": "string"},
+        "advantage_source": ADVANTAGE_SOURCE_FIELD,
         "score": {"type": "number", "minimum": 1.0, "maximum": 5.0},
         "score_justification": {"type": "string"},
         "key_risks": {"type": "array", "items": {"type": "string"}},
@@ -164,6 +177,7 @@ BUFFETT_MASTER_SCHEMA = {
                 "margin_of_safety_pct": {"type": "number"},
             },
         },
+        "advantage_source": ADVANTAGE_SOURCE_FIELD,
         "score": {"type": "number", "minimum": 1.0, "maximum": 5.0},
         "score_justification": {"type": "string"},
         "key_risks": {"type": "array", "items": {"type": "string"}},

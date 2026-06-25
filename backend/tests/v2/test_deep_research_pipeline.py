@@ -90,8 +90,15 @@ def _mock_llm_response(json_args: dict, model: str = "glm-5.1") -> LLMResponse:
     )
 
 
-def _build_mock_client() -> MagicMock:
-    """Mock LLMClient that returns realistic deep_research outputs per step."""
+def _build_mock_client(
+    duan_advantage: str | None = None,
+    buffett_advantage: str | None = None,
+) -> MagicMock:
+    """Mock LLMClient that returns realistic deep_research outputs per step.
+
+    duan_advantage / buffett_advantage inject an advantage_source tag so tests
+    can exercise the §4.1 same-source cap.
+    """
     client = MagicMock(spec=LLMClient)
 
     # Step 1: data_collection
@@ -112,11 +119,15 @@ def _build_mock_client() -> MagicMock:
         "is_good_business": True, "score": 4.5,
         "score_justification": "强品牌 + 高毛利", "key_risks": ["消费降级"],
     }
+    if duan_advantage is not None:
+        duan["advantage_source"] = duan_advantage
     buffett = {
         "master": "buffett", "moat_types": ["brand"], "moat_strength": "wide",
         "moat_trend": "stable", "score": 4.4,
         "score_justification": "品牌护城河 + 管理层优秀", "key_risks": ["估值偏高"],
     }
+    if buffett_advantage is not None:
+        buffett["advantage_source"] = buffett_advantage
     munger = {
         "master": "munger",
         "failure_scenarios": [{"scenario": "年轻人不喝白酒", "probability": "medium"}],
@@ -207,9 +218,14 @@ def test_pipeline_end_to_end_writes_report(setup_db):
             "600519", db_session=db, llm_client=mock_client
         )
 
-        # Verify result
+        # Verify result. Hybrid scoring (trading-philosophy.md §3): the
+        # authoritative score is recomputed in Python from the masters' own
+        # scores (0.25*4.5 + 0.30*4.4 + 0.20*3.5 + 0.25*4.0 = 4.145), NOT the
+        # LLM's advisory 4.1. The advisory value is preserved in json_output.
         assert result.stock_code == "600519"
-        assert result.overall_score == 4.1
+        assert result.overall_score == pytest.approx(4.145)
+        assert result.json_output["scoring"]["llm_advisory_score"] == 4.1
+        assert result.json_output["scoring"]["source"] == "quality_screen"
         assert result.recommendation == "BUY"
         assert result.evidence_grade == "A"
         assert not result.rejected
@@ -222,7 +238,7 @@ def test_pipeline_end_to_end_writes_report(setup_db):
         ).first()
         assert report is not None
         assert report.pipeline_type == "deep_research"
-        assert report.overall_score == 4.1
+        assert report.overall_score == pytest.approx(4.145)  # authoritative, not LLM's 4.1
         assert report.recommendation == "BUY"
         assert report.status == "completed"
         assert report.prompt_version == "v1"
@@ -248,6 +264,68 @@ def test_pipeline_end_to_end_writes_report(setup_db):
         # only has data_collect + synthesis = 2)
         # The exact count depends on whether masters used same session —
         # in this test they use SessionLocal() so they're separate.
+    finally:
+        db.close()
+
+
+def test_pipeline_same_source_cap_lowers_score(setup_db):
+    """§4.1: when 段 and 巴 tag the SAME advantage_source, the collapse lowers
+    the authoritative score below the uncapped 4.145."""
+    db = SessionLocal()
+    try:
+        _setup_stock(db, "600519")
+        mock_client = _build_mock_client(
+            duan_advantage="brand", buffett_advantage="brand"
+        )
+        result = deep_research_pipeline.run(
+            "600519", db_session=db, llm_client=mock_client
+        )
+        # collapse {段.25@4.5, 巴.30@4.4} → one dim (.30 @ 4.45); renorm /.75
+        expected = (0.30 * 4.45 + 0.20 * 3.5 + 0.25 * 4.0) / 0.75
+        assert result.overall_score == pytest.approx(expected)
+        assert result.overall_score < 4.145
+        scoring = result.json_output["scoring"]
+        assert scoring["advantage_sources"]["duan"] == "brand"
+        assert scoring["advantage_sources"]["buffett"] == "brand"
+    finally:
+        db.close()
+
+
+def test_pipeline_different_source_no_cap(setup_db):
+    """Control: 段 and 巴 tag DIFFERENT advantages → no collapse → 4.145."""
+    db = SessionLocal()
+    try:
+        _setup_stock(db, "600519")
+        mock_client = _build_mock_client(
+            duan_advantage="brand", buffett_advantage="cost_advantage"
+        )
+        result = deep_research_pipeline.run(
+            "600519", db_session=db, llm_client=mock_client
+        )
+        assert result.overall_score == pytest.approx(4.145)
+    finally:
+        db.close()
+
+
+def test_pipeline_theme_profile_injects_scarcity(setup_db):
+    """theme_scan hands scarcity_score into deep_research → it becomes the
+    'scarcity' dimension under the theme profile (trading-philosophy.md §3)."""
+    db = SessionLocal()
+    try:
+        _setup_stock(db, "600519")
+        mock_client = _build_mock_client()
+        result = deep_research_pipeline.run(
+            "600519", source="theme_scan", scarcity_score=5.0,
+            db_session=db, llm_client=mock_client,
+        )
+        scoring = result.json_output["scoring"]
+        assert scoring["source"] == "theme_scan"
+        assert scoring["per_master_scores"]["scarcity"] == 5.0
+        assert scoring["advantage_sources"]["scarcity"] == "chain_scarcity"
+        # theme weights: duan .22, buffett .26, munger .18, lilu .10, scarcity .24
+        # scores 4.5/4.4/3.5/4.0/5.0 (no same-source overlap here)
+        expected = (0.22 * 4.5 + 0.26 * 4.4 + 0.18 * 3.5 + 0.10 * 4.0 + 0.24 * 5.0)
+        assert result.overall_score == pytest.approx(expected)
     finally:
         db.close()
 
@@ -389,7 +467,7 @@ def test_research_trigger_with_mock(setup_db):
             assert resp.status_code == 200, resp.text
             data = resp.json()
             assert data["stock_code"] == "600519"
-            assert data["overall_score"] == 4.1
+            assert data["overall_score"] == pytest.approx(4.145)  # authoritative, not LLM's 4.1
             assert data["recommendation"] == "BUY"
             assert data["status"] == "completed"
             # API uses markdown_output field (snake_case in Pydantic)

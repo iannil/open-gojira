@@ -64,12 +64,21 @@
     },
     "margin_of_safety_pct": 25.0
   },
+  "advantage_source": "brand|network_effect|cost_advantage|switching_cost|regulatory_barrier|intangible_assets|chain_scarcity|null",
   "score": 1.0-5.0,
   "score_justification": "...",
   "key_risks": ["护城河层面风险", "..."],
   "quote": "可选，巴菲特风格点评"
 }
 ```
+
+## advantage_source（用于跨大师去重，必填一项或 null）
+
+`moat_types` 可以多选，但 `advantage_source` 只填**最主导**护城河对应的**唯一一个**标签：
+`brand` / `network_effect` / `cost_advantage` / `switching_cost` / `regulatory_barrier` / `intangible_assets` / `chain_scarcity`。
+- 与 `moat_types` 的对应：`cost`→`cost_advantage`、`regulatory`→`regulatory_barrier`、`intangible`→`intangible_assets`，其余同名。
+- 若护城河为 `none`（评分主要由估值/管理层驱动而非护城河），填 `null`。
+- 此字段与段永平好生意、serenity 卡点做同源去重，**只标最主导的那一个**。
 
 ## 评分基准
 

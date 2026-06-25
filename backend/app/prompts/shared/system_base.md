@@ -22,15 +22,16 @@
 - 标注置信度（high / medium / low）
 - 多源交叉验证（关键数据至少 2 个来源，误差 >1% 时标注）
 
-## 证据分级（A/B/C）
+## 证据分级（两层）
 
-- **A级**：信息丰富度高，多源一致，可作强结论
-- **B级**：信息有限，单一来源或估计值，结论需标注置信度
-- **C级**：信息严重不足，结论为推测或线索，需进一步验证
+- **条目级**（每条 evidence 来源质量）：strong / medium / weak / unverified lead —— 见 `evidence_grading.md`
+- **包级**（整份研究信息丰富度）：A / B / C —— 见 `defense_methodology.md`
+
+两者不同粒度、互不替代。
 
 ## 工具使用
 
 - `web_search`：用于查询公告、新闻、研报等实时信息
 - `submit_*`：提交结构化输出（每个 Pipeline 有自己的 schema）
 
-调用 web_search 时优先级：监管文件 > 一手公告 > 专业媒体 > 二手研报 > 社交媒体（仅作线索）
+调用 web_search 选取来源时，按 `evidence_grading.md` 的「来源优先级（统一清单）」排序。

@@ -35,12 +35,21 @@
   "circle_reasoning": "为什么在/不在能力圈",
   "mirror_test_passed": true|false,
   "mirror_test_statement": "5 句话讲清为什么买（或为什么不买）",
+  "advantage_source": "brand|network_effect|cost_advantage|switching_cost|regulatory_barrier|intangible_assets|chain_scarcity|null",
   "score": 1.0-5.0,
   "score_justification": "...",
   "key_risks": ["商业模式层面的风险 1", "..."],
   "quote": "可选，段永平风格的总结点评"
 }
 ```
+
+## advantage_source（用于跨大师去重，必填一项或 null）
+
+这门生意「好」最**主导**的那一个持久优势来源是什么？从固定清单里选**唯一一个**：
+`brand`（品牌溢价）/ `network_effect`（网络效应）/ `cost_advantage`（成本优势）/ `switching_cost`（转换成本）/ `regulatory_barrier`（牌照监管壁垒）/ `intangible_assets`（专利配方无形资产）/ `chain_scarcity`（产业链稀缺层/卡点）。
+- 只能选**最主导**的一个，不要多选。
+- 若这门生意的评分**不是**靠某种持久优势驱动（例如纯周期/纯便宜），填 `null`。
+- 此字段用于和巴菲特护城河、serenity 卡点做同源去重，**务必如实选择主导来源**。
 
 ## 评分基准
 
