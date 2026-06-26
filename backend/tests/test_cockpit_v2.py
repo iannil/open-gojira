@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from app.db.session import SessionLocal
 from app.main import app
 from app.models.draft import Draft
-from app.models.holding import Holding
+from app.models.trade import Trade
 from app.models.research_report import ResearchReport
 from app.models.stock import Stock
 from app.models.system_alert import SystemAlert
@@ -16,8 +16,9 @@ from app.services import cockpit_service
 def _seed(db):
     db.add(Stock(code="600519", name="贵州茅台", industry="non_financial",
                  listed_date=date(2001, 8, 27)))
-    db.add(Holding(stock_code="600519", buy_date=date(2026, 6, 11),
-                   buy_price=1600.0, quantity=100, stop_profit_price=2080.0))
+    db.add(Trade(stock_code="600519", side="BUY", price=1600.0, quantity=100,
+                 filled_at=datetime(2026, 6, 11, 10, 0), total_value=160000.0,
+                 source="manual"))
     db.add(Draft(code="600519", side="BUY", status="pending",
                  step_kind="aggressive", step_index=0, reason="价格入区间"))
     db.add(SystemAlert(severity="critical", category="data",

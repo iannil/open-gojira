@@ -37,7 +37,7 @@ class HoldingUpdate(BaseModel):
 class HoldingResponse(BaseModel):
     """Schema for returning a holding with enriched fields."""
 
-    id: int
+    id: Optional[int] = None  # derived positions are keyed by stock_code
     stock_code: str
     stock_name: Optional[str] = None
     stock_industry: Optional[str] = None
@@ -46,13 +46,14 @@ class HoldingResponse(BaseModel):
     quantity: int
     sell_date: Optional[str] = None
     sell_price: Optional[float] = None
-    stop_profit_price: float
+    stop_profit_price: Optional[float] = None  # retired (decision 2-A)
     trade_rationale: Optional[str] = None
     sell_thesis: Optional[str] = None
     current_value: Optional[float] = None
     pnl: Optional[float] = None
     pnl_pct: Optional[float] = None
     annualized_return_pct: Optional[float] = None
+    realized_pnl: Optional[float] = None
     weight_pct: Optional[float] = None
 
     model_config = {"from_attributes": True}

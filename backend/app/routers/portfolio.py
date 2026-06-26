@@ -1,47 +1,28 @@
-"""Portfolio (holdings) CRUD endpoints."""
-from app.core.datetime_utils import now
+"""Portfolio endpoints — read-only views derived from the Trade ledger.
 
-from datetime import datetime
+Q2-A (2026-06-26): positions are derived from trades (position_service); there
+is no Holding write path. Entry/exit happens by recording trades (CSV import /
+Draft confirm / manual /trades), so the old create/update/delete/sell endpoints
+are gone. What remains are read views (list / summary) and T+1 availability.
+"""
+from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.core.datetime_utils import now
 from app.db.session import get_db
 from app.models.stock import Stock
-from app.schemas.common import OkResponse
+from app.models.trade import Trade
 from app.schemas.holding import (
     AvailableQuantityResponse,
-    HoldingCreate,
     HoldingResponse,
-    HoldingUpdate,
     PortfolioSummary,
-    SellRequest,
 )
-from app.services.holding_service import (
-    _holding_to_dict,
-    create_holding,
-    delete_holding,
-    get_holding,
-    get_portfolio_summary,
-    list_holdings,
-    sell_holding,
-    update_holding,
-)
-
-
-def _available_quantity_at(db: Session, code: str) -> int:
-    """v2 simplified: just Holding.quantity (frozen-by-draft logic removed)."""
-    from app.models.holding import Holding
-    h = db.query(Holding).filter(Holding.stock_code == code, Holding.sell_date.is_(None)).first()
-    return int(h.quantity) if h else 0
+from app.services import position_service
+from app.services.holding_service import get_portfolio_summary, list_holdings
 
 router = APIRouter(prefix="/api/portfolio", tags=["portfolio"])
-
-
-@router.post("", response_model=HoldingResponse, status_code=201)
-def create(payload: HoldingCreate, force: bool = False, db: Session = Depends(get_db)):
-    holding = create_holding(db, payload.model_dump(), force=force)
-    return _holding_to_dict(holding, db)
 
 
 @router.get("/summary", response_model=PortfolioSummary)
@@ -51,62 +32,23 @@ def summary(db: Session = Depends(get_db)):
 
 @router.get("", response_model=list[HoldingResponse])
 def list_all(active_only: bool = False, db: Session = Depends(get_db)):
-    holdings = list_holdings(db, active_only=active_only)
-    return [_holding_to_dict(h, db) for h in holdings]
-
-
-@router.get("/{holding_id}", response_model=HoldingResponse)
-def get(holding_id: int, db: Session = Depends(get_db)):
-    holding = get_holding(db, holding_id)
-    if not holding:
-        raise HTTPException(status_code=404, detail=f"Holding {holding_id} not found")
-    return _holding_to_dict(holding, db)
-
-
-@router.put("/{holding_id}", response_model=HoldingResponse)
-def update(holding_id: int, payload: HoldingUpdate, db: Session = Depends(get_db)):
-    holding = update_holding(db, holding_id, payload.model_dump(exclude_unset=True))
-    if not holding:
-        raise HTTPException(status_code=404, detail=f"Holding {holding_id} not found")
-    return _holding_to_dict(holding, db)
-
-
-@router.delete("/{holding_id}", response_model=OkResponse)
-def delete(holding_id: int, db: Session = Depends(get_db)):
-    ok = delete_holding(db, holding_id)
-    if not ok:
-        raise HTTPException(status_code=404, detail=f"Holding {holding_id} not found")
-    return {"ok": True}
-
-
-@router.post("/{holding_id}/sell", response_model=HoldingResponse)
-def sell(holding_id: int, payload: SellRequest, db: Session = Depends(get_db)):
-    holding = sell_holding(
-        db,
-        holding_id,
-        sell_date=payload.sell_date,
-        sell_price=payload.sell_price,
-        sell_thesis=payload.sell_thesis,
-    )
-    if not holding:
-        raise HTTPException(status_code=404, detail=f"Holding {holding_id} not found")
-    return _holding_to_dict(holding, db)
+    return list_holdings(db, active_only=active_only)
 
 
 @router.get("/{code}/available", response_model=AvailableQuantityResponse)
 def get_available_quantity(code: str, db: Session = Depends(get_db)):
-    """T+1: return available / frozen / total share counts for a stock.
-
-    - available: shares bought before today, minus sells already executed
-    - frozen:   shares bought today (not yet settled)
-    - total:    current open position size (sum of all non-reversed trades)
+    """T+1 share counts for a stock, derived from the trade ledger:
+    - total:     current open position size (net of buys/sells)
+    - available: sellable today (excludes shares bought today)
+    - frozen:    shares bought today (T+1, not yet settled)
     """
     if not db.query(Stock).filter(Stock.code == code).first():
         raise HTTPException(status_code=404, detail=f"Stock {code} not found")
-    now_dt = now()
-    available = _available_quantity_at(db, code)
-    frozen = 0  # v2 simplified: no draft-frozen concept
-    total = available
+    today: date = now().date()
+    available = position_service.available_quantity(db, code, today)
+    pos = position_service.position_for(db, code, price_lookup=lambda _c: None)
+    total = pos.quantity if pos else 0
+    frozen = max(0, total - available)
     return AvailableQuantityResponse(
         code=code,
         available=available,

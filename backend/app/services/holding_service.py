@@ -1,4 +1,16 @@
-"""Holding service — business logic for portfolio management."""
+"""Holding service — portfolio analytics derived from the Trade ledger.
+
+Q2-A (2026-06-26 paper-trading loop design): positions and P&L are derived
+from the immutable ``trades`` table via :mod:`app.services.position_service`.
+There is no Holding write path — entry/exit happens only by recording trades
+(CSV import / Draft confirm / manual /trades). This module keeps the
+portfolio *analytics* (summary / theme breakdown / rebalancing guide) and
+sources them from derived positions instead of Holding rows.
+
+Retired with the Holding write model (decision 2-A): per-holding
+``stop_profit_price`` and its alerts — valuation-based take-profit now lives in
+the sell_trigger (estimated fair value × 1.3, P2-1).
+"""
 
 import logging
 import threading
@@ -15,26 +27,11 @@ from app.core.constants import (
     REBALANCE_RED_THRESHOLD,
     REBALANCE_SHORT_TERM_DAYS,
 )
-from app.core.exceptions import EntityNotFound, BusinessRuleViolation
-from app.models.holding import Holding
 from app.models.stock import Stock
+from app.models.trade import Trade
+from app.services import position_service
 
 logger = logging.getLogger(__name__)
-
-
-def _sync_stop_profit_rules(db: Session) -> None:
-    """Best-effort sync of [auto-holding] stop_profit AlertRule set.
-
-    Lazy import keeps alert_service decoupled (it imports Holding model, not
-    this service). Failures are swallowed: holding mutations must not roll
-    back because of an alert-side issue.
-    """
-    try:
-        from app.services.alert_service import sync_stop_profit_rules_from_holdings
-
-        sync_stop_profit_rules_from_holdings(db)
-    except Exception:
-        logger.warning("stop_profit rule sync failed", exc_info=True)
 
 
 _price_cache: dict[str, tuple[float, float]] = {}
@@ -64,214 +61,43 @@ def _get_cached_price(code: str) -> Optional[float]:
         return None
 
 
-def create_holding(db: Session, data: dict, force: bool = False) -> Holding:
-    """Create a new holding. Verifies the stock exists and enforces the
-    15% industry-concentration cap unless ``force`` is True.
-
-    Raises HTTP 409 when the new buy would push the industry weight over
-    ``MAX_INDUSTRY_WEIGHT`` — this is the durable gate behind the principle
-    "单一行业仓位不超过 15%". Pass ``force=True`` to bypass (e.g. when the
-    user has explicitly acknowledged the breach via pre-trade check).
-    """
-    stock = db.query(Stock).filter(Stock.code == data.get("stock_code")).first()
-    if not stock:
-        raise EntityNotFound("Stock", data.get("stock_code"))
-
-    if not force:
-        breach = _industry_breach_after_buy(
-            db,
-            new_industry=stock.industry,
-            new_cost=float(data.get("buy_price", 0)) * float(data.get("quantity", 0)),
-        )
-        if breach is not None:
-            raise BusinessRuleViolation(
-                f"买入后{breach['industry']}行业仓位 {breach['weight_pct']:.1f}% "
-                f"将超过 {MAX_INDUSTRY_WEIGHT}% 上限，请调整数量或换行业；"
-                "如确需强制买入，请在请求中传 force=true"
-            )
-
-    holding = Holding(**data)
-    db.add(holding)
-    db.flush()
-    db.refresh(holding)
-    _sync_stop_profit_rules(db)
-    from app.services import audit_log_service
-    audit_log_service.write(
-        db,
-        entity_type="holding",
-        entity_id=str(holding.id),
-        event="created",
-        actor="user",
-        summary=f"买入 {stock.name or holding.stock_code} {holding.quantity} 股 @ {holding.buy_price}",
-        stock_code=holding.stock_code,
-        payload={
-            "buy_price": holding.buy_price,
-            "quantity": holding.quantity,
-            "stop_profit_price": holding.stop_profit_price,
-            "rationale": holding.trade_rationale,
-        },
+def _buy_dates(db: Session, codes: list[str]) -> dict[str, date]:
+    """Earliest BUY filled_at (date) per stock — the position's open date."""
+    if not codes:
+        return {}
+    rows = (
+        db.query(Trade.stock_code, Trade.filled_at)
+        .filter(Trade.stock_code.in_(codes), Trade.side == "BUY")
+        .all()
     )
-    return holding
+    out: dict[str, date] = {}
+    for code, filled_at in rows:
+        d = filled_at.date()
+        if code not in out or d < out[code]:
+            out[code] = d
+    return out
 
 
-def _industry_breach_after_buy(
-    db: Session,
-    new_industry: Optional[str],
-    new_cost: float,
-) -> Optional[dict]:
-    """Return breach info if adding ``new_cost`` to ``new_industry`` would
-    push the industry past MAX_INDUSTRY_WEIGHT. Uses cost basis (not market
-    value) for the new buy to avoid depending on a live price at create
-    time. Existing positions use current_value when available, cost basis
-    as fallback.
-
-    F20 (2026-06-18) caveat: ``new_industry`` here is ``Stock.industry`` which
-    currently stores Lixinger ``fsTableType`` values (5 categories:
-    non_financial/bank/security/insurance/other_financial), NOT real申万 industry.
-    This means 5530/5626 stocks share industry="non_financial" — the cap
-    effectively treats the entire non-financial universe as one bucket, which
-    is far coarser than the intent of MAX_INDUSTRY_WEIGHT. The cap still
-    meaningfully limits financial-sector concentration, but is essentially a
-    no-op within non-financial. Will be fixed when F20真实现 ships.
-    """
-    if not new_industry or new_cost <= 0:
-        return None
-
-    summary = get_portfolio_summary(db)
-    # Skip the cap on an empty portfolio — the first position is necessarily
-    # 100% by definition; the cap only meaningfully governs concentration in
-    # a multi-position portfolio.
-    if not summary["holdings"] or summary["total_value"] <= 0:
-        return None
-
-    base_value = summary["total_value"] + new_cost
-
-    industry_value = new_cost
-    for h in summary["holdings"]:
-        if (h.get("stock_industry") or "未知行业") == new_industry:
-            industry_value += h.get("current_value") or (h["buy_price"] * h["quantity"])
-
-    weight_pct = industry_value / base_value * 100
-    if weight_pct > MAX_INDUSTRY_WEIGHT:
-        return {"industry": new_industry, "weight_pct": weight_pct}
-    return None
-
-
-def update_holding(db: Session, holding_id: int, data: dict) -> Optional[Holding]:
-    """Partially update a holding. Only sets keys that are not None."""
-    holding = get_holding(db, holding_id)
-    if not holding:
-        return None
-
-    for key, value in data.items():
-        if value is not None:
-            setattr(holding, key, value)
-
-    db.flush()
-    db.refresh(holding)
-    _sync_stop_profit_rules(db)
-    return holding
-
-
-def get_holding(db: Session, holding_id: int) -> Optional[Holding]:
-    """Get a single holding by ID."""
-    return db.query(Holding).filter(Holding.id == holding_id).first()
-
-
-def list_holdings(db: Session, active_only: bool = False) -> list:
-    """List all holdings, ordered by buy_date descending.
-    If active_only, filter to holdings that have not been sold."""
-    query = db.query(Holding).order_by(Holding.buy_date.desc())
-    if active_only:
-        query = query.filter(Holding.sell_date.is_(None))
-    return query.all()
-
-
-def delete_holding(db: Session, holding_id: int) -> bool:
-    """Delete a holding by ID. Returns True if deleted, False if not found."""
-    holding = get_holding(db, holding_id)
-    if holding:
-        db.delete(holding)
-        db.flush()
-        _sync_stop_profit_rules(db)
-        return True
-    return False
-
-
-def sell_holding(
-    db: Session,
-    holding_id: int,
-    sell_date: date,
-    sell_price: float,
-    sell_thesis: Optional[str] = None,
-) -> Optional[Holding]:
-    """Mark a holding as sold."""
-    holding = get_holding(db, holding_id)
-    if not holding:
-        return None
-
-    holding.sell_date = sell_date
-    holding.sell_price = sell_price
-    holding.sell_thesis = sell_thesis
-    db.flush()
-    _sync_stop_profit_rules(db)
-    from app.services import audit_log_service
-    pnl_pct = None
-    if holding.buy_price and holding.buy_price > 0:
-        pnl_pct = (sell_price - holding.buy_price) / holding.buy_price * 100.0
-    audit_log_service.write(
-        db,
-        entity_type="holding",
-        entity_id=str(holding.id),
-        event="sold",
-        actor="user",
-        summary=f"卖出 {holding.stock_code} @ {sell_price}"
-        + (f"（{pnl_pct:+.1f}%）" if pnl_pct is not None else ""),
-        stock_code=holding.stock_code,
-        payload={
-            "sell_price": sell_price,
-            "buy_price": holding.buy_price,
-            "pnl_pct": pnl_pct,
-            "thesis": sell_thesis,
-        },
-    )
-    return holding
-
-
-def _holding_to_dict(holding: Holding, db: Session, stocks_map: dict | None = None) -> dict:
-    """Convert a Holding ORM object to a dict with stock info and calculated fields.
-
-    Args:
-        stocks_map: Optional pre-fetched mapping of stock_code -> Stock ORM object.
-                    When provided, avoids individual queries for each holding (N+1 fix).
-    """
-    if stocks_map and holding.stock_code in stocks_map:
-        stock = stocks_map[holding.stock_code]
-    else:
-        stock = db.query(Stock).filter(Stock.code == holding.stock_code).first()
-    stock_name = stock.name if stock else None
-    stock_industry = stock.industry if stock else None
-    stock_tier = stock.tier if stock else None
-
-    cost = holding.buy_price * holding.quantity
+def _position_to_dict(
+    pos: position_service.Position,
+    stock: Stock | None,
+    buy_date: date | None,
+    price: float | None,
+) -> dict:
+    """Shape a derived Position into the legacy holding dict (same keys as the
+    old _holding_to_dict, sourced from trades)."""
+    cost = pos.cost_basis
     current_value: Optional[float] = None
     pnl: Optional[float] = None
     pnl_pct: Optional[float] = None
+    if price is not None:
+        current_value = price * pos.quantity
+        pnl = current_value - cost
+        pnl_pct = (pnl / cost) * 100 if cost != 0 else None
 
-    try:
-        price = _get_cached_price(holding.stock_code)
-        if price is not None:
-            current_value = price * holding.quantity
-            pnl = current_value - cost
-            pnl_pct = (pnl / cost) * 100 if cost != 0 else None
-    except Exception:
-        logger.warning("Price lookup failed for %s", holding.stock_code, exc_info=True)
-
-    # Annualized return — geometric, based on hold days. None if missing inputs.
     annualized_return_pct: Optional[float] = None
-    if holding.buy_date and current_value is not None and cost > 0:
-        days = (date.today() - holding.buy_date).days
-        # Need enough time to avoid divide-by-zero / wild values from <30d holdings.
+    if buy_date and current_value is not None and cost > 0:
+        days = (date.today() - buy_date).days
         if days >= 30:
             ratio = current_value / cost
             if ratio > 0:
@@ -279,33 +105,50 @@ def _holding_to_dict(holding: Holding, db: Session, stocks_map: dict | None = No
                 annualized_return_pct = max(-100.0, min(raw, 500.0))
 
     return {
-        "id": holding.id,
-        "stock_code": holding.stock_code,
-        "stock_name": stock_name,
-        "stock_industry": stock_industry,
-        "stock_tier": stock_tier,
-        "buy_date": str(holding.buy_date) if holding.buy_date else None,
-        "buy_price": holding.buy_price,
-        "quantity": holding.quantity,
-        "sell_date": str(holding.sell_date) if holding.sell_date else None,
-        "sell_price": holding.sell_price,
-        "stop_profit_price": holding.stop_profit_price,
-        "trade_rationale": holding.trade_rationale,
-        "sell_thesis": holding.sell_thesis,
+        "id": None,  # derived positions are keyed by stock_code, not an id
+        "stock_code": pos.stock_code,
+        "stock_name": stock.name if stock else None,
+        "stock_industry": stock.industry if stock else None,
+        "stock_tier": stock.tier if stock else None,
+        "buy_date": str(buy_date) if buy_date else None,
+        "buy_price": pos.avg_cost,
+        "quantity": pos.quantity,
+        "sell_date": None,
+        "sell_price": None,
+        "stop_profit_price": None,  # retired (decision 2-A) — see sell_trigger
+        "trade_rationale": None,
+        "sell_thesis": None,
         "current_value": current_value,
         "pnl": pnl,
         "pnl_pct": pnl_pct,
         "annualized_return_pct": annualized_return_pct,
+        "realized_pnl": pos.realized_pnl,
         "weight_pct": None,
     }
 
 
-def _get_or_init_settings(db: Session):
-    """v2 portfolio settings (cashflow_goal removed, v2-implementation-plan.md).
+def list_holdings(db: Session, active_only: bool = False) -> list[dict]:
+    """List current open positions (derived from the trade ledger).
 
-    cash_reserve comes from the real CashBalance ledger (singleton id=1);
-    target_weighted_dyr is a methodology constant (4.5% target).
+    ``active_only`` is accepted for backward compatibility; derived positions
+    are always the open set, so the flag is a no-op.
     """
+    positions = position_service.current_positions(db, price_lookup=_get_cached_price)
+    codes = [p.stock_code for p in positions]
+    stocks_map = {
+        s.code: s for s in db.query(Stock).filter(Stock.code.in_(codes)).all()
+    } if codes else {}
+    buy_dates = _buy_dates(db, codes)
+    return [
+        _position_to_dict(p, stocks_map.get(p.stock_code), buy_dates.get(p.stock_code),
+                          _get_cached_price(p.stock_code))
+        for p in positions
+    ]
+
+
+def _get_or_init_settings(db: Session):
+    """v2 portfolio settings: cash_reserve from the CashBalance ledger
+    (singleton id=1); target_weighted_dyr is a methodology constant (4.5%)."""
     from types import SimpleNamespace
 
     from app.models.cash_balance import CashBalance
@@ -334,7 +177,6 @@ def _batch_latest_dyrs(db: Session, stock_codes: list[str]) -> dict[str, float]:
     from sqlalchemy import func as sa_func
     from app.models.valuation import ValuationSnapshot
 
-    # Subquery: latest date per stock_code
     latest = (
         db.query(
             ValuationSnapshot.stock_code,
@@ -344,7 +186,6 @@ def _batch_latest_dyrs(db: Session, stock_codes: list[str]) -> dict[str, float]:
         .group_by(ValuationSnapshot.stock_code)
         .subquery()
     )
-    # Join back to get the dividend_yield at that date
     rows = (
         db.query(ValuationSnapshot.stock_code, ValuationSnapshot.dividend_yield)
         .join(
@@ -354,24 +195,12 @@ def _batch_latest_dyrs(db: Session, stock_codes: list[str]) -> dict[str, float]:
         )
         .all()
     )
-    return {
-        code: dy for code, dy in rows if dy is not None
-    }
+    return {code: dy for code, dy in rows if dy is not None}
 
 
 def get_portfolio_summary(db: Session) -> dict:
-    """Build a portfolio summary for all active (unsold) holdings."""
-    holdings = list_holdings(db, active_only=True)
-
-    # Batch-fetch all stocks to avoid N+1 queries
-    stock_codes = [h.stock_code for h in holdings]
-    stocks_map: dict[str, Stock] = {}
-    if stock_codes:
-        stocks_map = {s.code: s for s in db.query(Stock).filter(Stock.code.in_(stock_codes)).all()}
-
-    holding_dicts: list[dict] = []
-    for h in holdings:
-        holding_dicts.append(_holding_to_dict(h, db, stocks_map=stocks_map))
+    """Build a portfolio summary for all open positions (trade-derived)."""
+    holding_dicts = list_holdings(db)
 
     total_cost = sum(h["buy_price"] * h["quantity"] for h in holding_dicts)
     has_any_price = any(h["current_value"] is not None for h in holding_dicts)
@@ -403,29 +232,12 @@ def get_portfolio_summary(db: Session) -> dict:
         if w > MAX_INDUSTRY_WEIGHT:
             warnings.append(f"{ind}行业仓位 {w:.1f}% 超过 {MAX_INDUSTRY_WEIGHT}% 限制")
 
-    # Stop-profit alerts
-    for h in holding_dicts:
-        if (
-            h.get("current_value") is not None
-            and h.get("stop_profit_price")
-            and h["stop_profit_price"] > 0
-        ):
-            current_price = h["current_value"] / h["quantity"] if h["quantity"] > 0 else 0
-            if current_price >= h["stop_profit_price"]:
-                pct = ((current_price - h["stop_profit_price"]) / h["stop_profit_price"]) * 100
-                warnings.append(
-                    f"{h['stock_code']} 现价 {current_price:.2f} 已达止盈价 {h['stop_profit_price']:.2f}（+{pct:.1f}%），考虑卖出"
-                )
-
-    # Cash reserve & weighted dividend yield (methodology: 4-5% target)
     settings = _get_or_init_settings(db)
     cash_reserve = float(settings.cash_reserve or 0.0)
     target_weighted_dyr = float(settings.target_weighted_dyr or 0.045)
-    grand_total = total_value + cash_reserve  # equity + cash
+    grand_total = total_value + cash_reserve
     cash_ratio_pct = (cash_reserve / grand_total * 100) if grand_total > 0 else 0.0
 
-    # Weighted DYR = Σ(holding_value × DYR) / grand_total
-    # Cash treated as 0% yield, conservative.
     weighted_dyr_num = 0.0
     have_any_dyr = False
     dyr_map = _batch_latest_dyrs(db, [h["stock_code"] for h in holding_dicts])
@@ -433,8 +245,6 @@ def get_portfolio_summary(db: Session) -> dict:
         dyr = dyr_map.get(h["stock_code"])
         if dyr is None:
             continue
-        # Fall back to cost basis when live price is unavailable — same
-        # convention used by total_value above so cash_ratio is comparable.
         value = h["current_value"] if h["current_value"] is not None else h["buy_price"] * h["quantity"]
         have_any_dyr = True
         weighted_dyr_num += value * float(dyr)
@@ -445,7 +255,6 @@ def get_portfolio_summary(db: Session) -> dict:
             f"组合加权股息率 {portfolio_weighted_dyr*100:.2f}% 低于目标 {target_weighted_dyr*100:.1f}%"
         )
 
-    # Weighted annualized return (by current value), ignores holdings <30d
     weighted_ann_num = 0.0
     weighted_ann_denom = 0.0
     for h in holding_dicts:
@@ -475,11 +284,7 @@ def get_portfolio_summary(db: Session) -> dict:
 
 
 def get_theme_breakdown(db: Session) -> list[dict]:
-    """Group active holdings by Stock.security_theme and aggregate weight + value.
-
-    Allows the user to see how the portfolio is split across the 4 安全主线
-    (能源/粮食/金融/资源 + 科技/信息/民生 ad-hoc).
-    """
+    """Group open positions by Stock.security_theme and aggregate weight + value."""
     summary = get_portfolio_summary(db)
     holdings = summary["holdings"]
     total_value = float(summary["total_value"]) or 0.0
@@ -518,22 +323,17 @@ def get_theme_breakdown(db: Session) -> list[dict]:
 def calculate_rebalancing_guide(db: Session) -> dict:
     """Build a rebalancing guide following the '人之道' principle.
 
-    Ranks active holdings by performance and assigns traffic-light signals:
-      - green:  strong performer (pnl_pct >= +15%)
-      - yellow: neutral / moderate (-10% <= pnl_pct < +15%)
-      - red:    weak performer (pnl_pct < -10%)
-
+    Ranks open positions by performance and assigns traffic-light signals:
+      - green:  pnl_pct >= +15%
+      - yellow: -10% <= pnl_pct < +15%
+      - red:    pnl_pct < -10%
     Also checks industry concentration (15% threshold).
     """
     summary = get_portfolio_summary(db)
     holdings = summary["holdings"]
 
     if not holdings:
-        return {
-            "holdings": [],
-            "industry_warnings": [],
-            "summary": "暂无持仓",
-        }
+        return {"holdings": [], "industry_warnings": [], "summary": "暂无持仓"}
 
     today = date.today()
     industry_weights: dict[str, float] = {}
@@ -585,8 +385,7 @@ def calculate_rebalancing_guide(db: Session) -> dict:
     green_count = sum(1 for i in items if i["signal"] == "green")
     red_count = sum(1 for i in items if i["signal"] == "red")
 
-    parts: list[str] = []
-    parts.append(f"持仓 {len(items)} 只：{green_count} 只强势、{red_count} 只弱势")
+    parts: list[str] = [f"持仓 {len(items)} 只：{green_count} 只强势、{red_count} 只弱势"]
     if red_count > 0:
         parts.append("遵循'人之道'：优胜劣汰，考虑将弱势仓位转向强势标的")
     if industry_warnings:

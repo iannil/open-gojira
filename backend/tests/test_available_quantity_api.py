@@ -1,17 +1,15 @@
 """Test GET /api/portfolio/{code}/available endpoint.
 
-v2 (trading-philosophy 决策 2026-06-25): the v1 trade-based T+1 model
-(settled / frozen computed from trades) was replaced by a simple Holding read —
-``available == total == Holding.quantity``, ``frozen`` always 0 (no freeze
-concept). Positions come from Holding (CSV import), not from BUY trades.
+Q2-A (2026-06-26): availability is derived from the Trade ledger with T+1
+freeze — a settled (prior-day) BUY is fully available; same-day buys are frozen.
 """
-from datetime import date
+from datetime import date, datetime
 
 import pytest
 
 from app.models.broker_fee_config import BrokerFeeConfig
 from app.models.cash_balance import CashBalance
-from app.models.holding import Holding
+from app.models.trade import Trade
 from app.models.stock import Stock
 
 
@@ -34,10 +32,12 @@ def setup(client, db_session):
     db_session.flush()
 
 
-def _add_holding(db, code, quantity, sell_date=None):
-    db.add(Holding(
-        stock_code=code, buy_date=date(2026, 6, 11), buy_price=100.0,
-        quantity=quantity, stop_profit_price=130.0, sell_date=sell_date,
+def _settled_buy(db, code, quantity):
+    """Prior-day BUY → fully T+1-available."""
+    db.add(Trade(
+        stock_code=code, side="BUY", price=100.0, quantity=quantity,
+        filled_at=datetime(2020, 1, 2, 10, 0), total_value=100.0 * quantity,
+        source="manual",
     ))
     db.flush()
 
@@ -53,9 +53,9 @@ def test_available_no_position(client, setup):
     assert data["total"] == 0
 
 
-def test_available_from_holding(client, setup, db_session):
-    """Holding qty → available = total = qty, frozen = 0 (no T+1 freeze in v2)."""
-    _add_holding(db_session, "600519", 200)
+def test_available_from_settled_buy(client, setup, db_session):
+    """Settled BUY qty → available = total = qty, frozen = 0."""
+    _settled_buy(db_session, "600519", 200)
     resp = client.get("/api/portfolio/600519/available")
     assert resp.status_code == 200
     data = resp.json()
@@ -64,9 +64,14 @@ def test_available_from_holding(client, setup, db_session):
     assert data["total"] == 200
 
 
-def test_available_excludes_sold_holding(client, setup, db_session):
-    """A holding with sell_date set is closed → not counted as available."""
-    _add_holding(db_session, "600519", 200, sell_date=date(2026, 6, 12))
+def test_available_excludes_sold_position(client, setup, db_session):
+    """A fully-sold position is closed → not counted as available."""
+    _settled_buy(db_session, "600519", 200)
+    db_session.add(Trade(
+        stock_code="600519", side="SELL", price=101.0, quantity=-200,
+        filled_at=datetime(2020, 1, 3, 10, 0), total_value=101.0 * 200, source="manual",
+    ))
+    db_session.flush()
     resp = client.get("/api/portfolio/600519/available")
     assert resp.status_code == 200
     assert resp.json()["available"] == 0
@@ -78,8 +83,8 @@ def test_available_stock_not_found(client, setup):
 
 
 def test_available_other_stock_unaffected(client, setup, db_session):
-    """A holding on 600519 must not affect 000001's available."""
-    _add_holding(db_session, "600519", 500)
+    """A position on 600519 must not affect 000001's available."""
+    _settled_buy(db_session, "600519", 500)
     resp = client.get("/api/portfolio/000001/available")
     assert resp.status_code == 200
     data = resp.json()

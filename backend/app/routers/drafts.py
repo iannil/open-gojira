@@ -69,19 +69,7 @@ def execute_draft(
             note=f"Auto from draft #{draft.id}: {draft.reason}",
         )
         audit_payload["auto_trade_id"] = trade.id
-
-        if payload.auto_create_holding and side == "BUY":
-            from app.services.holding_service import create_holding
-            from datetime import date as _date
-            holding = create_holding(db, {
-                "stock_code": draft.code,
-                "buy_date": _date.today(),
-                "buy_price": float(payload.buy_price),
-                "quantity": int(payload.quantity),
-                "stop_profit_price": 0.0,
-                "trade_rationale": draft.reason,
-            }, force=force)
-            audit_payload["auto_holding_id"] = holding.id
+        # Q2-A: the position now derives from this Trade — no Holding row to create.
 
     audit_log_service.write(
         db,
