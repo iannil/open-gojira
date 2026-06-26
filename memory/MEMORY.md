@@ -9,7 +9,7 @@
 
 - **定位**: 个人股票自动驾驶舱 (规则+LLM 混合 → 全流程自动化,除券商下单外)
 - **技术栈**: FastAPI (Python 3.14) + React 19 + SQLite (WAL) + Ant Design 6 + ECharts 6
-- **当前状态**: **2026-06-25 trading-philosophy 双引擎 + v2 service 层清理完成**。全套测试 **552 passed / 0 failed**(自 v2-rewrite 后首次全绿)。双引擎评分核心 + serenity theme_scan 引擎已建,v1-leftover 服务/测试已清理
+- **当前状态**: **2026-06-26 纸面交易后端闭环全部完成 (P0-1~P0-4)**。全套测试 **555 passed / 0 failed**。买入主链路 + 卖出后端闭环(论点失效→SELL draft / 实际价回填→Trade / in-app signal alert)+ research_v2 API + 报告查看 UI 已建。双引擎评分核心 + serenity theme_scan 引擎 + v1-leftover 清理为前序完成
 - **评判锚点(两份互补)**:
   - `docs/standards/trading-philosophy.md` — **交易思想权威**(双引擎/hybrid/评分 profile/去重×3/弃用清单)。取代 invest{1,2,3} 散落约定
   - `docs/active/redesign-decisions-v2.md` (26 决策) — **工程决策锚点**。任何代码必须能追溯,否则 over-engineering
@@ -62,13 +62,18 @@
 - **§7 Draft dual-thesis 绑 Phase-5**:v2 无 BUY-draft 生成流程(emit 是无调用方 stub),现在加 Draft 字段=死字段反模式,推迟到 draft_generator 落地时一并做
 - **cockpit = Phase-3 stub**:v2 cockpit router 是有意 stub,旧 cockpit_service 已删(孤立 v1)。信号优先 dashboard 待 Phase-3 重建 → **已建**(2026-06-25 后 Phase-3/Phase-5 commits:cockpit aggregator + draft_generator BUY)
 
-## 纸面交易评估闭环 (2026-06-26 grill 锁定,实施未开始)
+## 纸面交易评估闭环 (2026-06-26 grill 锁定,P0 后端闭环已完成)
 
 > 权威文档 `docs/progress/2026-06-26-paper-trading-loop-design.md`。目的:paper 跟踪验证系统选股能否稳定盈利,再决定是否接券商真自动买卖。
 
-- **现状缺口**:卖出闭环全缺(`draft_generator` 只有 `generate_buy_drafts`,thesis_tracker 判 INVALIDATED 无下游);news_pulse/earnings_review 未接线(死代码);度量系统 `services/metrics/` 不存在(decision_audit 0 producer)
 - **6 决策**:① 实际价=Trade 账本(source_ref→Draft,manual→broker_api) ② 持仓/盈亏=Trade 派生(推翻 Holding-only,新建 position_service,CSV→开仓 Trade) ③ 卖出 4 信号(论点失效优先),建议卖价=风控类现价/止盈类公允×1.3 ④ 回填=UI"确认成交"弹窗,7天过期=cancelled,实际可偏离建议 ⑤ 评价四层(组合+vs沪深300+夏普/交易/双引擎归因[只算 source_ref 非空]/信号质量滑点) ⑥ 一本账+归因分离,提醒=in-app system_alert
-- **计划**:P0 地基(position_service)→回填→论点失效卖出→提醒;P1 评价;P2 估值止盈/仓位超限/news·earnings 接线;P3 删 scheduler v1 孤儿 job
+- **P0 后端闭环全部完成 (2026-06-26, 4 commits)**:
+  - P0-1 (494a1e3→bfe9894):position_service 唯一真相源 + Holding 模型/表物理删除 (migration v2_4) + T+1 冻结 + 移动加权 + 全消费者切 Trade 派生 + stop_profit 告警退役
+  - P0-2 (7eaa72e):`POST /drafts/{id}/execute` 实际价/量/时间回填 → manual Trade(source_ref=draft.id)+ executed;BUY/SELL 通用,可偏离建议
+  - P0-3 (44bd63d):thesis_tracker INVALIDATED → 100% SELL draft + supersede pending BUY;周跑 v2_thesis_tracker_job 自动触发
+  - P0-4 (97af44c):新买卖 draft → system_alert(category=signal) "应买入/应卖出…回填成交",仅 in-app
+- **待办**:P0 前端 UI(drafts 页+确认弹窗+cockpit 信号区,task#9 批量延后);P1 评价系统(四层指标 + 沪深300);P2 估值止盈/仓位超限/news·earnings 接线;P3 删 scheduler v1 孤儿 job
+- **research_v2 API + 报告查看 UI** (4d5c6f1):deep_research 路由扩展 + StockDetail 研究触发/报告展示 + ReportsPage
 
 ## 经验教训
 
