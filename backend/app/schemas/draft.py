@@ -19,7 +19,7 @@ class DraftExecute(BaseModel):
 
 
 class DraftResponse(BaseModel):
-    """Draft API response."""
+    """Draft API response (v2 + Phase 5 draft_generator fields)."""
     id: int
     plan_id: int | None = None
     code: str
@@ -29,7 +29,16 @@ class DraftResponse(BaseModel):
     step_index: int
     add_pct: float | None = None
     reduce_pct_of_position: float | None = None
+    suggested_quantity: int | None = None
     reason: str
     source: str = "evaluator"
+    # Phase 5 draft_generator fields
+    research_report_id: int | None = None
+    target_price: float | None = None
+    strategy_tier: str | None = None
+    sizing_logic: str | None = None
+    thesis_status: str | None = None
+    expires_at: datetime | None = None
+    serenity_thesis: str | None = None
     triggered_at: datetime | None = None
     executed_at: datetime | None = None

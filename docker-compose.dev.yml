@@ -1,0 +1,51 @@
+# Gojira Development Override
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+#
+# Overrides for local development:
+#   - Backend: source mounted + --reload for auto-restart on code changes
+#   - Frontend: dev server with Vite HMR on port 3000
+#   - Scheduler: disabled (avoid background jobs interfering with development)
+#   - Caddy: disabled (frontend dev server proxies /api to backend directly)
+
+version: "3.9"
+
+services:
+  backend:
+    container_name: gojira-backend-dev
+    volumes:
+      - ./backend/app:/app/app:ro  # live code reload
+      - backend_data:/app/data
+    environment:
+      SCHEDULER_ENABLED: "false"
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "3001", "--reload"]
+    ports:
+      - "3001:3001"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: gojira-frontend-dev
+    volumes:
+      - ./frontend/src:/app/src:ro  # live HMR
+      - frontend_node_modules:/app/node_modules
+    ports:
+      - "3000:3000"
+    environment:
+      VITE_API_BASE: "http://localhost:3001"
+    depends_on:
+      - backend
+
+  # Caddy is not needed in dev — Vite's dev server proxies /api → backend
+  caddy:
+    profiles:
+      - dont-start
+
+  # db-backup is not needed in dev
+  db-backup:
+    profiles:
+      - dont-start
+
+volumes:
+  frontend_node_modules:
+    driver: local

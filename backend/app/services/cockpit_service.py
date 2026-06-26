@@ -130,11 +130,15 @@ def build(db: Session) -> dict:
     )
 
     portfolio = portfolio if isinstance(portfolio, dict) else {}
+    # Signal-category alerts: filtered from unresolved, shown in signal section
+    signal_alerts = [a for a in alerts if a.get("category") == "signal"]
     return {
         "as_of": _iso(now()),
         # 顶部：待办信号
         "drafts": drafts,
         "drafts_pending_count": len(drafts),
+        "signal_alerts": signal_alerts,
+        "signal_alerts_count": len(signal_alerts),
         # 中部：持仓概览（summary = 组合指标，holdings = 明细）
         "portfolio": {
             "summary": {k: v for k, v in portfolio.items() if k != "holdings"},

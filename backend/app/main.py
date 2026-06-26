@@ -27,8 +27,10 @@ from app.routers import (
     cash as cash_router,
     cockpit as cockpit_router, corp_actions as corp_actions_router,
     data_management, dividend,
-    drafts as drafts_router, fee_configs as fee_configs_router, financial,
+    drafts as drafts_router, eval_set as eval_set_router,
+    fee_configs as fee_configs_router, financial,
     health, market,
+    metrics as metrics_router,
     notifications as notifications_router,
     observability as observability_router,
     portfolio,
@@ -243,3 +245,5 @@ app.include_router(corp_actions_router.router)
 app.include_router(notifications_router.router)
 app.include_router(research_v2_router.router)
 app.include_router(theme_scan_router.router)
+app.include_router(metrics_router.router)
+app.include_router(eval_set_router.router)

@@ -16,6 +16,7 @@ from app.models.pipeline import PipelineRun
 from app.services.pipelines.base import BasePipeline, PipelineStatus
 from app.services.pipelines.dead_letter import DeadLetterQueue
 from app.services.pipelines.metrics import MetricsCollector
+from app.services.metrics_service import check_circuit_breaker
 from app.core.datetime_utils import now
 
 logger = logging.getLogger(__name__)
@@ -71,6 +72,16 @@ class PipelineManager:
         granularity: str | None = None,
     ) -> dict:
         """Start a pipeline run. Returns run metadata immediately."""
+        # Circuit breaker check — block if conflict rate is too high
+        breaker = check_circuit_breaker(self.db, pipeline_type)
+        if breaker["blocked"]:
+            logger.warning("Circuit breaker blocked %s: %s", pipeline_type, breaker["reason"])
+            return {
+                "status": "blocked",
+                "reason": breaker["reason"],
+                "pipeline_type": pipeline_type,
+            }
+
         cls = _pipeline_registry.get(pipeline_type)
         if not cls:
             raise ValueError(f"Unknown pipeline type: {pipeline_type}")

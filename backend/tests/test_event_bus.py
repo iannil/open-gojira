@@ -88,41 +88,45 @@ class TestGlobalBus:
 
 
 class TestEventHandlers:
-    def test_valuation_sync_handler_ignores_non_valuation(self):
+    def test_data_sync_handler_ignores_non_matching_pipeline(self):
+        """on_kline_sync_price_alert is a no-op — should not crash."""
         from app.core.events import DataSyncCompleted
+        import app.core.event_handlers
         event = DataSyncCompleted(
             pipeline_type="klines",
             stock_codes=["000001"],
             run_id="test",
             status="success",
         )
-        import app.core.event_handlers
-        for h in app.core.event_handlers._sync_handlers:
-            h(event)
+        app.core.event_handlers.on_kline_sync_price_alert(event)
 
-    def test_valuation_sync_handler_ignores_failed(self):
+    def test_data_sync_handler_ignores_failed(self):
+        """on_kline_sync_price_alert returns None regardless of status."""
         from app.core.events import DataSyncCompleted
+        import app.core.event_handlers
         event = DataSyncCompleted(
             pipeline_type="valuations",
             stock_codes=["000001"],
             run_id="test",
             status="failed",
         )
-        import app.core.event_handlers
-        for h in app.core.event_handlers._sync_handlers:
-            h(event)
+        result = app.core.event_handlers.on_kline_sync_price_alert(event)
+        assert result is None
 
     def test_handlers_register_on_import(self):
-        # v2: PlanEvaluationCompleted dropped (plans removed). Registry now
-        # (event_handlers.py:448-450): DataSyncCompleted→price_alert,
-        # DraftCreated→audit_log, MonthlyBudgetExceeded→budget handler.
-        from app.core.events import bus, DataSyncCompleted, DraftCreated, MonthlyBudgetExceeded
+        # v2: DataSyncCompleted→price_alert(no-op),
+        # DraftCreated→audit_log, MonthlyBudgetExceeded→budget handler,
+        # ThesisAlertTriggered→thesis_breach sell draft.
+        from app.core.events import bus, DataSyncCompleted, DraftCreated, MonthlyBudgetExceeded, ThesisAlertTriggered
         reg = bus.get_registry()
         assert DataSyncCompleted in reg
         assert DraftCreated in reg
         assert MonthlyBudgetExceeded in reg
+        assert ThesisAlertTriggered in reg
         assert len(reg[DataSyncCompleted]) == 1  # on_kline_sync_price_alert
         assert len(reg[DraftCreated]) == 1  # on_draft_audit_log
+        assert len(reg[MonthlyBudgetExceeded]) == 1
+        assert len(reg[ThesisAlertTriggered]) == 1
 
     def test_max_stocks_limit_applied(self):
         from app.core.events import DataSyncCompleted

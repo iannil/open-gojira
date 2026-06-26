@@ -5,6 +5,13 @@
 > 此文件代表**当前真实状态**,过时信息会被更新或移除。
 > **注意**: 此文件与 `~/.claude/projects/-Users-rong-zhu-Code-gojira/memory/MEMORY.md` (auto-memory) 是两个独立系统。
 
+## 决策记录：DB 选型
+
+**2026-06-26**: 生产交付差距分析确认——保留 SQLite WAL，不改 PostgreSQL。
+`docker-compose.yml` 已从 PostgreSQL 改为 SQLite volume 挂载。
+理由：单用户系统 SQLite WAL 完全够用，不违背 redesign decision #25，不改 models/不改测试。
+详见 `docs/progress/2026-06-26-production-gap-analysis.md`。
+
 ## 项目上下文
 
 - **定位**: 个人股票自动驾驶舱 (规则+LLM 混合 → 全流程自动化,除券商下单外)

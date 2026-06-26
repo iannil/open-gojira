@@ -8,6 +8,7 @@ import {
   TransactionOutlined,
   BellOutlined,
   FileTextOutlined,
+  CheckCircleOutlined,
 } from '@ant-design/icons';
 
 import { SystemAlertBanner } from './SystemAlertBanner';
@@ -47,6 +48,12 @@ const NAV_GROUPS: Array<{
     items: [
       { key: '/scheduler', label: '定时任务', labelEn: 'Scheduler', icon: <ClockCircleOutlined /> },
       { key: '/monitoring', label: '监控配置', labelEn: 'Monitoring', icon: <BellOutlined /> },
+    ],
+  },
+  {
+    label: '质量',
+    items: [
+      { key: '/eval', label: 'Eval Set', labelEn: 'LLM Baseline', icon: <CheckCircleOutlined /> },
     ],
   },
 ];

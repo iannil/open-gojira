@@ -86,6 +86,15 @@ DEFAULT_JOBS: dict[str, dict] = {
         "cron_expr": "0 18 * * 6",  # every Saturday 18:00
         "description": "v2: thesis_tracker_pipeline 对持仓每周复核论文",
     },
+    # ── Sell trigger ───────────────────────────────────────────────────
+    "daily_sell_trigger": {
+        "cron_expr": "30 18 * * 1-5",  # weekdays 18:30, after draft generation
+        "description": "Phase5: 卖出信号 2/3 (估值止盈+仓位超限) 每日扫描 → SELL 草稿",
+    },
+    "daily_index_sync": {
+        "cron_expr": "0 19 * * 1-5",  # weekdays 19:00, after market close
+        "description": "沪深300 日 K 线同步（组合评价基准对比用）",
+    },
 }
 
 

@@ -13,7 +13,6 @@ def test_job_registry_has_expected_jobs():
     assert set(sched_module.JOB_REGISTRY.keys()) == {
         "daily_universe_bootstrap",
         "daily_base_sync",
-        "daily_deep_sync",
         "daily_snapshot",
         "alert_evaluation",
         "daily_kline_sync",
@@ -26,6 +25,8 @@ def test_job_registry_has_expected_jobs():
         "intraday_price_poll",
         "pipeline_stale_sweep",
         "daily_draft_generation",
+        "daily_sell_trigger",
+        "daily_index_sync",
         "v2_deep_research_weekly",
         "v2_quality_screen_weekly",
         "v2_thesis_tracker_weekly",

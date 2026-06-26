@@ -11,6 +11,7 @@ import pytest
 
 from app.models.broker_fee_config import BrokerFeeConfig
 from app.models.cash_balance import CashBalance
+from app.models.decision_audit import DecisionAudit
 from app.models.draft import Draft
 from app.models.stock import Stock
 from app.models.trade import Trade
@@ -113,3 +114,31 @@ def test_confirm_already_executed_returns_409(client, setup):
         "price": 100.0, "quantity": 100, "filled_at": "2026-06-12T10:00:00",
     })
     assert again.status_code == 409
+
+
+def test_confirm_records_decision_audit(client, setup):
+    """Executing a draft with fill data should create a DecisionAudit row."""
+    draft_id = _pending_buy_draft(target_price=98.0, suggested_quantity=100)
+    resp = client.post(f"/api/drafts/{draft_id}/execute", json={
+        "price": 101.0, "quantity": 100, "filled_at": "2026-06-12T10:00:00",
+    })
+    assert resp.status_code == 200
+
+    with TestSessionLocal() as db:
+        audit = db.query(DecisionAudit).filter(DecisionAudit.draft_id == draft_id).first()
+        assert audit is not None
+        assert audit.stock_code == "600519"
+        assert audit.action == "BUY"
+        assert audit.executed_price == 101.0
+        assert audit.quantity == 100
+        assert audit.approved_by == "user"
+
+
+def test_confirm_without_fill_no_decision_audit(client, setup):
+    """Executing a draft without fill data should NOT create a DecisionAudit."""
+    draft_id = _pending_buy_draft()
+    resp = client.post(f"/api/drafts/{draft_id}/execute", json={})
+    assert resp.status_code == 200
+
+    with TestSessionLocal() as db:
+        assert db.query(DecisionAudit).filter(DecisionAudit.draft_id == draft_id).count() == 0

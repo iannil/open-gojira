@@ -1,0 +1,45 @@
+{
+  "code": "601318",
+  "name": "中国平安",
+  "passed": true,
+  "borderline": false,
+  "rejected": false,
+  "rules": [
+    {
+      "rule_name": "not_st",
+      "passed": true,
+      "value": "False",
+      "threshold": false,
+      "note": "Name: 中国平安"
+    },
+    {
+      "rule_name": "market_cap_sanity",
+      "passed": true,
+      "value": "6.6985",
+      "threshold": "pe > 0",
+      "note": "Proxy rule (no direct market cap); replace when available"
+    },
+    {
+      "rule_name": "pe_range",
+      "passed": true,
+      "value": "6.6985",
+      "threshold": "5.0 ≤ pe ≤ 50.0",
+      "note": ""
+    },
+    {
+      "rule_name": "roe_proxy",
+      "passed": true,
+      "value": "15.07",
+      "threshold": "net_margin ≥ 8.0%",
+      "note": "Using net_margin as ROE proxy"
+    },
+    {
+      "rule_name": "revenue_growth",
+      "passed": true,
+      "value": "0.0",
+      "threshold": "YoY ≥ -20.0%",
+      "note": ""
+    }
+  ],
+  "failed_count": 0
+}

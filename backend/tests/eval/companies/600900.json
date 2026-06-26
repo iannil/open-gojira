@@ -1,0 +1,45 @@
+{
+  "code": "600900",
+  "name": "长江电力",
+  "passed": true,
+  "borderline": false,
+  "rejected": false,
+  "rules": [
+    {
+      "rule_name": "not_st",
+      "passed": true,
+      "value": "False",
+      "threshold": false,
+      "note": "Name: 长江电力"
+    },
+    {
+      "rule_name": "market_cap_sanity",
+      "passed": true,
+      "value": "18.0377",
+      "threshold": "pe > 0",
+      "note": "Proxy rule (no direct market cap); replace when available"
+    },
+    {
+      "rule_name": "pe_range",
+      "passed": true,
+      "value": "18.0377",
+      "threshold": "5.0 ≤ pe ≤ 50.0",
+      "note": ""
+    },
+    {
+      "rule_name": "roe_proxy",
+      "passed": true,
+      "value": "40.52",
+      "threshold": "net_margin ≥ 8.0%",
+      "note": "Using net_margin as ROE proxy"
+    },
+    {
+      "rule_name": "revenue_growth",
+      "passed": true,
+      "value": "2.07",
+      "threshold": "YoY ≥ -20.0%",
+      "note": ""
+    }
+  ],
+  "failed_count": 0
+}

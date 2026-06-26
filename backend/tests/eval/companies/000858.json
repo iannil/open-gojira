@@ -1,0 +1,45 @@
+{
+  "code": "000858",
+  "name": "五粮液",
+  "passed": true,
+  "borderline": false,
+  "rejected": false,
+  "rules": [
+    {
+      "rule_name": "not_st",
+      "passed": true,
+      "value": "False",
+      "threshold": false,
+      "note": "Name: 五粮液"
+    },
+    {
+      "rule_name": "market_cap_sanity",
+      "passed": true,
+      "value": "22.5798",
+      "threshold": "pe > 0",
+      "note": "Proxy rule (no direct market cap); replace when available"
+    },
+    {
+      "rule_name": "pe_range",
+      "passed": true,
+      "value": "22.5798",
+      "threshold": "5.0 ≤ pe ≤ 50.0",
+      "note": ""
+    },
+    {
+      "rule_name": "roe_proxy",
+      "passed": true,
+      "value": "22.99",
+      "threshold": "net_margin ≥ 8.0%",
+      "note": "Using net_margin as ROE proxy"
+    },
+    {
+      "rule_name": "revenue_growth",
+      "passed": true,
+      "value": "0.0",
+      "threshold": "YoY ≥ -20.0%",
+      "note": ""
+    }
+  ],
+  "failed_count": 0
+}

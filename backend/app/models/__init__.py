@@ -12,6 +12,7 @@ from app.models.financial import FinancialStatement
 from app.models.historical_financial import HistoricalFinancial
 from app.models.historical_kline import HistoricalKline
 from app.models.historical_valuation import HistoricalValuation
+from app.models.index_kline import IndexKline
 from app.models.llm_call_log import LLMCallLog
 from app.models.pipeline import PipelineRun
 from app.models.price_kline import PriceKline

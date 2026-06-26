@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Badge, Card, Space, Tag, Tooltip, Typography } from 'antd';
 
-import { getCockpitClaimVariablesPending } from '../../api/client';
+import { getCockpitClaimVariablesPending } from '../../api/research';
 
 const { Text } = Typography;
 

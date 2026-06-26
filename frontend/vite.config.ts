@@ -13,4 +13,18 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id: string) {
+          if (id.includes('node_modules/echarts') || id.includes('echarts-for-react')) {
+            return 'echarts';
+          }
+          if (id.includes('node_modules/antd') || id.includes('@ant-design')) {
+            return 'vendor';
+          }
+        },
+      },
+    },
+  },
 })

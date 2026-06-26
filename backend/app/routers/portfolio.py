@@ -21,6 +21,7 @@ from app.schemas.holding import (
 )
 from app.services import position_service
 from app.services.holding_service import get_portfolio_summary, list_holdings
+from app.services.evaluation_service import full_evaluation
 
 router = APIRouter(prefix="/api/portfolio", tags=["portfolio"])
 
@@ -55,3 +56,9 @@ def get_available_quantity(code: str, db: Session = Depends(get_db)):
         frozen=frozen,
         total=total,
     )
+
+
+@router.get("/evaluation")
+def evaluate(db: Session = Depends(get_db)):
+    """P1 评价系统: 基准对比 + 夏普 + 交易统计 + 双引擎归因 + 信号质量.`"""
+    return full_evaluation(db)

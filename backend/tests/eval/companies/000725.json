@@ -1,0 +1,45 @@
+{
+  "code": "000725",
+  "name": "京东方A",
+  "passed": false,
+  "borderline": true,
+  "rejected": false,
+  "rules": [
+    {
+      "rule_name": "not_st",
+      "passed": true,
+      "value": "False",
+      "threshold": false,
+      "note": "Name: 京东方Ａ"
+    },
+    {
+      "rule_name": "market_cap_sanity",
+      "passed": true,
+      "value": "44.016",
+      "threshold": "pe > 0",
+      "note": "Proxy rule (no direct market cap); replace when available"
+    },
+    {
+      "rule_name": "pe_range",
+      "passed": true,
+      "value": "44.016",
+      "threshold": "5.0 ≤ pe ≤ 50.0",
+      "note": ""
+    },
+    {
+      "rule_name": "roe_proxy",
+      "passed": false,
+      "value": "2.46",
+      "threshold": "net_margin ≥ 8.0%",
+      "note": "Using net_margin as ROE proxy"
+    },
+    {
+      "rule_name": "revenue_growth",
+      "passed": true,
+      "value": "0.0",
+      "threshold": "YoY ≥ -20.0%",
+      "note": ""
+    }
+  ],
+  "failed_count": 1
+}

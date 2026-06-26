@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.schemas.draft import DraftExecute, DraftResponse
 from app.services import audit_log_service, draft_service
+from app.services.decision_audit_service import record_decision
 from app.core.datetime_utils import now
 
 router = APIRouter(prefix="/api/drafts", tags=["drafts"])
@@ -25,8 +26,16 @@ def _to_response(draft) -> DraftResponse:
         step_index=draft.step_index,
         add_pct=draft.add_pct,
         reduce_pct_of_position=draft.reduce_pct_of_position,
+        suggested_quantity=draft.suggested_quantity,
         reason=draft.reason,
         source=getattr(draft, "source", "evaluator") or "evaluator",
+        research_report_id=draft.research_report_id,
+        target_price=draft.target_price,
+        strategy_tier=draft.strategy_tier,
+        sizing_logic=draft.sizing_logic,
+        thesis_status=draft.thesis_status,
+        expires_at=draft.expires_at,
+        serenity_thesis=draft.serenity_thesis,
         triggered_at=draft.triggered_at,
         executed_at=draft.executed_at,
     )
@@ -70,6 +79,9 @@ def execute_draft(
         )
         audit_payload["trade_id"] = trade.id
         # Q2-A: the position derives from this Trade — no Holding row to create.
+
+        # Phase 6 Tier 2: record decision audit for P&L tracking
+        record_decision(db, draft=draft, trade=trade)
 
     audit_log_service.write(
         db,

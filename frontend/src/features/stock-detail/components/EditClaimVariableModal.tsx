@@ -4,7 +4,7 @@ import { Form, Input, InputNumber, Modal, Radio, message } from 'antd';
 import {
   approveClaimVariable,
   patchClaimVariable,
-} from '../../../api/client';
+} from '../../../api/research';
 import type { BreachWhen, ResearchClaimVariable } from '../../../api/types';
 
 interface Props {

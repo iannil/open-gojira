@@ -181,20 +181,21 @@ def daily_base_sync_job() -> dict:
             background=False,
         )
         return result
-
-
-def daily_deep_sync_job() -> dict:
-    """Deep sync: financials, klines, dividends for candidates."""
-    from app.services.deep_sync_service import sync_candidates_deep_data
-
-    with SessionLocal() as db:
-        return sync_candidates_deep_data(db)
-
-
 def daily_snapshot_job() -> dict:
     """Fetch realtime fundamentals for every watched code, persist snapshots."""
+    from app.models.stock_lifecycle import (
+        StockLifecycle, STATE_WATCHLIST, STATE_RESEARCHED,
+        STATE_CANDIDATE, STATE_SIGNALED,
+    )
+
     with SessionLocal() as db:
-        codes = watchlist_service.all_watched_codes(db)
+        codes = [
+            r[0] for r in db.query(StockLifecycle.stock_code)
+            .filter(StockLifecycle.current_state.in_(
+                (STATE_WATCHLIST, STATE_RESEARCHED, STATE_CANDIDATE, STATE_SIGNALED)
+            ))
+            .all()
+        ]
         if not codes:
             logger.info("daily_snapshot_job: no watchlist items, skipping")
             return {"snapshots": 0, "codes": 0}
@@ -257,42 +258,25 @@ def alert_evaluation_job() -> dict:
         return result
 
 
-def thesis_evaluation_job() -> dict:
-    """v2 Phase 2 #9 阶段 B: run both thesis monitor checks.
-
-    Independent from alert_evaluation_job (which is for AlertRule-based
-    price/financial alerts). This job handles:
-      - check_held_stocks: thesis_variables_json breaches (sync'd vars)
-      - check_claim_variables: research_claim_variables breaches (LLM-proposed)
-    """
-    from app.services.thesis_monitor_service import (
-        check_claim_variables, check_held_stocks,
-    )
-    with SessionLocal() as db:
-        # Existing thesis_variables_json checks (silent — just returns alerts)
-        legacy_alerts = check_held_stocks(db)
-        # New claim_variables checks (emit ThesisAlertTriggered per breach)
-        summary = check_claim_variables(db)
-        result = {
-            "legacy_alerts": len(legacy_alerts),
-            "checked": summary.checked,
-            "breached": summary.breached,
-            "suppressed": summary.suppressed,
-            "skipped_no_data": summary.skipped_no_data,
-            "failed": summary.failed,
-        }
-        logger.info("thesis_evaluation_job: %s", result)
-        return result
-
 
 # ── Phase F: extended sync jobs ───────────────────────────────────────────
 
 
 def _watched_and_held_codes(db: Session) -> list[str]:
     """Codes the user actively cares about: watchlist + open holdings."""
+    from app.models.stock_lifecycle import (
+        StockLifecycle, STATE_WATCHLIST, STATE_RESEARCHED,
+        STATE_CANDIDATE, STATE_SIGNALED,
+    )
     from app.services import position_service
 
-    watch = set(watchlist_service.all_watched_codes(db))
+    watch = {
+        r[0] for r in db.query(StockLifecycle.stock_code)
+        .filter(StockLifecycle.current_state.in_(
+            (STATE_WATCHLIST, STATE_RESEARCHED, STATE_CANDIDATE, STATE_SIGNALED)
+        ))
+        .all()
+    }
     return sorted(watch | position_service.held_stock_codes(db))
 
 
@@ -314,15 +298,18 @@ def daily_kline_sync_job() -> dict:
 def _watched_held_and_candidate_codes(db: Session) -> list[str]:
     """Codes the user actively cares about + current plan candidates.
 
-    Extends _watched_and_held_codes with active Candidate stocks —
+    Extends _watched_and_held_codes with stocks in candidate lifecycle state —
     needed so prev_close is fresh for price validation on candidate
     promotions to drafts.
     """
     base = set(_watched_and_held_codes(db))
-    from app.models.candidate import Candidate
+    from app.models.stock_lifecycle import (
+        StockLifecycle, STATE_CANDIDATE,
+    )
     candidates = {
-        c.stock_code
-        for c in db.query(Candidate).filter(Candidate.status == "active").all()
+        r[0] for r in db.query(StockLifecycle.stock_code)
+        .filter(StockLifecycle.current_state == STATE_CANDIDATE)
+        .all()
     }
     return sorted(base | candidates)
 
@@ -347,15 +334,6 @@ def daily_prev_close_sync_job() -> dict:
         count = update_prev_close_batch(db, codes)
         logger.info("daily_prev_close_sync_job: synced %d / %d", count, len(codes))
         return {"synced": count, "codes": len(codes)}
-
-
-def intraday_monitor_job() -> dict:
-    """盘中监控 (retired 2026-06-26):唯一用途是 stop_profit 止盈告警,已随
-    decision 2-A 退役 (止盈改由 sell_trigger 处理)。保留空壳以兼容旧注册名。
-    """
-    return {"checked": 0, "alerts": 0}
-
-
 def monthly_dividend_sync_job() -> dict:
     """Refresh historical dividend records for watchlist + held codes."""
     with SessionLocal() as db:
@@ -420,149 +398,6 @@ def _extract_pct(raw) -> Optional[float]:
         return None
     val = float(val)
     return val * 100.0 if val <= 1.0 else val
-
-
-def daily_plan_evaluation_job() -> dict:
-    """Run all active plans: screening + optional trading evaluation."""
-
-    from app.services import plan_runner
-
-    with SessionLocal() as db:
-        results = plan_runner.run_all_active(db)
-        db.commit()
-        return {
-            "evaluated": len(results),
-            "scanned": sum(r.scanned for r in results),
-            "passed": sum(r.passed for r in results),
-            "drafts_emitted": sum(r.drafts_emitted for r in results),
-            "errors": sum(len(r.errors) for r in results),
-        }
-
-
-def _weekly_rebalancing_review(db: Session) -> None:
-    """Weekly rebalancing review — creates alerts for significant drift.
-
-    Checks position, quadrant, and theme weights against targets and creates
-    alert events for any drift exceeding 10% (high priority).
-    """
-    from app.services import rebalance_service
-
-    result = rebalance_service.generate_rebalancing_alerts(db, drift_threshold=0.05)
-
-    high_count = result["high_priority"]
-    if high_count > 0:
-        from app.services.alert_service import _emit
-
-        class _SyntheticRule:
-            id = -1
-            stock_code = None
-            rule_type = "weekly_rebalancing_review"
-
-        rule = _SyntheticRule()
-
-        suggestions = result.get("suggestions", [])
-        high_suggestions = [s for s in suggestions if s.get("priority") == "high"]
-
-        details = []
-        for s in high_suggestions[:5]:
-            if s["level"] == "position":
-                details.append(
-                    f"{s['code']}: 当前{s['current_pct']*100:.1f}%, "
-                    f"目标{s['target_pct']*100:.1f}%, "
-                    f"漂移{s['drift_pct']*100:+.1f}% ({s['action']})"
-                )
-            elif s["level"] == "quadrant":
-                details.append(
-                    f"{s['quadrant']}: 当前{s['current_pct']*100:.1f}%, "
-                    f"目标{s['target_pct']*100:.1f}%, "
-                    f"漂移{s['drift_pct']*100:+.1f}% ({s['action']})"
-                )
-            elif s["level"] == "theme":
-                details.append(
-                    f"{s['theme']}: 当前{s['current_pct']*100:.1f}%, "
-                    f"目标{s['target_pct']*100:.1f}%, "
-                    f"漂移{s['drift_pct']*100:+.1f}% ({s['action']})"
-                )
-
-        detail_text = "; ".join(details)
-        if len(high_suggestions) > 5:
-            detail_text += f"... (共{high_count}项高优先级漂移)"
-
-        _emit(
-            db,
-            rule,
-            title=f"周度再平衡检查: 发现{high_count}项高优先级漂移",
-            detail=detail_text,
-            payload=result,
-            severity="alert",
-        )
-        logger.info(
-            "weekly_rebalancing_review: %d high-priority drifts detected",
-            high_count,
-        )
-    else:
-        logger.info("weekly_rebalancing_review: no significant drifts")
-
-
-def weekly_rebalancing_review_job() -> dict:
-    """Scheduler entry point for weekly rebalancing review."""
-    with SessionLocal() as db:
-        _weekly_rebalancing_review(db)
-        db.commit()
-        return {"status": "completed"}
-
-
-def daily_cycle_assessment_job() -> dict:
-    """Fetch CSI300 PE/PB history and compute market cycle position."""
-    from app.services.cycle_assessment_service import assess_cycle
-
-    with SessionLocal() as db:
-        assessment = assess_cycle(db)
-        logger.info(
-            "daily_cycle_assessment_job: position=%s, pe_pct=%s",
-            assessment.cycle_position,
-            assessment.pe_pct_10y,
-        )
-        return assessment.to_dict()
-
-
-def _monthly_thesis_variable_sync_job() -> dict:
-    """Sync thesis variables from stored financial data for held stocks."""
-    from app.services.thesis_variable_sync_service import sync_all_held
-
-    with SessionLocal() as db:
-        result = sync_all_held(db)
-    logger.info("monthly_thesis_variable_sync_job: %s", result)
-    return result
-
-
-def _weekly_research_refresh_job() -> dict:
-    """Serenity research weekly auto-refresh (Q6 D trigger).
-
-    Q12: skips themes with last_run_status='failed' to avoid burning tokens.
-    """
-    from app.services.research_scheduler_service import run_due_research_themes
-
-    result = run_due_research_themes()
-    logger.info("weekly_research_refresh_job: %s", result)
-    return result
-
-
-def weekly_business_pattern_inference_job() -> dict:
-    """C3: weekly batch re-inference of Stock.business_pattern_id.
-
-    Skips user-overridden stocks (inferred_at IS NULL + id NOT NULL).
-    Catches stocks synced after the last inference run, plus industry
-    string changes that weren't caught by the per-sync hook.
-    """
-    from app.services.business_pattern_service import infer_all_stocks
-
-    with SessionLocal() as db:
-        result = infer_all_stocks(db, force=False)
-    logger.info("weekly_business_pattern_inference_job: %s", result)
-    return result
-
-
 # ── Phase S4A: corporate action pipeline ──────────────────────────────────
 
 
@@ -758,65 +593,6 @@ def pipeline_stale_sweep_job() -> dict:
         return {"recovered": len(recovered), "ids": recovered}
 
 
-def research_stale_sweep_job() -> dict:
-    """F23 (2026-06-18): periodic sweep for stuck serenity research runs.
-
-    Serenity worker thread can hang on GLM API call (memory
-    feedback-glm-connection-hang: SSL read blocks, httpx timeout ineffective).
-    The thread doesn't crash so the run stays 'running' forever.
-
-    Threshold: 15 min soft (likely dead), 30 min hard (definitely dead).
-    Typical serenity run = 5 min; 15 min = 3× safety margin.
-    """
-    from datetime import timedelta
-    from app.models.research_run import ResearchRun
-    from sqlalchemy import select
-
-    with SessionLocal() as db:
-        soft_threshold = _utcnow() - timedelta(minutes=15)
-        hard_threshold = _utcnow() - timedelta(minutes=30)
-
-        stuck = db.execute(
-            select(ResearchRun).where(ResearchRun.status == "running")
-        ).scalars().all()
-        recovered = []
-        for run in stuck:
-            if run.started_at is None:
-                continue
-            if run.started_at < hard_threshold:
-                run.status = "failed"
-                run.error_message = (
-                    "Worker hung > 30 min (GLM SSL read blocked, "
-                    "per feedback-glm-connection-hang)"
-                )
-                if not run.completed_at:
-                    run.completed_at = _utcnow()
-                recovered.append(run.id)
-            elif run.started_at < soft_threshold:
-                run.status = "failed"
-                run.error_message = "Worker hung > 15 min (likely GLM connection issue)"
-                if not run.completed_at:
-                    run.completed_at = _utcnow()
-                recovered.append(run.id)
-
-        if recovered:
-            db.commit()
-            # Sync theme last_run_status
-            from app.models.research_theme import ResearchTheme
-            for run_id in recovered:
-                run_obj = db.get(ResearchRun, run_id)
-                if run_obj:
-                    theme = db.get(ResearchTheme, run_obj.research_theme_id)
-                    if theme:
-                        theme.last_run_status = "failed"
-                        theme.last_run_error = run_obj.error_message
-            db.commit()
-        logger.info(
-            "research_stale_sweep: recovered %d stuck runs %s",
-            len(recovered), recovered[:5],
-        )
-        return {"recovered": len(recovered), "ids": recovered}
-
 
 # ── v2 LLM Pipeline jobs (2026-06-24) ─────────────────────────────────────
 
@@ -901,6 +677,44 @@ def v2_thesis_tracker_job() -> dict:
             return {"error": "see logs"}
 
 
+def daily_sell_trigger_job() -> dict:
+    """Phase 5 (decision 2-A/9): run sell signals 2 (valuation > 1.3x) and
+    3 (position > 15%) daily. Creates SELL drafts for triggered positions."""
+    from app.services import sell_trigger
+
+    with SessionLocal() as db:
+        try:
+            result = sell_trigger.run_all_signals(db)
+            db.commit()
+            logger.info(
+                "daily_sell_trigger: total=%d (sig2=%d, sig3=%d)",
+                result["total_drafts"],
+                len(result["valuation_overvalued"]),
+                len(result["position_overweight"]),
+            )
+            return result
+        except Exception:
+            db.rollback()
+            logger.exception("daily_sell_trigger_job failed")
+            return {"error": "see logs"}
+
+
+def daily_index_sync_job() -> dict:
+    """Sync benchmark index (沪深300) klines for evaluation comparison."""
+    from app.services import index_service
+
+    with SessionLocal() as db:
+        try:
+            result = index_service.sync_index_klines(db)
+            db.commit()
+            logger.info("daily_index_sync: %s", result)
+            return result
+        except Exception:
+            db.rollback()
+            logger.exception("daily_index_sync_job failed")
+            return {"error": "see logs"}
+
+
 def daily_draft_generation_job() -> dict:
     """Phase 5 (decision 9/10): generate BUY drafts from fresh BUY research
     reports whose price entered a buy tier (激进/稳健) + portfolio has space;
@@ -932,7 +746,6 @@ def daily_draft_generation_job() -> dict:
 JOB_REGISTRY = {
     "daily_universe_bootstrap": daily_universe_bootstrap_job,
     "daily_base_sync": daily_base_sync_job,
-    "daily_deep_sync": daily_deep_sync_job,
     "daily_snapshot": daily_snapshot_job,
     "alert_evaluation": alert_evaluation_job,
     "daily_kline_sync": daily_kline_sync_job,
@@ -945,6 +758,8 @@ JOB_REGISTRY = {
     "intraday_price_poll": intraday_price_poll_job,
     "pipeline_stale_sweep": pipeline_stale_sweep_job,
     "daily_draft_generation": daily_draft_generation_job,
+    "daily_sell_trigger": daily_sell_trigger_job,
+    "daily_index_sync": daily_index_sync_job,
     # v2 LLM Pipelines
     "v2_quality_screen_weekly": v2_quality_screen_job,
     "v2_deep_research_weekly": v2_deep_research_job,

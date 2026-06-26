@@ -1,5 +1,6 @@
 import { Tabs } from 'antd';
 import {
+  BarChartOutlined,
   BellOutlined,
   SafetyCertificateOutlined,
   WarningOutlined,
@@ -8,10 +9,11 @@ import { useSearchParams } from 'react-router-dom';
 
 import { PageHeader } from '../../components/primitives';
 import ChannelsTab from './components/ChannelsTab';
+import MetricsTab from './components/MetricsTab';
 import RiskRulesTab from './components/RiskRulesTab';
 import { AlertsTab } from '../alerts';
 
-const VALID_TABS = ['channels', 'risk_rules', 'alerts'] as const;
+const VALID_TABS = ['metrics', 'channels', 'risk_rules', 'alerts'] as const;
 type TabKey = (typeof VALID_TABS)[number];
 
 export default function MonitoringPage() {
@@ -42,6 +44,15 @@ export default function MonitoringPage() {
         activeKey={activeTab}
         onChange={handleTabChange}
         items={[
+          {
+            key: 'metrics',
+            label: (
+              <span>
+                <BarChartOutlined /> 运营度量
+              </span>
+            ),
+            children: <MetricsTab />,
+          },
           {
             key: 'channels',
             label: (

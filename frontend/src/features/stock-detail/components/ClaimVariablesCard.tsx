@@ -8,7 +8,7 @@ import {
   approveClaimVariable,
   listClaimVariables,
   rejectClaimVariable,
-} from '../../../api/client';
+} from '../../../api/research';
 import type { ResearchClaimVariable } from '../../../api/types';
 import EditClaimVariableModal from './EditClaimVariableModal';
 

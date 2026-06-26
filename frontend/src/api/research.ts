@@ -4,11 +4,31 @@
  * Per decision 24 (REST + shared types): types mirror backend Pydantic schemas
  * in app/routers/research_v2.py. When OpenAPI codegen is wired up (Phase 8),
  * these types can be auto-generated.
+ *
+ * Unified file: contains both v2 research pipeline functions and
+ * serenity theme/run/claim-variable functions (moved from client.ts).
  */
 
 import { apiClient } from './client';
 
-// ── Types ────────────────────────────────────────────────────────────────
+// ── Types (serenity + v2) ──────────────────────────────────────────────
+
+import type {
+  ClaimVariableApproveRequest,
+  ClaimVariablePatchRequest,
+  ClaimVariablePatchResponse,
+  ClaimVariablesByStatus,
+  CockpitClaimVariablesPending,
+  ResearchClaimVariable,
+  ResearchExportResponse,
+  ResearchRun,
+  ResearchRunDiff,
+  ResearchRunSummary,
+  ResearchTheme,
+  ResearchThemeCreate,
+  ResearchThemeUpdate,
+  StockResearchAppearance,
+} from './types';
 
 export type GLMTier = 'sonnet' | 'opus' | 'haiku';
 export type Recommendation = 'BUY' | 'HOLD' | 'PASS' | 'SELL' | 'TRIM';
@@ -144,5 +164,142 @@ export async function listRecentReports(
 
 export async function getResearchHealth(): Promise<ResearchHealth> {
   const res = await apiClient.get<ResearchHealth>(`/research/health`);
+  return res.data;
+}
+
+// ── Serenity: Themes ─────────────────────────────────────────────────────
+
+export async function listResearchThemes(status?: string): Promise<ResearchTheme[]> {
+  const params = status ? { status } : {};
+  const res = await apiClient.get<ResearchTheme[]>('/research/themes', { params });
+  return res.data;
+}
+
+export async function createResearchTheme(payload: ResearchThemeCreate): Promise<ResearchTheme> {
+  const res = await apiClient.post<ResearchTheme>('/research/themes', payload);
+  return res.data;
+}
+
+export async function getResearchTheme(themeId: number): Promise<ResearchTheme> {
+  const res = await apiClient.get<ResearchTheme>(`/research/themes/${themeId}`);
+  return res.data;
+}
+
+export async function updateResearchTheme(
+  themeId: number,
+  payload: ResearchThemeUpdate,
+): Promise<ResearchTheme> {
+  const res = await apiClient.put<ResearchTheme>(`/research/themes/${themeId}`, payload);
+  return res.data;
+}
+
+export async function archiveResearchTheme(themeId: number): Promise<void> {
+  await apiClient.delete(`/research/themes/${themeId}`);
+}
+
+// ── Serenity: Runs ───────────────────────────────────────────────────────
+
+export async function triggerResearchRun(
+  themeId: number,
+  payload?: { market?: string; time_window?: string },
+): Promise<ResearchRunSummary> {
+  const res = await apiClient.post<ResearchRunSummary>(
+    `/research/themes/${themeId}/run`,
+    payload ?? {},
+  );
+  return res.data;
+}
+
+export async function listResearchRuns(themeId: number, limit = 20): Promise<ResearchRunSummary[]> {
+  const res = await apiClient.get<ResearchRunSummary[]>(
+    `/research/themes/${themeId}/runs`,
+    { params: { limit } },
+  );
+  return res.data;
+}
+
+export async function getResearchRun(runId: number): Promise<ResearchRun> {
+  const res = await apiClient.get<ResearchRun>(`/research/runs/${runId}`);
+  return res.data;
+}
+
+export async function exportResearchRun(
+  runId: number,
+  payload: { target: 'watchlist'; rank_max?: number; watchlist_group_id: number },
+): Promise<ResearchExportResponse> {
+  const res = await apiClient.post<ResearchExportResponse>(
+    `/research/runs/${runId}/export`,
+    payload,
+  );
+  return res.data;
+}
+
+export async function getResearchRunDiff(
+  runA: number,
+  runB: number,
+): Promise<ResearchRunDiff> {
+  const res = await apiClient.get<ResearchRunDiff>(
+    `/research/runs/diff`,
+    { params: { run_a: runA, run_b: runB } },
+  );
+  return res.data;
+}
+
+export async function listResearchAppearances(stockCode: string): Promise<StockResearchAppearance[]> {
+  const res = await apiClient.get<StockResearchAppearance[]>(
+    `/research/appearances/${stockCode}`,
+  );
+  return res.data;
+}
+
+// ── Claim Variables ──────────────────────────────────────────────────────
+
+export async function listClaimVariables(
+  stockCode?: string,
+): Promise<ClaimVariablesByStatus> {
+  const res = await apiClient.get<ClaimVariablesByStatus>(
+    `/research/claim-variables`,
+    { params: stockCode ? { stock_code: stockCode } : {} },
+  );
+  return res.data;
+}
+
+export async function approveClaimVariable(
+  id: number,
+  payload: ClaimVariableApproveRequest,
+): Promise<ResearchClaimVariable> {
+  const res = await apiClient.post<ResearchClaimVariable>(
+    `/research/claim-variables/${id}/approve`,
+    payload,
+  );
+  return res.data;
+}
+
+export async function rejectClaimVariable(
+  id: number,
+  note?: string,
+): Promise<ResearchClaimVariable> {
+  const res = await apiClient.post<ResearchClaimVariable>(
+    `/research/claim-variables/${id}/reject`,
+    { note },
+  );
+  return res.data;
+}
+
+export async function patchClaimVariable(
+  id: number,
+  payload: ClaimVariablePatchRequest,
+): Promise<ClaimVariablePatchResponse> {
+  const res = await apiClient.patch<ClaimVariablePatchResponse>(
+    `/research/claim-variables/${id}`,
+    payload,
+  );
+  return res.data;
+}
+
+export async function getCockpitClaimVariablesPending(): Promise<CockpitClaimVariablesPending> {
+  const res = await apiClient.get<CockpitClaimVariablesPending>(
+    `/cockpit/claim-variables-pending`,
+  );
   return res.data;
 }

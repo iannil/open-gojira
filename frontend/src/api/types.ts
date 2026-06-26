@@ -251,16 +251,25 @@ export const CYCLE_BUY_MAX_OPTIONS: { value: CycleBuyMax; label: string }[] = [
 
 export interface DraftResponse {
   id: number;
-  plan_id: number;
+  plan_id: number | null;
   code: string;
   side: 'BUY' | 'SELL';
-  status: 'pending' | 'executed' | 'cancelled';
+  status: 'pending' | 'executed' | 'cancelled' | 'superseded';
   step_kind: string;
   step_index: number;
   add_pct: number | null;
   reduce_pct_of_position: number | null;
+  suggested_quantity: number | null;
   reason: string;
   source: string;
+  /** Phase 5 draft_generator fields */
+  research_report_id: number | null;
+  target_price: number | null;
+  strategy_tier: 'aggressive' | 'steady' | null;
+  sizing_logic: string | null;
+  thesis_status: 'healthy' | 'invalidated' | null;
+  expires_at: string | null;
+  serenity_thesis: string | null;
   triggered_at: string | null;
   executed_at: string | null;
 }
@@ -422,6 +431,8 @@ export interface CockpitResponse {
   // 顶部：待办信号
   drafts: CockpitDraft[];
   drafts_pending_count: number;
+  signal_alerts: CockpitAlertV2[];
+  signal_alerts_count: number;
   // 中部：持仓概览
   portfolio: {
     summary: Record<string, number | null>;
@@ -1696,4 +1707,60 @@ export interface CockpitClaimVariablesPending {
     at: string | null;
     summary: string;
   } | null;
+}
+
+// ── Phase 6 Metrics (Tier 1) ────────────────────────────────────────────────
+
+export interface PipelineMetrics {
+  period_days: number;
+  pipelines: Record<string, {
+    total: number;
+    success: number;
+    failed: number;
+    running: number;
+    other: number;
+    success_rate_pct: number;
+    avg_duration_ms: number;
+  }>;
+  overall: {
+    total: number;
+    success_rate_pct: number;
+  };
+}
+
+export interface LLMMetrics {
+  period_days: number;
+  total_calls: number;
+  total_cost_usd: number;
+  total_tokens_in: number;
+  total_tokens_out: number;
+  avg_latency_ms: number;
+  success_rate_pct: number;
+  conflict_rate_pct: number;
+  by_pipeline: Record<string, {
+    calls: number;
+    cost_usd: number;
+    tokens_in: number;
+    tokens_out: number;
+    conflict_rate_pct: number;
+  }>;
+  monthly_cost: {
+    month: string;
+    total_usd: number;
+    soft_warning_usd: number;
+    hard_cap_usd: number;
+    by_model: Record<string, number>;
+    by_pipeline: Record<string, number>;
+    call_count: number;
+    over_soft: boolean;
+    over_hard: boolean;
+  };
+}
+
+export interface LLMTrend {
+  labels: string[];
+  cost_usd: number[];
+  tokens_in: number[];
+  tokens_out: number[];
+  call_count: number[];
 }

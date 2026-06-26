@@ -14,6 +14,7 @@ const StockDetailPage = lazy(() => import('./pages/StockDetailPage'));
 const DataManagementPage = lazy(() => import('./pages/DataManagementPage'));
 const SchedulerPage = lazy(() => import('./pages/SchedulerPage'));
 const MonitoringPage = lazy(() => import('./pages/MonitoringPage'));
+const EvalPage = lazy(() => import('./pages/EvalPage'));
 const DraftsPage = lazy(() => import('./pages/DraftsPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 
@@ -93,6 +94,7 @@ function App() {
                     <Route path="data-management" element={<DataManagementPage />} />
                     <Route path="scheduler" element={<SchedulerPage />} />
                     <Route path="monitoring" element={<MonitoringPage />} />
+                    <Route path="eval" element={<EvalPage />} />
                     {import.meta.env.DEV && (
                       <Route path="__primitives__" element={<PrimitivesPreview />} />
                     )}

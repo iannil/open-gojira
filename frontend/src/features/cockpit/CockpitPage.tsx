@@ -23,7 +23,8 @@ import {
   SearchOutlined,
 } from '@ant-design/icons';
 
-import { fetchCockpit } from '../../api/client';
+import { fetchCockpit, fetchEvaluation } from '../../api/client';
+import type { PortfolioEvaluation } from '../../api/client';
 import { getResearchHealth } from '../../api/research';
 import type {
   CockpitDraft,
@@ -73,6 +74,14 @@ export default function CockpitPage() {
 
   const c = cockpitQuery.data;
   const health = healthQuery.data;
+
+  const evalQuery = useQuery({
+    queryKey: ['portfolio', 'evaluation'],
+    queryFn: fetchEvaluation,
+    refetchInterval: 120_000,
+  });
+  const ev = evalQuery.data;
+
   const counts = c?.pipeline_counts ?? {};
   const summary = c?.portfolio.summary ?? {};
 
@@ -132,26 +141,117 @@ export default function CockpitPage() {
         </Row>
       </PageSection>
 
+      {/* ── 评价面板 ─────────────────────────────────────────────── */}
+      {ev && (
+        <PageSection title="📈 组合评价">
+          <Row gutter={16} style={{ marginBottom: 16 }}>
+            <Col span={6}>
+              <Card size="small" title="组合收益">
+                <Statistic value={ev.benchmark.portfolio_return_pct ?? '—'} precision={2} suffix="%" />
+              </Card>
+            </Col>
+            <Col span={6}>
+              <Card size="small" title={`vs ${ev.benchmark.benchmark_name}`}>
+                <Statistic value={ev.benchmark.benchmark_return_pct ?? '—'} precision={2} suffix="%"
+                  valueStyle={{ color: '#1890ff' }} />
+              </Card>
+            </Col>
+            <Col span={6}>
+              <Card size="small" title="超额收益">
+                <Statistic value={ev.benchmark.excess_return_pct ?? '—'} precision={2} suffix="%"
+                  valueStyle={{ color: (ev.benchmark.excess_return_pct ?? 0) >= 0 ? '#52c41a' : '#ff4d4f' }} />
+              </Card>
+            </Col>
+            <Col span={6}>
+              <Card size="small" title="夏普比率">
+                <Statistic value={ev.sharpe_ratio ?? '—'} precision={3} />
+              </Card>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={6}>
+              <Card size="small" title="胜率">
+                <Statistic value={ev.trade_stats.win_rate_pct} suffix="%" precision={1} />
+              </Card>
+            </Col>
+            <Col span={6}>
+              <Card size="small" title="交易次数">
+                <Statistic value={ev.trade_stats.total_trades} />
+              </Card>
+            </Col>
+            <Col span={6}>
+              <Card size="small" title="平均滑点">
+                <Statistic value={ev.signal_quality.avg_slippage_pct} suffix="%" precision={3} />
+              </Card>
+            </Col>
+            <Col span={6}>
+              <Card size="small" title="Profit Factor">
+                <Statistic value={ev.trade_stats.profit_factor} precision={2} />
+              </Card>
+            </Col>
+          </Row>
+          {ev.engine_attribution.quality_screen.drafts + ev.engine_attribution.theme_scan.drafts > 0 && (
+            <Row gutter={16} style={{ marginTop: 12 }}>
+              <Col span={12}>
+                <Card size="small" title="质量筛选 Drafts">
+                  <Statistic value={ev.engine_attribution.quality_screen.drafts} suffix={`/${ev.engine_attribution.quality_screen.executed} 已执行`} />
+                </Card>
+              </Col>
+              <Col span={12}>
+                <Card size="small" title="主题扫描 Drafts">
+                  <Statistic value={ev.engine_attribution.theme_scan.drafts} suffix={`/${ev.engine_attribution.theme_scan.executed} 已执行`} />
+                </Card>
+              </Col>
+            </Row>
+          )}
+        </PageSection>
+      )}
+
       {/* ── 顶部：待办信号 (Drafts 待审批) ─────────────────────────── */}
       <PageSection title={`🔔 待办信号 — ${c?.drafts_pending_count ?? 0} 个待审批 Draft`}>
         <Card>
-          {!c || c.drafts.length === 0 ? (
+          {!c || (c.drafts.length === 0 && c.signal_alerts.length === 0) ? (
             <Empty description={
               <Space direction="vertical">
-                <Text type="secondary">暂无待审批 Draft</Text>
+                <Text type="secondary">暂无待审批信号</Text>
                 <Link to="/drafts"><Button type="link" size="small">查看所有 Drafts</Button></Link>
               </Space>
             } />
           ) : (
-            <Table<CockpitDraft> size="small" dataSource={c.drafts} rowKey="id" pagination={{ pageSize: 8, size: 'small' }}
-              columns={[
-                { title: '股票', dataIndex: 'code', render: (code: string) => <Link to={`/stock/${code}`}>{code}</Link> },
-                { title: '方向', dataIndex: 'side', render: (s: string) => <Tag color={s === 'BUY' ? 'success' : 'error'}>{s}</Tag> },
-                { title: '关卡', dataIndex: 'step_kind' },
-                { title: '建议量', dataIndex: 'suggested_quantity', render: (q: number | null) => q ?? '—' },
-                { title: '理由', dataIndex: 'reason', ellipsis: true },
-                { title: '操作', key: 'act', render: () => <Link to="/drafts"><Button size="small" type="link">审批</Button></Link> },
-              ]} />
+            <>
+              {/* Drafts table */}
+              {c.drafts.length > 0 && (
+                <>
+                  <Text type="secondary" style={{ marginBottom: 8, display: 'block' }}>
+                    以下交易建议等待审批执行：
+                  </Text>
+                  <Table<CockpitDraft> size="small" dataSource={c.drafts} rowKey="id" pagination={{ pageSize: 8, size: 'small' }}
+                    columns={[
+                      { title: '股票', dataIndex: 'code', render: (code: string) => <Link to={`/stock/${code}`}>{code}</Link> },
+                      { title: '方向', dataIndex: 'side', render: (s: string) => <Tag color={s === 'BUY' ? 'success' : 'error'}>{s}</Tag> },
+                      { title: '关卡', dataIndex: 'step_kind' },
+                      { title: '建议量', dataIndex: 'suggested_quantity', render: (q: number | null) => q ?? '—' },
+                      { title: '理由', dataIndex: 'reason', ellipsis: true },
+                      { title: '操作', key: 'act', render: () => <Link to="/drafts"><Button size="small" type="link">审批</Button></Link> },
+                    ]} />
+                </>
+              )}
+              {/* Signal alerts */}
+              {c.signal_alerts.length > 0 && (
+                <div style={{ marginTop: c.drafts.length > 0 ? 12 : 0 }}>
+                  <Text type="secondary" style={{ marginBottom: 4, display: 'block' }}>信号类告警：</Text>
+                  {c.signal_alerts.map((a) => (
+                    <Alert
+                      key={a.id}
+                      type={a.severity === 'critical' ? 'error' : a.severity === 'warning' ? 'warning' : 'info'}
+                      showIcon
+                      message={a.message}
+                      style={{ marginBottom: 4 }}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </Card>
       </PageSection>

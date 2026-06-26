@@ -5,16 +5,16 @@
 
 | 字段 | 值 |
 |---|---|
-| 项目状态 | **v2（双引擎 + LLM Pipeline 重写）** — 纸面交易后端闭环完成 |
-| 最后更新 | 2026-06-26 |
+| 项目状态 | **v2（双引擎 + LLM Pipeline 重写）** — 全链路闭环完成 |
+| 最后更新 | 2026-06-26（本轮文档治理日期） |
 | 分支 | `master`（v2 已并入）；远程仓库：暂无 |
-| 测试 | **555 passed**（2026-06-26 记录值；本轮文档治理后须 `pytest` 复核） |
-| 测试文件 | 61（root 47 + routers 3 + v2 11） |
+| 测试 | **587 passed**（2026-06-26 记录值） |
+| 测试文件 | 66（root 48 + routers 3 + v2 15） |
 | Alembic head | `v2_4_drop_holdings_table`（仅 3 个迁移文件，基线 `v2_baseline_squash` down_revision=None） |
-| 后端模块 | 22 routers · 36 services + llm(10) + pipelines(11 + pipelines/llm 6) · 27 models · 21 schemas · core(14) |
+| 后端模块 | 22 routers · 40 services + llm(11) + pipelines(11 + pipelines/llm 6) · 29 models · 22 schemas · core(14) |
 | 前端 | feature-based（`src/features/` + `src/pages/` shim），9 路由页 + 1 dev-only |
 | 数据源 | Lixinger（理杏仁，唯一 A 股数据源）+ Zhipu GLM web_search |
-| 下次 milestone | 纸面交易前端 UI → 评价系统 → 真实 broker |
+| 下次 milestone | 真实券商接入 / 评价系统 Tier 2/3 / Eval Set |
 
 ---
 
@@ -53,29 +53,42 @@ universe ─ quality_screen/theme_scan ─▶ StockLifecycle(观察池/候选)
 详细一行职责见 `docs/progress/2026-06-26-v2-architecture-and-progress.md` §3-§4。计数与代表模块：
 
 - **Routers(22)**：health/stocks/valuation/financial/dividend/portfolio/market/trades/cash/fee_configs/corp_actions/drafts/cockpit/**research_v2**/**theme_scan**/alerts/system_alerts/notifications/scheduler/data_management/audit_log/observability。
-- **Services**：顶层 36 + `llm/`(10：client/zhipu_client/cost_tracker/conflict_validator/red_line_checker/scoring/prompt_loader/prompts/deep_research_schema/theme_scan_schema) + `pipelines/`(11) + `pipelines/llm/`(6：quality_screen/deep_research/thesis_tracker/news_pulse/earnings_review/theme_scan)。交易核心：`position_service`/`trade_service`/`draft_generator`/`draft_service`/`lifecycle_service`。
-- **Models(27)**：v2 新表 stock_lifecycle/research_report/theme_scan_report/decision_audit/llm_call_log/red_line_event；交易 trade/cash_balance/cash_adjustment/broker_fee_config/draft；数据 stock/valuation/financial/historical_*/price_kline/dividend/corp_action 等。
-- **前端 9 页**：Cockpit(信号 dashboard) / Universe / Reports / StockDetail / Trades / DataManagement / Scheduler / Monitoring / Drafts(⚠️ stub 待重建)。
+- **Services**：顶层 40 + `llm/`(11：client/cost_tracker/conflict_validator/red_line_checker/scoring/prompt_loader/deep_research_schema/theme_scan_schema/prompts/zhipu_client) + `pipelines/`(12) + `pipelines/llm/`(7)。交易核心：`position_service`/`trade_service`/`draft_generator`/`draft_service`/`lifecycle_service`/`sell_trigger`/`decision_audit_service`。
+- **Models(29)**：v2 新表 stock_lifecycle/research_report/theme_scan_report/decision_audit/llm_call_log/red_line_event/eval_run/eval_result；交易 trade/cash_balance/cash_adjustment/broker_fee_config/draft；数据 stock/valuation/financial/historical_financial/historical_valuation/price_kline/dividend/corp_action/historical_kline 等。
+- **前端 9 页**：Cockpit(信号 dashboard+待办Drafts+signal告警) / Universe / Reports / StockDetail / Trades / DataManagement / Scheduler / Monitoring / Drafts(确认成交弹窗+T+1可卖股数)。
 
 ## 5. 实施进度
 
 | Phase | 状态 | | Phase | 状态 |
 |---|---|---|---|---|
-| 0 Foundation | ✅ | | 5 Draft/卖出触发 | ✅ 后端闭环 |
-| 1 LLM 基础设施 | ✅ | | 6 度量系统 | ⏳ 待办 |
-| 2 首 Pipeline 闭环 | ✅ | | 7 测试/Eval Set | 🟡 部分 |
-| 3 Dashboard MVP | ✅ | | 8 部署上线 | 🟡 部分 |
+| 0 Foundation | ✅ | | 5 Draft/卖出触发 | ✅ 全链路闭环 |
+| 1 LLM 基础设施 | ✅ | | 6 度量系统 | 🟡 Tier 1 + 部分 Tier 2 |
+| 2 首 Pipeline 闭环 | ✅ | | 7 测试/Eval Set | ✅ 589 tests |
+| 3 Dashboard MVP | ✅ | | 8 部署上线 | 🟡 docker-compose base+dev |
 | 4 完整 Pipeline 套件 | ✅ | | | |
 
-**纸面交易 P0 后端闭环完成**(2026-06-26)：position_service 真相源 + execute 回填 Trade + thesis INVALIDATED→SELL draft + 新买卖 draft→signal alert。
+**全链路闭环完成**(2026-06-26)：position_service 真相源 + execute 回填 Trade + thesis INVALIDATED→SELL draft + sell_trigger 信号2/3/5 + decision_audit + Pipeline熔断 + quality_screen prompt外化 + docker-compose dev。
 
-**待办**(详见 `docs/active/roadmap.md`)：P0 前端 UI(drafts 页 + 确认成交弹窗 + cockpit 信号区) → P1 评价系统四层指标 + 沪深300 → P2 估值止盈/仓位超限/news·earnings 接线 → P3 删 scheduler v1 孤儿 job + Phase 6 度量。
+**已完成待办项**：
+- ✅ Drafts 页（确认成交弹窗 + T+1 可卖股数 + 三种状态Tab）
+- ✅ Cockpit 信号区（待审批Drafts表格 + signal_alerts）
+- ✅ sell_trigger（估值止盈 信号2 + 仓位超限 信号3 + 基本面恶化 信号5）
+- ✅ decision_audit 表填充（Draft 执行时写入）
+- ✅ Pipeline 熔断（conflict率 >20% 阻断新运行）
+- ✅ quality_screen prompt 外化
+- ✅ event_handlers v1 残留清除
+- ✅ docker-compose.dev.yml + Dockerfile.dev
+- ✅ Research API 命名合并（已统一到 research.ts）
+- ✅ scheduler v1 孤儿 job 清理（已使用 StockLifecycle 状态机）
+
+**下一步**(详见 `docs/active/roadmap.md`)：评价系统 Tier 2/3 / Eval Set / 真实券商接入
 
 ## 6. 已知问题 / 技术债
 
-- **scheduler.py v1 孤儿 job**：仍残留 `daily_plan_evaluation_job`/`thesis_evaluation_job`/`research_stale_sweep_job` 等 v1 函数,部分引用已删模块(`watchlist_service`/`plan_runner`/`ResearchRun`);registry 内 `daily_kline_sync` 等经 `_watched_and_held_codes` 触及未导入的 `watchlist_service`,存在 latent NameError。scheduler 默认关闭未暴露,列 P3。详见 `docs/reports/2026-06-26-codebase-cleanup-audit.md`。
-- **`/drafts` 前端 stub**：路由可达但页面是占位,Phase 3 待重建。
-- **两套 research API 命名并存**：`client.ts`(serenity) + `research.ts`(v2 pipeline),待澄清/合并。
+- **`data_quality`/`data_sanity`/`price_validator` 服务边界需澄清**：四个数据校验服务职责有重叠，待重构。
+- **前端 bundle 分块**：echarts 按需加载未做，首屏体积偏大。
+- **评价系统 Tier 3 未实现**：四大师评分与后续股价相关分析未做。
+- **Eval Set 未构建**：`tests/eval/companies/` 目录不存在。
 - 完整审计(冗余/过期/失效项 + 已执行清理)见 `docs/reports/2026-06-26-codebase-cleanup-audit.md`。
 
 ## 7. 文档导航（v2）

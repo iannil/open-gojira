@@ -86,6 +86,9 @@ import type {
   BusinessPatternUpdate,
   BusinessPatternThesisTemplates,
   InferAllSummary,
+  LLMMetrics,
+  LLMTrend,
+  PipelineMetrics,
 } from './types';
 
 import { installTracer } from '../observability/tracer';
@@ -181,6 +184,56 @@ export async function removeCandidate(id: number): Promise<void> {
 
 export async function fetchCockpit(): Promise<CockpitResponse> {
   const res = await apiClient.get<CockpitResponse>('/cockpit');
+  return res.data;
+}
+
+// ── Evaluation ─────────────────────────────────────────────────────────
+
+export interface BenchmarkComparison {
+  benchmark_code: string;
+  benchmark_name: string;
+  period_days: number;
+  portfolio_return_pct: number | null;
+  benchmark_return_pct: number | null;
+  excess_return_pct: number | null;
+  start_date: string;
+  end_date: string;
+}
+
+export interface TradeStats {
+  total_trades: number;
+  winning_trades: number;
+  losing_trades: number;
+  win_rate_pct: number;
+  avg_win_pct: number;
+  avg_loss_pct: number;
+  profit_factor: number;
+}
+
+export interface SignalQuality {
+  total_executed: number;
+  with_slippage_data: number;
+  avg_slippage_pct: number;
+  max_slippage_pct: number;
+  by_side: Record<string, { count: number; avg_slippage_pct: number }>;
+}
+
+export interface EngineAttribution {
+  quality_screen: { drafts: number; executed: number; total_value: number };
+  theme_scan: { drafts: number; executed: number; total_value: number };
+  unknown: { drafts: number; executed: number; total_value: number };
+}
+
+export interface PortfolioEvaluation {
+  benchmark: BenchmarkComparison;
+  trade_stats: TradeStats;
+  sharpe_ratio: number | null;
+  engine_attribution: EngineAttribution;
+  signal_quality: SignalQuality;
+}
+
+export async function fetchEvaluation(): Promise<PortfolioEvaluation> {
+  const res = await apiClient.get<PortfolioEvaluation>('/portfolio/evaluation');
   return res.data;
 }
 
@@ -872,154 +925,19 @@ export async function deleteRiskRule(id: number): Promise<void> {
   await apiClient.delete(`/risk-rules/${id}`);
 }
 
-// ── Serenity Research ──────────────────────────────────────────────────
+// ── Phase 6 Metrics (Tier 1) ────────────────────────────────────────────────
 
-import type {
-  ClaimVariableApproveRequest,
-  ClaimVariablePatchRequest,
-  ClaimVariablePatchResponse,
-  ClaimVariablesByStatus,
-  CockpitClaimVariablesPending,
-  ResearchClaimVariable,
-  ResearchExportResponse,
-  ResearchRun,
-  ResearchRunDiff,
-  ResearchRunSummary,
-  ResearchTheme,
-  ResearchThemeCreate,
-  ResearchThemeUpdate,
-  StockResearchAppearance,
-} from './types';
-
-export async function listResearchThemes(status?: string): Promise<ResearchTheme[]> {
-  const params = status ? { status } : {};
-  const res = await apiClient.get<ResearchTheme[]>('/research/themes', { params });
+export async function fetchPipelineMetrics(days = 30): Promise<PipelineMetrics> {
+  const res = await apiClient.get<PipelineMetrics>(`/metrics/pipelines?days=${days}`);
   return res.data;
 }
 
-export async function createResearchTheme(payload: ResearchThemeCreate): Promise<ResearchTheme> {
-  const res = await apiClient.post<ResearchTheme>('/research/themes', payload);
+export async function fetchLLMMetrics(days = 30): Promise<LLMMetrics> {
+  const res = await apiClient.get<LLMMetrics>(`/metrics/llm?days=${days}`);
   return res.data;
 }
 
-export async function getResearchTheme(themeId: number): Promise<ResearchTheme> {
-  const res = await apiClient.get<ResearchTheme>(`/research/themes/${themeId}`);
-  return res.data;
-}
-
-export async function updateResearchTheme(
-  themeId: number,
-  payload: ResearchThemeUpdate,
-): Promise<ResearchTheme> {
-  const res = await apiClient.put<ResearchTheme>(`/research/themes/${themeId}`, payload);
-  return res.data;
-}
-
-export async function archiveResearchTheme(themeId: number): Promise<void> {
-  await apiClient.delete(`/research/themes/${themeId}`);
-}
-
-export async function triggerResearchRun(
-  themeId: number,
-  payload?: { market?: string; time_window?: string },
-): Promise<ResearchRunSummary> {
-  const res = await apiClient.post<ResearchRunSummary>(
-    `/research/themes/${themeId}/run`,
-    payload ?? {},
-  );
-  return res.data;
-}
-
-export async function listResearchRuns(themeId: number, limit = 20): Promise<ResearchRunSummary[]> {
-  const res = await apiClient.get<ResearchRunSummary[]>(
-    `/research/themes/${themeId}/runs`,
-    { params: { limit } },
-  );
-  return res.data;
-}
-
-export async function getResearchRun(runId: number): Promise<ResearchRun> {
-  const res = await apiClient.get<ResearchRun>(`/research/runs/${runId}`);
-  return res.data;
-}
-
-export async function exportResearchRun(
-  runId: number,
-  payload: { target: 'watchlist'; rank_max?: number; watchlist_group_id: number },
-): Promise<ResearchExportResponse> {
-  const res = await apiClient.post<ResearchExportResponse>(
-    `/research/runs/${runId}/export`,
-    payload,
-  );
-  return res.data;
-}
-
-export async function getResearchRunDiff(
-  runA: number,
-  runB: number,
-): Promise<ResearchRunDiff> {
-  const res = await apiClient.get<ResearchRunDiff>(
-    `/research/runs/diff`,
-    { params: { run_a: runA, run_b: runB } },
-  );
-  return res.data;
-}
-
-export async function listResearchAppearances(stockCode: string): Promise<StockResearchAppearance[]> {
-  const res = await apiClient.get<StockResearchAppearance[]>(
-    `/research/appearances/${stockCode}`,
-  );
-  return res.data;
-}
-
-// ── Phase 2 #9 阶段 B v2: Claim variables ──────────────────────────────
-
-export async function listClaimVariables(
-  stockCode?: string,
-): Promise<ClaimVariablesByStatus> {
-  const res = await apiClient.get<ClaimVariablesByStatus>(
-    `/research/claim-variables`,
-    { params: stockCode ? { stock_code: stockCode } : {} },
-  );
-  return res.data;
-}
-
-export async function approveClaimVariable(
-  id: number,
-  payload: ClaimVariableApproveRequest,
-): Promise<ResearchClaimVariable> {
-  const res = await apiClient.post<ResearchClaimVariable>(
-    `/research/claim-variables/${id}/approve`,
-    payload,
-  );
-  return res.data;
-}
-
-export async function rejectClaimVariable(
-  id: number,
-  note?: string,
-): Promise<ResearchClaimVariable> {
-  const res = await apiClient.post<ResearchClaimVariable>(
-    `/research/claim-variables/${id}/reject`,
-    { note },
-  );
-  return res.data;
-}
-
-export async function patchClaimVariable(
-  id: number,
-  payload: ClaimVariablePatchRequest,
-): Promise<ClaimVariablePatchResponse> {
-  const res = await apiClient.patch<ClaimVariablePatchResponse>(
-    `/research/claim-variables/${id}`,
-    payload,
-  );
-  return res.data;
-}
-
-export async function getCockpitClaimVariablesPending(): Promise<CockpitClaimVariablesPending> {
-  const res = await apiClient.get<CockpitClaimVariablesPending>(
-    `/cockpit/claim-variables-pending`,
-  );
+export async function fetchLLMTrend(days = 30): Promise<LLMTrend> {
+  const res = await apiClient.get<LLMTrend>(`/metrics/llm/trend?days=${days}`);
   return res.data;
 }

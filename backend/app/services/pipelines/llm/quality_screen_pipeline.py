@@ -258,31 +258,21 @@ def _llm_judge_borderline(
     result: StockScreenResult,
 ) -> dict:
     """Ask LLM whether borderline stock is worth tracking."""
-    from app.services.llm.prompt_loader import load_shared
+    from app.services.llm.prompt_loader import load_prompt
 
-    system = load_shared("system_base")
-    user_prompt = f"""# 边界判断任务
-
-判断以下股票是否值得进入观察池（watchlist）。
-
-## 股票
-- 代码: {stock_code}
-- 名称: {result.stock_name}
-
-## 规则评估结果（{sum(1 for r in result.rule_results if not r.passed)} 项未通过）
-
-{chr(10).join(f"- {r.rule_name}: passed={r.passed}, value={r.value}, threshold={r.threshold}, note={r.note}" for r in result.rule_results)}
-
-## 你的判断
-
-基于以上规则和该股票的具体情况，回答：
-1. 这是不是临时性问题（如周期性低谷）还是结构性问题？
-2. 这个股票值不值得花 LLM 资源做深度研究？
-3. 通过：true / false
-4. 理由：1-2 句
-
-通过 submit_result 提交。
-"""
+    prompt = load_prompt("quality_screen", "borderline_judgment", PROMPT_VERSION)
+    rule_lines = "\n".join(
+        f"- {r.rule_name}: passed={r.passed}, value={r.value}, "
+        f"threshold={r.threshold}, note={r.note}"
+        for r in result.rule_results
+    )
+    user_prompt = prompt.replace("{{stock_code}}", stock_code)
+    user_prompt = user_prompt.replace("{{stock_name}}", result.stock_name or "")
+    user_prompt = user_prompt.replace(
+        "{{failed_count}}",
+        str(sum(1 for r in result.rule_results if not r.passed)),
+    )
+    user_prompt = user_prompt.replace("{{rule_results}}", rule_lines)
 
     schema = {
         "type": "object",
