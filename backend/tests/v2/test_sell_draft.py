@@ -46,6 +46,12 @@ def test_thesis_breach_creates_sell_draft_when_held(db_session):
     assert draft.target_price == 95.0
     assert draft.status == "pending"
 
+    # P0-4: an in-app signal alert is raised to prompt manual broker action.
+    from app.models.system_alert import SystemAlert
+    alert = db_session.query(SystemAlert).filter(SystemAlert.category == "signal").first()
+    assert alert is not None
+    assert "600519" in alert.message
+
 
 def test_no_sell_draft_when_not_held(db_session):
     db_session.add(Stock(code="600519", name="x", prev_close=100.0))

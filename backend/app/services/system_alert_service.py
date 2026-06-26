@@ -29,6 +29,28 @@ def create_alert(
     return alert
 
 
+def create_draft_signal_alert(
+    db: Session,
+    *,
+    code: str,
+    side: str,
+    target_price: float | None = None,
+    reason: str = "",
+) -> SystemAlert:
+    """In-app reminder for a new buy/sell draft (P0-4): prompts the user to act
+    at the broker and confirm the fill back. Routed in-app only (no external
+    channels — NotificationChannel retired)."""
+    action = "应买入" if side == "BUY" else "应卖出"
+    price_txt = f" @ 建议价 {target_price:.2f}" if target_price else ""
+    return create_alert(
+        db,
+        severity="info",
+        category="signal",
+        message=f"{action} {code}{price_txt} — 请手动去券商操作并回填成交",
+        detail={"code": code, "side": side, "target_price": target_price, "reason": reason},
+    )
+
+
 def list_alerts(
     db: Session,
     *,

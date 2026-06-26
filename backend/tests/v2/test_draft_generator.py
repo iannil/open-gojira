@@ -50,6 +50,10 @@ def test_aggressive_tier_generates_draft(setup_db):
         assert d.price_ranges_json["aggressive"]["max"] == 105.0
         assert d.thesis_status == "healthy"
         assert d.serenity_thesis is None  # quality_screen source
+        # P0-4: an in-app BUY signal alert is raised for manual broker action.
+        from app.models.system_alert import SystemAlert
+        alert = db.query(SystemAlert).filter(SystemAlert.category == "signal").one()
+        assert "应买入" in alert.message and d.code in alert.message
     finally:
         db.close()
 

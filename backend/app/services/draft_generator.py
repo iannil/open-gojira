@@ -200,6 +200,13 @@ def generate_buy_drafts(
         db.flush()
         generated.append(draft.id)
 
+        # P0-4: in-app signal alert prompting manual broker action.
+        from app.services import system_alert_service
+        system_alert_service.create_draft_signal_alert(
+            db, code=draft.code, side="BUY", target_price=target_price,
+            reason=draft.reason,
+        )
+
     return {
         "generated": len(generated),
         "generated_ids": generated,

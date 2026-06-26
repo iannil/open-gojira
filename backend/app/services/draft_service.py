@@ -213,6 +213,12 @@ def create_thesis_breach_sell_draft(
     db.add(draft)
     db.flush()
 
+    # P0-4: in-app signal alert prompting manual broker action.
+    from app.services import system_alert_service
+    system_alert_service.create_draft_signal_alert(
+        db, code=stock_code, side="SELL", target_price=target_price, reason=reason_full,
+    )
+
     try:
         bus.emit_async(DraftCreated(
             draft_id=draft.id,
