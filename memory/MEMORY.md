@@ -52,7 +52,7 @@
 - **hybrid 汇合**:serenity 选股 (WHICH) + ai-berkshire 估值/8红线 (PRICE+RISK) → 一张草稿
 - **评分 hybrid**:LLM 算分=advisory,**Python 按 source profile 复核为权威分**;`PROFILE_WEIGHTS` 按 source 切(quality_screen 复利 / theme_scan 主题:李录降权+卡点维度)
 - **去重×3**:① 持久优势三镜(卡点≈护城河≈好生意)同源**整师折叠**封顶(advantage_source 枚举) ② 证据分级**两层**(条目级 strong/med/weak/lead + 包级 A/B/C,各自归属 evidence_grading / defense_methodology) ③ 失败机制:serenity 失败条件**并入芒格** failure_scenarios(§4.3)
-- **trade↔holding = Holding-only**:持仓来自 CSV 导入,trades 是独立账本,**无 trade→holding 同步**;`_available_quantity_at` 读 Holding,无 trade-T+1
+- **trade↔holding(⚠️ 2026-06-26 已决议改为 Trade 派生,实施未开始)**:旧=Holding-only(持仓来自 CSV,trades 独立账本,无同步,`_available_quantity_at` 读 Holding);新决议=持仓/盈亏从 Trade 账本事件溯源推导(新建 `position_service`),CSV→开仓 Trade。详见下方"纸面交易闭环"
 - **notifications = 仅 in-app**:外部渠道(NotificationChannel)已弃用,`notification_service.dispatch_alert` 是 no-op,告警走 system_alert_service
 
 ## 关键决策 (2026-06-25)
@@ -60,7 +60,15 @@
 - **trading-philosophy.md 放 docs/standards/**(不是 docs/reference/ —— 后者整目录被 gitignore)
 - **Alembic 已压缩为单一基线** `v2_baseline_squash`(down_revision=None,从 Base.metadata.create_all 建全量 schema)。原 52 条迁移因 base 被删而断根、空库无法 upgrade,故 squash。**现有 DB 须 `alembic stamp v2_baseline_squash --purge` 一次**(旧 version_num 已不存在,普通 stamp 会失败)
 - **§7 Draft dual-thesis 绑 Phase-5**:v2 无 BUY-draft 生成流程(emit 是无调用方 stub),现在加 Draft 字段=死字段反模式,推迟到 draft_generator 落地时一并做
-- **cockpit = Phase-3 stub**:v2 cockpit router 是有意 stub,旧 cockpit_service 已删(孤立 v1)。信号优先 dashboard 待 Phase-3 重建
+- **cockpit = Phase-3 stub**:v2 cockpit router 是有意 stub,旧 cockpit_service 已删(孤立 v1)。信号优先 dashboard 待 Phase-3 重建 → **已建**(2026-06-25 后 Phase-3/Phase-5 commits:cockpit aggregator + draft_generator BUY)
+
+## 纸面交易评估闭环 (2026-06-26 grill 锁定,实施未开始)
+
+> 权威文档 `docs/progress/2026-06-26-paper-trading-loop-design.md`。目的:paper 跟踪验证系统选股能否稳定盈利,再决定是否接券商真自动买卖。
+
+- **现状缺口**:卖出闭环全缺(`draft_generator` 只有 `generate_buy_drafts`,thesis_tracker 判 INVALIDATED 无下游);news_pulse/earnings_review 未接线(死代码);度量系统 `services/metrics/` 不存在(decision_audit 0 producer)
+- **6 决策**:① 实际价=Trade 账本(source_ref→Draft,manual→broker_api) ② 持仓/盈亏=Trade 派生(推翻 Holding-only,新建 position_service,CSV→开仓 Trade) ③ 卖出 4 信号(论点失效优先),建议卖价=风控类现价/止盈类公允×1.3 ④ 回填=UI"确认成交"弹窗,7天过期=cancelled,实际可偏离建议 ⑤ 评价四层(组合+vs沪深300+夏普/交易/双引擎归因[只算 source_ref 非空]/信号质量滑点) ⑥ 一本账+归因分离,提醒=in-app system_alert
+- **计划**:P0 地基(position_service)→回填→论点失效卖出→提醒;P1 评价;P2 估值止盈/仓位超限/news·earnings 接线;P3 删 scheduler v1 孤儿 job
 
 ## 经验教训
 

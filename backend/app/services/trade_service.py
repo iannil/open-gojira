@@ -33,10 +33,13 @@ from app.core.datetime_utils import now
 
 
 def _available_quantity_at(db: Session, code: str, at_time=None) -> int:
-    """v2 simplified: just Holding.quantity (draft-frozen logic removed)."""
-    from app.models.holding import Holding
-    h = db.query(Holding).filter(Holding.stock_code == code, Holding.sell_date.is_(None)).first()
-    return int(h.quantity) if h else 0
+    """T+1 sellable quantity derived from the Trade ledger (event sourcing,
+    decision Q2-A 2026-06-26). Net held shares minus shares bought on the same
+    calendar day (today's buys are frozen by the T+1 exchange rule)."""
+    from app.services.position_service import available_quantity
+
+    at_date = at_time.date() if at_time is not None else now().date()
+    return available_quantity(db, code, at_date)
 
 
 class InsufficientBalanceError(HTTPException):

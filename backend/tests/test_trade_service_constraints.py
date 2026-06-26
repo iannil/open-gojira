@@ -8,17 +8,20 @@ from sqlalchemy.orm import sessionmaker
 from app.db.base import Base
 from app.models.cash_balance import CashBalance
 from app.models.broker_fee_config import BrokerFeeConfig
-from app.models.holding import Holding
+from app.models.trade import Trade
 from app.models.stock import Stock
 
 
-def _add_holding(db, code="600519", quantity=100, buy_price=100.0):
-    """v2: sellable quantity comes from Holding (CSV import), not from BUY
-    trades (no trade->holding sync). Tests exercising a successful SELL seed a
-    Holding first."""
-    db.add(Holding(
-        stock_code=code, buy_date=date(2026, 6, 11), buy_price=buy_price,
-        quantity=quantity, stop_profit_price=buy_price * 1.3,
+def _add_settled_buy(db, code="600519", quantity=100, price=100.0,
+                     when=datetime(2026, 6, 11, 10, 0)):
+    """Seed a *settled* (prior-day) BUY trade so its shares are T+1-available.
+
+    Q2-A (2026-06-26): sellable quantity is derived from the Trade ledger, not
+    from a Holding row. A BUY filled before the sell date is fully sellable;
+    a BUY filled on the sell date is frozen (T+1)."""
+    db.add(Trade(
+        stock_code=code, side="BUY", price=price, quantity=quantity,
+        filled_at=when, total_value=price * quantity, source="manual",
     ))
     db.flush()
 from app.services.trade_service import (
@@ -72,22 +75,22 @@ def setup(db_session):
     db_session.flush()
 
 
-# --- available quantity 校验 (v2: 基于 Holding, 无 trade-T+1) -----------------
-# v1 的 trade-based T+1 (今日买入今日冻结) 已弃用: v2 持仓来自 CSV, available
-# 读 Holding.quantity, 无日期冻结逻辑 (trading-philosophy 决策 2026-06-25).
+# --- available quantity 校验 (Q2-A: Trade 派生 + T+1 冻结) --------------------
+# 可卖数量从 Trade 账本推导 (position_service.available_quantity):净持仓减去
+# 当日买入 (今日买入今日冻结,T+1 交易所规则,2026-06-26 决策启用)。
 
-def test_sell_full_holding_ok(db_session, setup):
-    """v2: 持有 100 (Holding) 可全部卖出."""
-    _add_holding(db_session, quantity=100)
+def test_sell_full_position_ok(db_session, setup):
+    """持有 100 (前一日 BUY,已结算) 可全部卖出."""
+    _add_settled_buy(db_session, quantity=100)
     trade = record_trade(db_session, stock_code="600519", side="SELL",
                          price=101.0, quantity=100,
                          filled_at=datetime(2026, 6, 12, 14, 0), source="manual")
     assert trade.quantity == -100
 
 
-def test_sell_partial_of_holding_ok(db_session, setup):
-    """v2: 持有 200 (Holding) 部分卖出 100 (够)."""
-    _add_holding(db_session, quantity=200)
+def test_sell_partial_of_position_ok(db_session, setup):
+    """持有 200 部分卖出 100 (够)."""
+    _add_settled_buy(db_session, quantity=200)
     trade = record_trade(db_session, stock_code="600519", side="SELL",
                          price=101.0, quantity=100,
                          filled_at=datetime(2026, 6, 12, 14, 0), source="manual")
@@ -95,8 +98,8 @@ def test_sell_partial_of_holding_ok(db_session, setup):
 
 
 def test_sell_exceeding_available_raises(db_session, setup):
-    """试图卖超过持仓 (Holding 100, 卖 200)."""
-    _add_holding(db_session, quantity=100)
+    """试图卖超过持仓 (持有 100, 卖 200)."""
+    _add_settled_buy(db_session, quantity=100)
     with pytest.raises(InsufficientQuantityError):
         record_trade(db_session, stock_code="600519", side="SELL",
                      price=101.0, quantity=200,
@@ -105,6 +108,16 @@ def test_sell_exceeding_available_raises(db_session, setup):
 
 def test_sell_with_zero_position_raises(db_session, setup):
     """没持仓试图卖."""
+    with pytest.raises(InsufficientQuantityError):
+        record_trade(db_session, stock_code="600519", side="SELL",
+                     price=101.0, quantity=100,
+                     filled_at=datetime(2026, 6, 12, 14, 0), source="manual")
+
+
+def test_sell_same_day_buy_frozen_by_t1(db_session, setup):
+    """T+1: 当日买入的股票当日不可卖 (冻结)."""
+    # BUY 100 on 6-12, then try to SELL same day → frozen, raises.
+    _add_settled_buy(db_session, quantity=100, when=datetime(2026, 6, 12, 9, 40))
     with pytest.raises(InsufficientQuantityError):
         record_trade(db_session, stock_code="600519", side="SELL",
                      price=101.0, quantity=100,
