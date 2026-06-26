@@ -215,6 +215,16 @@ def test_thesis_tracker_invalidated_marks_rejected(setup_db):
         ).first()
         assert report.status == "rejected"
         assert report.recommendation == "SELL"
+
+        # P0-3: INVALIDATED auto-generates a 100% SELL draft for the holding.
+        from app.models.draft import Draft
+        sell = db.query(Draft).filter(
+            Draft.code == "600519", Draft.side == "SELL",
+            Draft.step_kind == "thesis_breach",
+        ).first()
+        assert sell is not None
+        assert sell.reduce_pct_of_position == 1.0
+        assert sell.status == "pending"
     finally:
         db.close()
 

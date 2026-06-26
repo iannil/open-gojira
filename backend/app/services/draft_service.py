@@ -147,6 +147,7 @@ def create_thesis_breach_sell_draft(
     reason: str,
     claim_var_id: int | None = None,
     reduce_pct_of_position: float = 1.0,
+    target_price: float | None = None,
 ) -> Optional[Draft]:
     """M4 (Batch 5 2026-06-17): auto-generate SELL draft on thesis breach.
 
@@ -159,15 +160,15 @@ def create_thesis_breach_sell_draft(
         reason: human-readable breach detail (e.g. "OCF/NI 持续 2 期 < 0.5")
         claim_var_id: optional FK to research_claim_variables
         reduce_pct_of_position: 1.0 = 全部卖出 (默认), 0.5 = 减半
+        target_price: 建议卖出价 (P0-3: 风控类用触发时现价)。仅记录,执行时用实际价。
 
     Returns:
-        Draft if created; None if no open holding exists for this stock.
+        Draft if created; None if no open position exists for this stock.
     """
-    from app.services.holding_view_service import get_holding_view
+    from app.services import position_service
 
-    # Gate: only create if stock is actually held
-    holdings = get_holding_view(db)
-    if not any(h["stock_code"] == stock_code for h in holdings):
+    # Gate: only create if the stock is actually held (trade-derived, Q2-A)
+    if stock_code not in position_service.held_stock_codes(db):
         return None
 
     # Supersede all pending BUY drafts for this stock (避免告警后还自动加仓)
@@ -192,6 +193,7 @@ def create_thesis_breach_sell_draft(
     if existing_sell:
         existing_sell.reason = reason_full
         existing_sell.reduce_pct_of_position = reduce_pct_of_position
+        existing_sell.target_price = target_price
         existing_sell.triggered_at = _utcnow()
         db.flush()
         return existing_sell
@@ -205,6 +207,7 @@ def create_thesis_breach_sell_draft(
         add_pct=None,
         reduce_pct_of_position=reduce_pct_of_position,
         suggested_quantity=None,
+        target_price=target_price,
         reason=reason_full,
     )
     db.add(draft)

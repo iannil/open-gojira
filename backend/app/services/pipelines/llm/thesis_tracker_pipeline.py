@@ -179,6 +179,22 @@ def run(
         db.flush()
         result.report_id = report.id
 
+        # P0-3: thesis INVALIDATED → auto SELL draft (100%) + supersede pending
+        # BUYs. Suggested sell price = trigger-time latest price (风控类离场).
+        if result.status == INVALIDATED:
+            from app.services.draft_service import create_thesis_breach_sell_draft
+            from app.services.holding_service import _get_cached_price
+
+            breach_reason = "; ".join(result.invalidated_triggers) or "论点失效"
+            create_thesis_breach_sell_draft(
+                db,
+                stock_code=stock_code,
+                reason=breach_reason,
+                reduce_pct_of_position=1.0,
+                target_price=_get_cached_price(stock_code),
+            )
+            db.flush()
+
         if owns_session:
             db.commit()
 
