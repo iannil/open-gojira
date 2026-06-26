@@ -17,21 +17,33 @@ Security notes (per decision 1: single-user, no auth):
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
+import app.db.session as _session_module
+from app.core.datetime_utils import now
 from app.db.session import get_db
-from app.models.research_report import ResearchReport
+from app.models.research_report import (
+    PIPELINE_DEEP_RESEARCH,
+    STATUS_FAILED,
+    STATUS_RUNNING,
+    TERMINAL_STATUSES,
+    ResearchReport,
+)
 from app.models.stock import Stock
 from app.services import lifecycle_service
 from app.services.llm.cost_tracker import check_budget_available, get_monthly_spend
 from app.services.pipelines.llm import deep_research_pipeline
 from app.core.rate_limit import limiter
+
+# A "running" placeholder older than this is treated as abandoned (crashed
+# server / lost worker) and a fresh run is allowed to supersede it.
+RUNNING_STALE_AFTER = timedelta(minutes=15)
 
 logger = logging.getLogger(__name__)
 
@@ -90,19 +102,25 @@ def health(db: Session = Depends(get_db)) -> dict:
     }
 
 
-@router.post("/{stock_code}", response_model=ResearchReportFull)
+@router.post("/{stock_code}", response_model=ResearchReportFull, status_code=202)
 @limiter.limit(TRIGGER_RATE_LIMIT)
 def trigger_research(
     request: Request,
     stock_code: str,
+    background_tasks: BackgroundTasks,
+    response: Response,
     payload: ResearchTriggerRequest | None = None,
     db: Session = Depends(get_db),
 ) -> ResearchReportFull:
-    """Trigger deep_research_pipeline for a stock.
+    """Trigger deep_research_pipeline for a stock (asynchronous).
 
-    Skips if existing research within 30 days, unless force=True.
-    Pre-checks monthly budget before running.
-    Rate-limited to 10/min (per security review).
+    deep_research is a multi-minute LLM job, so it runs in the background:
+    this returns 202 immediately with a "running" placeholder report whose
+    ``status`` flips to a terminal value when the job finishes. The client
+    polls GET /{stock_code}/latest to observe completion.
+
+    Skips (returns 200 + existing report) if research within 30 days, unless
+    force=True. Pre-checks monthly budget. Rate-limited to 10/min.
     """
     payload = payload or ResearchTriggerRequest()
 
@@ -116,49 +134,104 @@ def trigger_research(
     if not allowed:
         raise HTTPException(429, f"LLM budget exhausted: {reason}")
 
+    # Concurrency guard: a fresh "running" placeholder means a job is already
+    # in flight for this stock — return it instead of launching a duplicate
+    # (which would double-spend the LLM budget).
+    in_flight = _get_running_report(db, stock_code)
+    if in_flight is not None:
+        response.status_code = 202
+        return _to_full_response(in_flight)
+
     # 30-day cache check (unless force)
     if not payload.force and not lifecycle_service.needs_research(db, stock_code, cache_days=30):
         latest = _get_latest_report(db, stock_code)
         if latest:
+            response.status_code = 200
             return _to_full_response(latest)
 
-    # Map model tier string to GLMTier
-    from app.services.llm.client import GLMTier
-    tier_map = {
-        "sonnet": GLMTier.SONNET,
-        "opus": GLMTier.OPUS,
-        "haiku": GLMTier.HAIKU,
-    }
-    tier = tier_map.get(payload.model_tier.lower(), GLMTier.SONNET)
+    # Create the "running" placeholder row up front so the client gets an id
+    # to poll while the background job runs.
+    placeholder = ResearchReport(
+        stock_code=stock_code,
+        pipeline_type=PIPELINE_DEEP_RESEARCH,
+        status=STATUS_RUNNING,
+    )
+    db.add(placeholder)
+    db.commit()
+    db.refresh(placeholder)
 
+    background_tasks.add_task(
+        _run_research_background,
+        report_id=placeholder.id,
+        stock_code=stock_code,
+        source=payload.source,
+        scarcity_score=payload.scarcity_score,
+        failure_conditions=payload.failure_conditions,
+        model_tier_str=payload.model_tier,
+        use_web_search=payload.use_web_search,
+    )
+
+    response.status_code = 202
+    return _to_full_response(placeholder)
+
+
+def _run_research_background(
+    *,
+    report_id: int,
+    stock_code: str,
+    source: str,
+    scarcity_score: float | None,
+    failure_conditions: list[str] | None,
+    model_tier_str: str,
+    use_web_search: bool,
+) -> None:
+    """Run deep_research in a fresh session (the request session is closed by
+    the time BackgroundTasks fires). Updates the placeholder row in place; on
+    failure marks it FAILED with the error recorded in markdown_output.
+    """
+    from app.services.llm.client import GLMTier
+
+    tier_map = {"sonnet": GLMTier.SONNET, "opus": GLMTier.OPUS, "haiku": GLMTier.HAIKU}
+    tier = tier_map.get(model_tier_str.lower(), GLMTier.SONNET)
+
+    # Reference SessionLocal via the module so the test suite's monkeypatch
+    # (conftest swaps app.db.session.SessionLocal for the in-memory engine)
+    # is honoured — a top-level `from ... import SessionLocal` would bind the
+    # production sessionmaker before that patch runs.
+    db = _session_module.SessionLocal()
     try:
-        result = deep_research_pipeline.run(
+        deep_research_pipeline.run(
             stock_code,
-            source=payload.source,
-            scarcity_score=payload.scarcity_score,
-            failure_conditions=payload.failure_conditions,
+            source=source,
+            scarcity_score=scarcity_score,
+            failure_conditions=failure_conditions,
             model_tier=tier,
-            use_web_search=payload.use_web_search,
+            use_web_search=use_web_search,
             db_session=db,
+            existing_report_id=report_id,
         )
         db.commit()
-    except ValueError as exc:
-        # Known validation errors — safe to surface
+    except Exception:
         db.rollback()
-        raise HTTPException(400, str(exc)) from exc
-    except Exception as exc:
-        # Log details server-side, return generic message (per security review)
-        db.rollback()
-        logger.exception("deep_research failed for %s", stock_code)
-        raise HTTPException(502, "deep_research failed; see server logs") from exc
+        logger.exception("deep_research failed for %s (report %s)", stock_code, report_id)
+        _mark_report_failed(db, report_id)
+    finally:
+        db.close()
 
-    # Fetch persisted report
-    report = db.query(ResearchReport).filter(
-        ResearchReport.id == result.report_id
-    ).first()
-    if report is None:
-        raise HTTPException(500, "report not persisted")
-    return _to_full_response(report)
+
+def _mark_report_failed(db: Session, report_id: int) -> None:
+    """Best-effort: flip the placeholder to FAILED in its own transaction."""
+    try:
+        report = db.query(ResearchReport).filter(
+            ResearchReport.id == report_id
+        ).first()
+        if report is not None:
+            report.status = STATUS_FAILED
+            report.markdown_output = "深度研究失败，请查看服务端日志。"
+            db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("failed to mark report %s as FAILED", report_id)
 
 
 @router.get("/{stock_code}/latest", response_model=ResearchReportFull | None)
@@ -208,6 +281,25 @@ def _get_latest_report(db: Session, stock_code: str) -> ResearchReport | None:
     return (
         db.query(ResearchReport)
         .filter(ResearchReport.stock_code == stock_code)
+        .order_by(desc(ResearchReport.created_at))
+        .first()
+    )
+
+
+def _get_running_report(db: Session, stock_code: str) -> ResearchReport | None:
+    """Most recent non-stale "running" placeholder for a stock, if any.
+
+    A placeholder older than RUNNING_STALE_AFTER is treated as abandoned and
+    ignored, so a crashed job can't block new runs forever.
+    """
+    cutoff = now() - RUNNING_STALE_AFTER
+    return (
+        db.query(ResearchReport)
+        .filter(
+            ResearchReport.stock_code == stock_code,
+            ResearchReport.status == STATUS_RUNNING,
+            ResearchReport.created_at >= cutoff,
+        )
         .order_by(desc(ResearchReport.created_at))
         .first()
     )

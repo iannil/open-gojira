@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -20,18 +20,35 @@ import {
   ThunderboltOutlined,
 } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 import {
   getLatestReport,
   getReportHistory,
   triggerResearch,
+  TERMINAL_STATUSES,
   type GLMTier,
+  type ReportStatus,
   type ResearchReportFull,
 } from '../../api/research';
 import PageHeader from '../../components/primitives/PageHeader';
 import PageSection from '../../components/primitives/PageSection';
 
 const { Text, Title } = Typography;
+
+function statusColor(status: ReportStatus): string {
+  switch (status) {
+    case 'completed':
+      return 'success';
+    case 'running':
+      return 'processing';
+    case 'rejected':
+    case 'failed':
+      return 'error';
+    default:
+      return 'warning';
+  }
+}
 
 export default function StockDetailPage() {
   const { code = '' } = useParams<{ code: string }>();
@@ -43,6 +60,12 @@ export default function StockDetailPage() {
     queryKey: ['research', 'latest', code],
     queryFn: () => getLatestReport(code),
     enabled: !!code,
+    // While a deep_research job is running the report's status is "running";
+    // poll every 3s until it reaches a terminal status, then stop.
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === 'running' ? 3000 : false;
+    },
   });
 
   const historyQuery = useQuery({
@@ -59,7 +82,12 @@ export default function StockDetailPage() {
         force: params.force,
       }),
     onSuccess: (data) => {
-      message.success(`${code} 研究完成：评分 ${data.overall_score} / ${data.recommendation}`);
+      if (data.status === 'running') {
+        message.info(`${code} 研究已启动，正在后台运行（约 30-60 秒）…`);
+      } else {
+        // Cache hit: a fresh terminal report was returned synchronously.
+        message.success(`${code} 已有研究报告：评分 ${data.overall_score} / ${data.recommendation}`);
+      }
       queryClient.invalidateQueries({ queryKey: ['research', 'latest', code] });
       queryClient.invalidateQueries({ queryKey: ['research', 'history', code] });
       queryClient.invalidateQueries({ queryKey: ['research', 'health'] });
@@ -67,16 +95,42 @@ export default function StockDetailPage() {
     },
     onError: (err: unknown) => {
       const msg = err instanceof Error ? err.message : 'unknown error';
-      message.error(`研究失败：${msg}`);
+      message.error(`研究启动失败：${msg}`);
     },
   });
+
+  // Announce completion when the polled report flips running → terminal, and
+  // refresh the dependent lists (history / health / cross-stock reports).
+  const prevStatusRef = useRef<ReportStatus | undefined>(undefined);
+  const latestStatus = latestQuery.data?.status;
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = latestStatus;
+    if (prev !== 'running' || !latestStatus || !TERMINAL_STATUSES.has(latestStatus)) {
+      return;
+    }
+    const report = latestQuery.data;
+    if (latestStatus === 'failed') {
+      message.error(`${code} 研究失败，请查看服务端日志`);
+    } else {
+      message.success(`${code} 研究完成：评分 ${report?.overall_score} / ${report?.recommendation}`);
+    }
+    queryClient.invalidateQueries({ queryKey: ['research', 'history', code] });
+    queryClient.invalidateQueries({ queryKey: ['research', 'health'] });
+    queryClient.invalidateQueries({ queryKey: ['research', 'reports'] });
+  }, [latestStatus, code, latestQuery.data, queryClient]);
+
+  const isRunning = latestStatus === 'running';
 
   if (!code) {
     return <Empty description="未指定股票代码" />;
   }
 
   const latest = latestQuery.data;
-  const isLoading = latestQuery.isLoading || triggerMutation.isPending;
+  // Show the running spinner while the latest report is still in progress,
+  // while the trigger is being submitted, or on the initial load.
+  const isLoading = latestQuery.isLoading || triggerMutation.isPending || isRunning;
+  const triggerBusy = triggerMutation.isPending || isRunning;
 
   return (
     <div>
@@ -128,14 +182,16 @@ export default function StockDetailPage() {
               <Button
                 type="primary"
                 icon={<ThunderboltOutlined />}
-                loading={triggerMutation.isPending}
+                loading={triggerBusy}
+                disabled={triggerBusy}
                 onClick={() => triggerMutation.mutate({ force: false })}
               >
                 触发研究（30 天缓存）
               </Button>
               <Button
                 icon={<ExperimentOutlined />}
-                loading={triggerMutation.isPending}
+                loading={triggerBusy}
+                disabled={triggerBusy}
                 onClick={() => triggerMutation.mutate({ force: true })}
                 danger
               >
@@ -201,9 +257,7 @@ export default function StockDetailPage() {
                     )}
                     {r.recommendation && <Tag>{r.recommendation}</Tag>}
                     {r.evidence_grade && <Tag>证据 {r.evidence_grade}</Tag>}
-                    <Tag color={r.status === 'completed' ? 'success' : r.status === 'rejected' ? 'error' : 'warning'}>
-                      {r.status}
-                    </Tag>
+                    <Tag color={statusColor(r.status)}>{r.status}</Tag>
                   </Space>
                 </Card>
               ))}
@@ -268,6 +322,7 @@ function ReportView({ report }: { report: ResearchReportFull }) {
       {/* Markdown */}
       {report.markdown_output ? (
         <div
+          className="markdown-report"
           style={{
             background: '#fafafa',
             padding: 16,
@@ -276,7 +331,7 @@ function ReportView({ report }: { report: ResearchReportFull }) {
             overflow: 'auto',
           }}
         >
-          <ReactMarkdown>{report.markdown_output}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{report.markdown_output}</ReactMarkdown>
         </div>
       ) : (
         <Empty description="无 markdown 报告" />

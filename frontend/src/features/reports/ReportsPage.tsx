@@ -18,6 +18,7 @@ import {
 } from 'antd';
 import { ReloadOutlined, SearchOutlined } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 import {
   listRecentReports,
@@ -40,10 +41,12 @@ const REC_COLORS: Record<Recommendation, string> = {
 };
 
 const STATUS_COLORS: Record<ReportStatus, string> = {
+  running: 'processing',
   completed: 'success',
   rejected: 'error',
   conflict: 'warning',
   stale: 'default',
+  failed: 'error',
 };
 
 const PIPELINE_OPTIONS: { label: string; value: PipelineType }[] = [
@@ -276,6 +279,7 @@ function ReportDetail({ report }: { report: ResearchReportFull }) {
 
         {/* Markdown body */}
         <div
+          className="markdown-report"
           style={{
             background: '#fafafa',
             padding: 16,
@@ -285,7 +289,7 @@ function ReportDetail({ report }: { report: ResearchReportFull }) {
           }}
         >
           {report.markdown_output ? (
-            <ReactMarkdown>{report.markdown_output}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{report.markdown_output}</ReactMarkdown>
           ) : (
             <Empty description="无 markdown 报告" />
           )}

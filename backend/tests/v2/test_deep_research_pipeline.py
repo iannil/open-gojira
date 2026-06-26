@@ -488,12 +488,18 @@ def test_research_trigger_with_mock(setup_db):
         return_value=mock_client,
     ):
         with TestClient(app) as client:
+            # deep_research is async now: POST returns 202 + a "running"
+            # placeholder; the pipeline runs in a BackgroundTask (executed
+            # synchronously by TestClient after the response).
             resp = client.post(
                 "/api/research/600519",
                 json={"force": True, "model_tier": "sonnet"},
             )
-            assert resp.status_code == 200, resp.text
-            data = resp.json()
+            assert resp.status_code == 202, resp.text
+            assert resp.json()["status"] == "running"
+
+            # The background job has run by now → poll /latest for the result.
+            data = client.get("/api/research/600519/latest").json()
             assert data["stock_code"] == "600519"
             assert data["overall_score"] == pytest.approx(4.145)  # authoritative, not LLM's 4.1
             assert data["recommendation"] == "BUY"

@@ -22,10 +22,17 @@ PIPELINE_EARNINGS_REVIEW = "earnings_review"
 PIPELINE_QUALITY_SCREEN = "quality_screen"
 
 # Report status
+STATUS_RUNNING = "running"        # async job in progress
 STATUS_COMPLETED = "completed"
 STATUS_REJECTED = "rejected"      # red line hit
 STATUS_CONFLICT = "conflict"      # data conflict > threshold
 STATUS_STALE = "stale"            # expired
+STATUS_FAILED = "failed"          # async job errored
+
+# Statuses that mean a report is final (no longer running)
+TERMINAL_STATUSES = frozenset(
+    {STATUS_COMPLETED, STATUS_REJECTED, STATUS_CONFLICT, STATUS_STALE, STATUS_FAILED}
+)
 
 # Recommendations
 REC_BUY = "BUY"

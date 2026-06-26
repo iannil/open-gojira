@@ -310,6 +310,7 @@ def run(
     use_web_search: bool = True,
     db_session: Optional[Session] = None,
     llm_client: Optional[LLMClient] = None,
+    existing_report_id: Optional[int] = None,
 ) -> DeepResearchResult:
     """Run the full 6-step deep research pipeline for one stock.
 
@@ -325,6 +326,8 @@ def run(
         use_web_search: enable web_search in data_collection step
         db_session: caller's session; else creates own
         llm_client: optional injected client (for testing)
+        existing_report_id: when set (async flow), update this placeholder
+            "running" row in place instead of inserting a new one
 
     Returns:
         DeepResearchResult with all fields populated.
@@ -423,7 +426,7 @@ def run(
             rejection_reason="red_line_hit" if rejected else "",
         )
 
-        report = _persist_report(db, result)
+        report = _persist_report(db, result, existing_report_id=existing_report_id)
         result.report_id = report.id
 
         if rejected:
@@ -601,9 +604,19 @@ def _run_red_line_check(
 # ── Persistence ─────────────────────────────────────────────────────────
 
 
-def _persist_report(db: Session, result: DeepResearchResult) -> ResearchReport:
-    """Write research_reports row."""
-    report = ResearchReport(
+def _persist_report(
+    db: Session,
+    result: DeepResearchResult,
+    *,
+    existing_report_id: Optional[int] = None,
+) -> ResearchReport:
+    """Write research_reports row.
+
+    When ``existing_report_id`` is given (async flow), update that placeholder
+    "running" row in place; otherwise insert a fresh row (sync flow).
+    """
+    status = STATUS_REJECTED if result.rejected else STATUS_COMPLETED
+    fields = dict(
         stock_code=result.stock_code,
         pipeline_type=PIPELINE_DEEP_RESEARCH,
         json_output=result.json_output,
@@ -614,9 +627,22 @@ def _persist_report(db: Session, result: DeepResearchResult) -> ResearchReport:
         prompt_version=PROMPT_VERSION,
         overall_score=result.overall_score,
         recommendation=result.recommendation,
-        status=STATUS_REJECTED if result.rejected else STATUS_COMPLETED,
+        status=status,
         expires_at=now() + timedelta(days=30),  # decision 8: 30-day cache
     )
+
+    if existing_report_id is not None:
+        report = db.query(ResearchReport).filter(
+            ResearchReport.id == existing_report_id
+        ).first()
+        if report is None:
+            raise ValueError(f"existing_report_id not found: {existing_report_id}")
+        for key, value in fields.items():
+            setattr(report, key, value)
+        db.flush()
+        return report
+
+    report = ResearchReport(**fields)
     db.add(report)
     db.flush()
     return report

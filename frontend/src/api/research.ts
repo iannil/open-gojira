@@ -13,7 +13,22 @@ import { apiClient } from './client';
 export type GLMTier = 'sonnet' | 'opus' | 'haiku';
 export type Recommendation = 'BUY' | 'HOLD' | 'PASS' | 'SELL' | 'TRIM';
 export type EvidenceGrade = 'A' | 'B' | 'C';
-export type ReportStatus = 'completed' | 'rejected' | 'conflict' | 'stale';
+export type ReportStatus =
+  | 'running'
+  | 'completed'
+  | 'rejected'
+  | 'conflict'
+  | 'stale'
+  | 'failed';
+
+// Statuses that mean the report is final (no longer running).
+export const TERMINAL_STATUSES: ReadonlySet<ReportStatus> = new Set([
+  'completed',
+  'rejected',
+  'conflict',
+  'stale',
+  'failed',
+]);
 export type PipelineType =
   | 'deep_research'
   | 'thesis_tracker'

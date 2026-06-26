@@ -3012,3 +3012,56 @@ a.gojira-flow-step:hover {
   font-weight: var(--fw-semibold);
 }
 
+/* ── Deep-research markdown report (GFM via remark-gfm) ─────────────────── */
+.markdown-report table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 12px 0;
+  font-size: var(--fs-sm);
+}
+
+.markdown-report th,
+.markdown-report td {
+  border: 1px solid #e0d8c8;
+  padding: 6px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.markdown-report thead th {
+  background: #f0ece2;
+  font-weight: var(--fw-semibold);
+  white-space: nowrap;
+}
+
+.markdown-report tbody tr:nth-child(even) {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.markdown-report h1,
+.markdown-report h2,
+.markdown-report h3 {
+  margin: 18px 0 8px;
+  line-height: 1.3;
+}
+
+.markdown-report blockquote {
+  margin: 10px 0;
+  padding: 6px 12px;
+  border-left: 3px solid #c9a44c;
+  background: rgba(201, 164, 76, 0.08);
+  color: inherit;
+}
+
+.markdown-report hr {
+  border: none;
+  border-top: 1px solid #e0d8c8;
+  margin: 16px 0;
+}
+
+.markdown-report code {
+  background: rgba(0, 0, 0, 0.05);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
