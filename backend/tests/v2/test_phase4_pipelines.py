@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from app.db.session import SessionLocal
-from app.models import Holding, PriceKline, ResearchReport, StockLifecycle
+from app.models import PriceKline, ResearchReport, StockLifecycle, Trade
 from app.models.financial import FinancialStatement
 from app.models.stock import Stock
 from app.models.valuation import ValuationSnapshot
@@ -63,11 +63,11 @@ def _setup_klines(db, code="600519", *, days=10, change_pct=-7.0):
 
 
 def _setup_holding(db, code="600519"):
-    """Insert an open holding."""
-    db.add(Holding(
-        stock_code=code, quantity=100,
-        buy_price=1500.0, buy_date=date(2026, 1, 15),
-        stop_profit_price=0.0,
+    """Seed an open position via a settled BUY trade (Q2-A)."""
+    from datetime import datetime as _dt
+    db.add(Trade(
+        stock_code=code, side="BUY", price=1500.0, quantity=100,
+        filled_at=_dt(2026, 1, 15, 10, 0), total_value=150000.0, source="manual",
     ))
     db.commit()
 

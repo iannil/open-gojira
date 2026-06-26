@@ -23,7 +23,6 @@ from app.models.cash_balance import CashBalance
 from app.models.corp_action import CorpAction
 from app.models.stock import Stock
 from app.models.trade import Trade
-from app.models.holding import Holding
 from app.services.system_alert_service import create_alert
 from app.core.datetime_utils import now
 
@@ -236,9 +235,11 @@ def process_one(db: Session, action: CorpAction) -> CorpAction:
     if action.processed_at is not None:
         return action
 
-    # Find current qty held for this stock (only open positions)
-    holding = db.query(Holding).filter(Holding.stock_code == action.stock_code).first()
-    qty_held = holding.quantity if holding else 0
+    # Find current qty held for this stock (trade-derived open position, Q2-A)
+    from app.services import position_service
+
+    pos = position_service.position_for(db, action.stock_code, price_lookup=lambda _c: None)
+    qty_held = pos.quantity if pos else 0
 
     applier = _APPLIERS.get(action.action_type)
     if not applier:

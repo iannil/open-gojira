@@ -106,6 +106,11 @@ def position_for(
     return pos
 
 
+def held_stock_codes(db: Session) -> set[str]:
+    """Set of stock codes with a non-zero open position (trade-derived)."""
+    return {p.stock_code for p in current_positions(db, price_lookup=lambda _c: None)}
+
+
 def available_quantity(db: Session, code: str, at_date: date) -> int:
     """T+1 sellable quantity on ``at_date``: net held shares minus shares
     bought on the same date (today's buys are frozen by the exchange rule)."""

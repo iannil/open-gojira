@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
 from app.models import ResearchReport
 from app.models.financial import FinancialStatement
-from app.models.holding import Holding
+from app.services import holding_service
 from app.models.price_kline import PriceKline
 from app.models.research_report import (
     PIPELINE_THESIS_TRACKER,
@@ -89,13 +89,16 @@ def run(
     client = llm_client or get_llm_client()
 
     try:
-        # Gather context
-        holding = db.query(Holding).filter(
-            Holding.stock_code == stock_code,
-            Holding.sell_date.is_(None),
-        ).first()
-        if holding is None:
+        # Gather context — position derived from the trade ledger (Q2-A)
+        from app.services import position_service
+
+        position = position_service.position_for(
+            db, stock_code, price_lookup=lambda _c: None
+        )
+        if position is None or position.quantity <= 0:
             raise ValueError(f"No active holding for {stock_code}")
+        buy_dates = holding_service._buy_dates(db, [stock_code])
+        buy_date = buy_dates.get(stock_code)
 
         # Latest deep_research report (the thesis baseline)
         thesis_report = (
@@ -131,7 +134,7 @@ def run(
         )
 
         # Build prompt
-        user_prompt = _build_prompt(stock_code, holding, thesis_report, financials, klines)
+        user_prompt = _build_prompt(stock_code, position, buy_date, thesis_report, financials, klines)
 
         # Call LLM
         response = client.complete(
@@ -188,7 +191,8 @@ def run(
 
 def _build_prompt(
     stock_code: str,
-    holding: Holding,
+    position: "position_service.Position",
+    buy_date,
     thesis_report: Optional[ResearchReport],
     financials: list[FinancialStatement],
     klines: list[PriceKline],
@@ -196,14 +200,16 @@ def _build_prompt(
     """Assemble user prompt for thesis check."""
     import json as _json
 
+    from app.services import position_service  # noqa: F401 — type ref only
+
     system = load_prompt(PIPELINE_NAME, "system", PROMPT_VERSION)
 
     payload = {
         "stock_code": stock_code,
         "position": {
-            "shares": holding.quantity,
-            "avg_cost": float(holding.buy_price) if holding.buy_price else None,
-            "buy_date": str(holding.buy_date) if holding.buy_date else None,
+            "shares": position.quantity,
+            "avg_cost": float(position.avg_cost) if position.avg_cost else None,
+            "buy_date": str(buy_date) if buy_date else None,
         },
         "original_thesis": (
             {

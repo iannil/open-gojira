@@ -11,19 +11,17 @@ from sqlalchemy.orm import Session
 
 from app.models.dividend import DividendRecord
 from app.models.financial import FinancialStatement
-from app.models.holding import Holding
 from app.models.price_kline import PriceKline
 from app.models.stock import Stock
 from app.models.valuation import ValuationSnapshot
+from app.services import position_service
 
 logger = logging.getLogger(__name__)
 
 
 def get_watched_stock_codes(db: Session) -> set[str]:
-    """Get all held stock codes (v2: watchlist concept deferred to stock_lifecycle)."""
-    return {
-        r[0] for r in db.query(Holding.stock_code).filter(Holding.sell_date.is_(None)).all()
-    }
+    """Get all held stock codes (Q2-A: derived from the trade ledger)."""
+    return position_service.held_stock_codes(db)
 
 
 def get_all_active_stock_codes(db: Session) -> list[str]:

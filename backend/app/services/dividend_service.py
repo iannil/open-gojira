@@ -9,7 +9,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.models.dividend import DividendRecord
-from app.models.holding import Holding
+from app.services import position_service
 from app.models.stock import Stock
 from app.services.lixinger_client import LixingerError, get_lixinger_client
 
@@ -266,16 +266,12 @@ def get_dividend_summary(db: Session) -> dict:
         stock = db.query(Stock).filter(Stock.code == code).first()
         stock_name = stock.name if stock else None
 
-        # Calculate annual yield from active holdings using trailing 12-month dividends
+        # Calculate annual yield from the open position (trade-derived), trailing 12m
         annual_yield = None
-        active_holdings = (
-            db.query(Holding)
-            .filter(Holding.stock_code == code, Holding.sell_date.is_(None))
-            .all()
-        )
-        if active_holdings:
-            total_cost = sum(h.buy_price * h.quantity for h in active_holdings)
-            total_qty = sum(h.quantity for h in active_holdings)
+        pos = position_service.position_for(db, code, price_lookup=lambda _c: None)
+        if pos and pos.quantity > 0:
+            total_cost = pos.cost_basis
+            total_qty = pos.quantity
             if total_cost > 0 and total_qty > 0:
                 trailing_dividends = sum(
                     r.total_received for r in records

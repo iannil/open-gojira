@@ -4,7 +4,6 @@ import logging
 from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session
 
-from app.models.holding import Holding
 from app.models.stock import Stock
 from app.models.stock_lifecycle import (
     STATE_CANDIDATE,
@@ -15,6 +14,7 @@ from app.models.stock_lifecycle import (
 )
 from app.models.valuation import ValuationSnapshot
 from app.schemas.stock import UniverseItem
+from app.services import position_service
 from app.services.holding_service import _get_cached_price
 
 # v2: the watchlist/candidate models were replaced by stock_lifecycle states.
@@ -25,10 +25,9 @@ logger = logging.getLogger(__name__)
 
 def build_universe_view(db: Session) -> list[UniverseItem]:
     """Build the universe aggregate view: held + watched stocks with weights, valuations, candidates."""
-    # All stock codes from holdings + watchlist
-    held_codes = {
-        r[0] for r in db.query(Holding.stock_code).filter(Holding.sell_date.is_(None)).all()
-    }
+    # All stock codes from holdings (trade-derived) + watchlist
+    positions = position_service.current_positions(db, price_lookup=lambda _c: None)
+    held_codes = {p.stock_code for p in positions}
     watched_codes = {
         r[0]
         for r in db.query(StockLifecycle.stock_code)
@@ -66,20 +65,12 @@ def build_universe_view(db: Session) -> list[UniverseItem]:
     val_map = {v.stock_code: v for v in latest_vals}
 
     # Weight calculation — use current market value (consistent with portfolio summary)
-    all_holdings_list = db.query(Holding).filter(Holding.sell_date.is_(None)).all()
-    holdings_by_code: dict[str, list] = {}
-    for h in all_holdings_list:
-        holdings_by_code.setdefault(h.stock_code, []).append(h)
-
     total_value = 0.0
     holding_values: dict[str, float] = {}
-    for hcode, hs in holdings_by_code.items():
-        price = _get_cached_price(hcode)
-        val = sum(
-            (price * h.quantity) if price is not None else (h.buy_price * h.quantity)
-            for h in hs
-        )
-        holding_values[hcode] = val
+    for pos in positions:
+        price = _get_cached_price(pos.stock_code)
+        val = (price * pos.quantity) if price is not None else pos.cost_basis
+        holding_values[pos.stock_code] = val
         total_value += val
     total_value = total_value or 1.0
 
