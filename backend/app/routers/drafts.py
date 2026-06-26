@@ -52,24 +52,24 @@ def execute_draft(
 ):
     payload = payload or DraftExecute()
     draft = draft_service.execute(db, draft_id)
-    audit_payload = {"holding_id": payload.holding_id}
+    audit_payload: dict = {}
 
-    if payload.buy_price and payload.quantity:
+    if payload.price and payload.quantity:
         from app.services.trade_service import record_trade
         side = "BUY" if draft.side == "BUY" else "SELL"
         trade = record_trade(
             db,
             stock_code=draft.code,
             side=side,
-            price=float(payload.buy_price),
+            price=float(payload.price),
             quantity=int(payload.quantity),
-            filled_at=now(),
-            source="draft",
+            filled_at=payload.filled_at or now(),
+            source="manual",
             source_ref=str(draft.id),
-            note=f"Auto from draft #{draft.id}: {draft.reason}",
+            note=f"Confirmed fill of draft #{draft.id}: {draft.reason}",
         )
-        audit_payload["auto_trade_id"] = trade.id
-        # Q2-A: the position now derives from this Trade — no Holding row to create.
+        audit_payload["trade_id"] = trade.id
+        # Q2-A: the position derives from this Trade — no Holding row to create.
 
     audit_log_service.write(
         db,

@@ -208,29 +208,19 @@ export async function listDrafts(params?: {
 }
 
 export interface ExecuteDraftPayload {
-  holding_id?: number;
-  discipline_checklist?: Record<string, boolean>;
-  buy_price?: number;
+  /** Actual fill price reported back after the broker order (P0-2). */
+  price?: number;
+  /** Actual filled quantity. */
   quantity?: number;
+  /** Actual fill time (ISO); defaults to now when omitted. */
+  filled_at?: string;
 }
 
 export async function executeDraft(
   draftId: number,
-  payloadOrChecklist?: ExecuteDraftPayload | Record<string, boolean> | number,
+  payload?: ExecuteDraftPayload,
 ): Promise<DraftResponse> {
-  let body: Record<string, unknown> = {};
-  if (typeof payloadOrChecklist === 'number') {
-    body.holding_id = payloadOrChecklist;
-  } else if (
-    payloadOrChecklist &&
-    typeof payloadOrChecklist === 'object' &&
-    ('buy_price' in payloadOrChecklist || 'quantity' in payloadOrChecklist || 'holding_id' in payloadOrChecklist || 'discipline_checklist' in payloadOrChecklist)
-  ) {
-    body = { ...payloadOrChecklist };
-  } else if (payloadOrChecklist && typeof payloadOrChecklist === 'object') {
-    body.discipline_checklist = payloadOrChecklist;
-  }
-  const res = await apiClient.post<DraftResponse>(`/drafts/${draftId}/execute`, body);
+  const res = await apiClient.post<DraftResponse>(`/drafts/${draftId}/execute`, payload ?? {});
   return res.data;
 }
 

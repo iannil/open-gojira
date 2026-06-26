@@ -1,18 +1,21 @@
 """Draft schemas (v2)."""
 
 from datetime import datetime
-from typing import Any
 
 from pydantic import BaseModel
 
 
 class DraftExecute(BaseModel):
-    """Payload for executing a draft."""
-    buy_price: float | None = None
+    """Confirm a draft's actual fill (P0-2).
+
+    The user executes at the broker, then reports the *actual* price/quantity/
+    time back. Recorded as a Trade (source=manual, source_ref=draft.id). May
+    freely deviate from the draft's suggested values. When price+quantity are
+    omitted the draft is just marked executed without a trade.
+    """
+    price: float | None = None
     quantity: int | None = None
-    holding_id: int | None = None
-    auto_create_holding: bool = True
-    discipline_checklist: dict[str, Any] | None = None
+    filled_at: datetime | None = None
 
 
 class DraftResponse(BaseModel):
