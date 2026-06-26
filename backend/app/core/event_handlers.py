@@ -89,33 +89,12 @@ def on_financials_sync_thesis_variables(event: DataSyncCompleted) -> None:
 
 
 def on_kline_sync_price_alert(event: DataSyncCompleted) -> None:
-    """K线同步完成 → 检查价格相关告警规则。"""
-    if event.pipeline_type != "klines" or event.status == "failed":
-        return
-    if not event.stock_codes:
-        return
+    """K线同步完成 → 价格相关告警 (retired 2026-06-26).
 
-    from app.db.session import SessionLocal
-    with SessionLocal() as db:
-        from app.services.alert_service import list_rules
-        stop_profit_rules = [
-            r for r in list_rules(db, enabled_only=True)
-            if r.rule_type == "stop_profit" and r.stock_code in event.stock_codes
-        ]
-        if not stop_profit_rules:
-            return
-
-        from app.services.alert_service import _fetch_realtime, _eval_stop_profit, _should_dedupe
-        realtime = _fetch_realtime([r.stock_code for r in stop_profit_rules if r.stock_code])
-        for rule in stop_profit_rules:
-            if _should_dedupe(db, rule):
-                continue
-            try:
-                snapshot = realtime.get(rule.stock_code) if rule.stock_code else None
-                _eval_stop_profit(db, rule, snapshot)
-            except Exception:
-                logger.exception("stop_profit eval failed for rule %d", rule.id)
-        db.commit()
+    唯一用途是 stop_profit 止盈告警,已随 decision 2-A 退役 (止盈改由 sell_trigger
+    处理,持仓改 Trade 派生无 stop_profit_price)。保留空壳以兼容事件注册。
+    """
+    return
 
 
 # ── Business flow handlers ─────────────────────────────────────────────────
@@ -185,22 +164,18 @@ def on_plan_completed_check_alerts(event: PlanEvaluationCompleted) -> None:
             return
 
         from app.services.alert_service import (
-            _fetch_realtime, _eval_dividend_ex_date_near,
-            _eval_financial_report_released, _eval_stop_profit,
+            _eval_dividend_ex_date_near,
+            _eval_financial_report_released,
             _should_dedupe,
         )
-        realtime = _fetch_realtime([r.stock_code for r in stock_rules if r.stock_code])
         for rule in stock_rules:
             if _should_dedupe(db, rule):
                 continue
             try:
-                snapshot = realtime.get(rule.stock_code) if rule.stock_code else None
                 if rule.rule_type == "dividend_ex_date_near":
                     _eval_dividend_ex_date_near(db, rule)
                 elif rule.rule_type == "financial_report_released":
                     _eval_financial_report_released(db, rule)
-                elif rule.rule_type == "stop_profit":
-                    _eval_stop_profit(db, rule, snapshot)
             except Exception:
                 logger.exception("alert eval failed for rule %d", rule.id)
         db.commit()

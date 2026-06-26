@@ -12,7 +12,6 @@ from app.models.financial import FinancialStatement
 from app.models.historical_financial import HistoricalFinancial
 from app.models.historical_kline import HistoricalKline
 from app.models.historical_valuation import HistoricalValuation
-from app.models.holding import Holding
 from app.models.llm_call_log import LLMCallLog
 from app.models.pipeline import PipelineRun
 from app.models.price_kline import PriceKline
@@ -30,7 +29,6 @@ from app.models.valuation import ValuationSnapshot
 __all__ = [
     "Stock",
     "ValuationSnapshot",
-    "Holding",
     "PriceKline",
     "DividendRecord",
     "FinancialStatement",

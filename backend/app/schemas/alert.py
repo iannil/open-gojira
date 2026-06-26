@@ -6,7 +6,6 @@ from pydantic import BaseModel
 RULE_TYPES = (
     "dividend_ex_date_near",
     "financial_report_released",
-    "stop_profit",
 )
 
 

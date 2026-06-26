@@ -34,7 +34,6 @@ from app.core.observability import (
     _emit_obs_log,
 )
 from app.db.session import SessionLocal
-from app.models.holding import Holding
 from app.models.scheduler_config import SchedulerJob
 from app.models.valuation import ValuationSnapshot
 from app.services import (
@@ -291,9 +290,10 @@ def thesis_evaluation_job() -> dict:
 
 def _watched_and_held_codes(db: Session) -> list[str]:
     """Codes the user actively cares about: watchlist + open holdings."""
+    from app.services import position_service
+
     watch = set(watchlist_service.all_watched_codes(db))
-    holdings = {h.stock_code for h in db.query(Holding).filter(Holding.sell_date.is_(None)).all()}
-    return sorted(watch | holdings)
+    return sorted(watch | position_service.held_stock_codes(db))
 
 
 def daily_kline_sync_job() -> dict:
@@ -350,38 +350,10 @@ def daily_prev_close_sync_job() -> dict:
 
 
 def intraday_monitor_job() -> dict:
-    """盘中监控：每 5 分钟检查 watchlist 股票价格，触发止盈告警。
-
-    默认关闭，需通过 API 启用。
+    """盘中监控 (retired 2026-06-26):唯一用途是 stop_profit 止盈告警,已随
+    decision 2-A 退役 (止盈改由 sell_trigger 处理)。保留空壳以兼容旧注册名。
     """
-    with SessionLocal() as db:
-        codes = _watched_and_held_codes(db)
-        if not codes:
-            return {"checked": 0, "alerts": 0}
-
-        from app.services.alert_service import (
-            list_rules, _fetch_realtime,
-            _eval_stop_profit, _should_dedupe,
-        )
-
-        stop_profit_rules = [
-            r for r in list_rules(db, enabled_only=True)
-            if r.rule_type == "stop_profit"
-        ]
-        if not stop_profit_rules:
-            return {"checked": len(codes), "alerts": 0}
-
-        realtime = _fetch_realtime([r.stock_code for r in stop_profit_rules if r.stock_code])
-        alerts = 0
-        for rule in stop_profit_rules:
-            if _should_dedupe(db, rule):
-                continue
-            snapshot = realtime.get(rule.stock_code) if rule.stock_code else None
-            ev = _eval_stop_profit(db, rule, snapshot)
-            if ev:
-                alerts += 1
-        db.commit()
-        return {"checked": len(codes), "alerts": alerts}
+    return {"checked": 0, "alerts": 0}
 
 
 def monthly_dividend_sync_job() -> dict:
@@ -907,16 +879,11 @@ def v2_deep_research_job() -> dict:
 def v2_thesis_tracker_job() -> dict:
     """v2: weekly thesis_tracker on all active holdings."""
     from app.services.pipelines.llm import thesis_tracker_pipeline
-    from app.models.holding import Holding
+    from app.services import position_service
 
     with SessionLocal() as db:
         try:
-            holdings = (
-                db.query(Holding.stock_code)
-                .filter(Holding.sell_date.is_(None))
-                .all()
-            )
-            codes = [h[0] for h in holdings]
+            codes = sorted(position_service.held_stock_codes(db))
             results = {"attempted": len(codes), "completed": 0, "failed": 0}
             for code in codes:
                 try:

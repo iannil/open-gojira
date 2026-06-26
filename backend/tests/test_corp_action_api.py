@@ -142,17 +142,12 @@ def test_get_corp_action_not_found(client, db_session):
 
 def test_process_one_endpoint(client, db_session):
     _setup_market(db_session)
+    # Q2-A: this BUY establishes the trade-derived position corp actions read.
     record_trade(
         db_session, stock_code="600519", side="BUY",
         price=100.0, quantity=100,
         filled_at=datetime(2026, 1, 15, 10, 0), source="manual",
     )
-    # v2: corp actions read qty_held from Holding (positions come from CSV).
-    from app.models.holding import Holding
-    db_session.add(Holding(
-        stock_code="600519", buy_date=date(2026, 1, 15), buy_price=100.0,
-        quantity=100, stop_profit_price=130.0,
-    ))
     db_session.flush()
     ca = CorpAction(
         stock_code="600519", ex_date=date(2026, 7, 15),

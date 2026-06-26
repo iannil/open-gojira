@@ -15,17 +15,6 @@ from app.services.corp_action_processor_service import (
 )
 
 
-def _add_holding(db, code, quantity, buy_price=100.0):
-    """v2: corp actions read qty_held from Holding (positions come from CSV,
-    not BUY trades — no trade->holding sync)."""
-    from app.models.holding import Holding
-    db.add(Holding(
-        stock_code=code, buy_date=date(2008, 1, 1), buy_price=buy_price,
-        quantity=quantity, stop_profit_price=buy_price * 1.3,
-    ))
-    db.flush()
-
-
 @pytest.fixture
 def setup(db_session):
     db_session.add(Stock(code="600519", name="贵州茅台", exchange="sh",
@@ -57,7 +46,6 @@ def test_apply_cash_dividend_creates_dividend_trade(db_session, setup):
                  price=100.0, quantity=100,
                  filled_at=datetime(2026, 1, 15, 10, 0), source="manual")
     db_session.flush()
-    _add_holding(db_session, "600519", 100)  # v2: position from Holding
     balance_before_div = db_session.query(CashBalance).first().balance
     # 创建 corp_action:每股派 25
     ca = CorpAction(
@@ -111,7 +99,6 @@ def test_apply_stock_dividend(db_session, setup):
                  price=100.0, quantity=100,
                  filled_at=datetime(2026, 1, 15, 10, 0), source="manual")
     db_session.flush()
-    _add_holding(db_session, "600519", 100)  # v2: position from Holding
     ca = CorpAction(
         stock_code="600519", ex_date=date(2026, 7, 15),
         action_type="stock_dividend",
@@ -135,7 +122,6 @@ def test_apply_capitalization(db_session, setup):
                  price=100.0, quantity=200,
                  filled_at=datetime(2026, 1, 15, 10, 0), source="manual")
     db_session.flush()
-    _add_holding(db_session, "600519", 200)  # v2: position from Holding
     ca = CorpAction(
         stock_code="600519", ex_date=date(2026, 7, 15),
         action_type="capitalization",
@@ -176,7 +162,6 @@ def test_apply_rights_issue_emits_alert_and_skips(db_session, setup):
                  price=100.0, quantity=100,
                  filled_at=datetime(2026, 1, 15, 10, 0), source="manual")
     db_session.flush()
-    _add_holding(db_session, "600519", 100)  # v2: position from Holding
     ca = CorpAction(
         stock_code="600519", ex_date=date(2026, 7, 15),
         action_type="rights_issue",
@@ -210,7 +195,6 @@ def test_apply_merger(db_session, setup):
                  price=10.0, quantity=1000,
                  filled_at=datetime(2008, 1, 1, 10, 0), source="manual")
     db_session.flush()
-    _add_holding(db_session, "600001", 1000, buy_price=10.0)  # v2: position from Holding
     ca = CorpAction(
         stock_code="600001", ex_date=date(2008, 6, 1),
         action_type="merger",

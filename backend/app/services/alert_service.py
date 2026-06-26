@@ -2,7 +2,11 @@
 
 Threshold-based rules (pe/pb/dyr/price cross) removed: Plan Evaluator covers
 all threshold monitoring via ladder triggers. Only event-driven rules remain:
-dividend_ex_date_near, financial_report_released, stop_profit.
+dividend_ex_date_near, financial_report_released.
+
+stop_profit retired (decision 2-A 2026-06-26): per-holding stop-profit moved to
+the valuation-based sell_trigger (P2-1); positions are now trade-derived and
+carry no stop_profit_price.
 """
 
 import logging
@@ -19,7 +23,6 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.models.alert import AlertEvent, AlertRule
-from app.models.holding import Holding
 from app.models.stock import Stock
 from app.schemas.alert import RULE_TYPES
 from app.services.lixinger_client import LixingerError, get_lixinger_client
@@ -252,38 +255,6 @@ def _eval_financial_report_released(db: Session, rule: AlertRule) -> Optional[Al
     )
 
 
-def _eval_stop_profit(
-    db: Session, rule: AlertRule, snapshot: Optional[dict]
-) -> Optional[AlertEvent]:
-    if not snapshot or not rule.stock_code:
-        return None
-    price = snapshot.get("sp")
-    if price is None:
-        return None
-    holdings = (
-        db.query(Holding)
-        .filter(Holding.stock_code == rule.stock_code, Holding.sell_date.is_(None))
-        .all()
-    )
-    if not holdings:
-        return None
-    hits = [h for h in holdings if h.stop_profit_price and float(price) >= h.stop_profit_price]
-    if not hits:
-        return None
-    return _emit(
-        db,
-        rule,
-        title=f"{rule.stock_code} 触发止盈价",
-        detail=f"现价 {float(price):.2f} 已达 {len(hits)} 笔持仓止盈位",
-        payload={
-            "price": float(price),
-            "holding_ids": [h.id for h in hits],
-            "stop_prices": [h.stop_profit_price for h in hits],
-        },
-        severity="alert",
-    )
-
-
 def _should_dedupe(db: Session, rule: AlertRule, dedupe_hours: int = 20) -> bool:
     from datetime import timedelta
 
@@ -294,64 +265,6 @@ def _should_dedupe(db: Session, rule: AlertRule, dedupe_hours: int = 20) -> bool
         .first()
     )
     return recent is not None
-
-
-AUTO_HOLDING_NOTE_PREFIX = "[auto-holding]"
-
-
-def sync_stop_profit_rules_from_holdings(db: Session) -> dict:
-    holdings = db.query(Holding).filter(Holding.sell_date.is_(None)).all()
-
-    desired: dict[str, float] = {}
-    for h in holdings:
-        if not h.stop_profit_price or h.stop_profit_price <= 0:
-            continue
-        prev = desired.get(h.stock_code)
-        desired[h.stock_code] = (
-            float(h.stop_profit_price) if prev is None else min(prev, float(h.stop_profit_price))
-        )
-
-    existing = (
-        db.query(AlertRule)
-        .filter(
-            AlertRule.rule_type == "stop_profit",
-            AlertRule.note.isnot(None),
-            AlertRule.note.like(f"{AUTO_HOLDING_NOTE_PREFIX}%"),
-        )
-        .all()
-    )
-
-    created = updated = removed = 0
-    seen: set[str] = set()
-    for rule in existing:
-        code = rule.stock_code or ""
-        if code not in desired:
-            db.delete(rule)
-            removed += 1
-            continue
-        seen.add(code)
-        target = desired[code]
-        if float(rule.params.get("stop_price", -1)) != target or not rule.enabled:
-            rule.params = {"stop_price": target}
-            rule.enabled = True
-            updated += 1
-
-    for code, target in desired.items():
-        if code in seen:
-            continue
-        db.add(
-            AlertRule(
-                rule_type="stop_profit",
-                stock_code=code,
-                params={"stop_price": target},
-                enabled=True,
-                note=f"{AUTO_HOLDING_NOTE_PREFIX} 来自持仓止盈价",
-            )
-        )
-        created += 1
-
-    db.commit()
-    return {"created": created, "updated": updated, "removed": removed}
 
 
 def evaluate_all_rules(db: Session) -> dict:
@@ -370,9 +283,7 @@ def evaluate_all_rules(db: Session) -> dict:
             if _should_dedupe(db, rule):
                 rule.last_evaluated_at = _utcnow()
                 continue
-            if rule.rule_type == "stop_profit":
-                ev = _eval_stop_profit(db, rule, snapshot)
-            elif rule.rule_type == "dividend_ex_date_near":
+            if rule.rule_type == "dividend_ex_date_near":
                 ev = _eval_dividend_ex_date_near(db, rule)
             elif rule.rule_type == "financial_report_released":
                 ev = _eval_financial_report_released(db, rule)

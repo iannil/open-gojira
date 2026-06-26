@@ -9,7 +9,6 @@ from app.core.datetime_utils import now
 
 if TYPE_CHECKING:
     from app.models.dividend import DividendRecord
-    from app.models.holding import Holding
     from app.models.valuation import ValuationSnapshot
 
 
@@ -116,9 +115,6 @@ class Stock(Base):
 
     # Relationships
     valuations: Mapped[List["ValuationSnapshot"]] = relationship(
-        back_populates="stock", cascade="all, delete-orphan"
-    )
-    holdings: Mapped[List["Holding"]] = relationship(
         back_populates="stock", cascade="all, delete-orphan"
     )
     dividends: Mapped[List["DividendRecord"]] = relationship(
