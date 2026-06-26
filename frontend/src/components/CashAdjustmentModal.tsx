@@ -39,12 +39,12 @@ export function CashAdjustmentModal({ open, mode, onClose, onCreated }: Props) {
       form.resetFields();
       onCreated?.();
       onClose();
-    } catch (err: any) {
-      const detail = err?.response?.data?.detail;
+    } catch (err) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       setError(
         typeof detail === "string"
           ? detail
-          : err?.message || "提交失败",
+          : (err as Error)?.message || "提交失败",
       );
     } finally {
       setSubmitting(false);

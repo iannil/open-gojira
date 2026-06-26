@@ -299,9 +299,9 @@ function ReportDetail({ report }: { report: ResearchReportFull }) {
         <Text type="secondary" style={{ fontSize: 12 }}>
           生成时间: {report.created_at ? new Date(report.created_at).toLocaleString('zh-CN') : '?'}
           {report.expires_at && (
-            <>　·　过期: {new Date(report.expires_at).toLocaleString('zh-CN')}</>
+            <>{'　·　'}过期: {new Date(report.expires_at).toLocaleString('zh-CN')}</>
           )}
-          {report.prompt_version && <>　·　Prompt: {report.prompt_version}</>}
+          {report.prompt_version && <>{'　·　'}Prompt: {report.prompt_version}</>}
         </Text>
       </Space>
     </Card>

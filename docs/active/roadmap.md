@@ -1,128 +1,65 @@
-# Gojira 下一步计划 (Roadmap)
+# Gojira 下一步计划 (Roadmap, v2)
 
-> **最后更新**: 2026-06-13 (重审 P1 全部落地或决策跳过后)
-> **当前状态**: 820 测试通过,重审 5/7 决策已 ship (#1/#2/#4/#6/#7B);#3 保留回测 / #5 跳过 S6 是 no-op
-> **关联**: `docs/progress/STATUS.md` (项目快照) | `docs/reference/specs/2026-06-13-revisit-production-readiness-plan.md` (重审决策)
-
----
-
-## 已完成里程碑 ✅
-
-### 2026-06-13: production-readiness-plan 重审
-
-7 项决策锁定 (基于一次完整 grill-me 会话,详见 `docs/reference/specs/2026-06-13-revisit-production-readiness-plan.md`):
-
-1. 删除 PROMOTE 闸门 → 候选股自动评估交易规则
-2. EXECUTE + TRADE_ENTRY 合并为单 modal
-3. 保留回测引擎 (0 runs,但 #7B 前置依赖)
-4. watchlist 去闸门语义,留股池语义
-5. **跳过 S6 (Docker/DR)** — 0 实盘前不容器化
-6. draft 全表现,Qiu 评分排序
-7. **双层闸门**: backtest 验证 + 严格人工评审 (DisciplineChecklistModal)
-
-### 2026-06-12: production-readiness S0-S5 ship
-
-完整 6 阶段计划 (除 S6 外) 全部实现:
-- S1 trades/cash/fees 模型 + 迁移
-- S2 T+1 + 价格校验 + position sizing
-- S3 Lixinger 多层防御 + system_alerts (实测 14 alerts 正常工作)
-- S4A corp_actions + S4B historical_* + S4C+D 回测引擎与 UI
-- S5 intraday_monitor + 多通道通知 + stop_loss
-
-### 2026-06-11: 第 6 轮全面深度审计修复
-
-6 维度 32 项发现全部修复 (P0×5 + P1×15 + P2×12):
-- **P0**: Plan DSL OR 逻辑失效 / 持仓权重计算基数不一致 / total_pnl 价格不可用处理 / 行业权重前后检查不一致 / (另一项架构问题)
-- **P1**: LIKE 通配符注入 / Scheduler 并发保护 / strategy_engine inconclusive 状态 / 年化收益率极端值 / + 11 项
-- **P2**: 自定义异常替代 HTTPException / EventBus 异步派发 / 批量查询优化 / domain dataclass 转 Pydantic / 33 端点补 response_model / + 7 项
-
-详见 `docs/reports/completed/full-audit-round6-2026-06-11.md`。
-
-### 2026-06-09: 数据管理模块精细化升级
-
-新增 5 Tab (健康概览 / Pipeline 控制 / 股票池 / 质量 / 清理),14 个前端组件,sync 统一到 Pipeline 入口。
-
-### 2026-06-09: 全链路可观测系统
-
-装饰器驱动 + 模块级批量注入,158 函数自动 instrument。
-
-### 2026-06-06: 自动驾驶舱 Step 1-4
-
-四步重定位全部 ship,详见 `docs/progress/2026-06-06-autopilot-step{1,2,3,4}.md`:
-- Step 1: cashflow_goal / audit_log / stock.quadrant + Alembic
-- Step 2: Plan DSL + 纯函数 evaluator + drafts + scheduler job
-- Step 3: cashflow_service + cockpit_service + 前端 4 页 IA
-- Step 4: 删除 30+ 旧文件,仅留预案闭环所需
-
-### 2026-06-05: 业务闭环打通
-
-(分析 → 决策 → 持仓) 自动接力,375 测试通过。详见 `docs/reports/completed/2026-06-05-business-loop-closure.md`。
+> **最后更新**: 2026-06-26（v2 大重写后重订）
+> **当前状态**: 纸面交易 P0 后端闭环完成（555 测试记录值）。Phase 0-5 ✅，Phase 6-8 进行中。
+> **分工**: 本文 = 近期优先级；`docs/active/v2-implementation-plan.md` = 完整 8-Phase 蓝图；`docs/progress/2026-06-26-v2-architecture-and-progress.md` = 架构全景。
 
 ---
 
-## P0: 阻塞真实使用 (立即修)
+## P0：纸面交易前端 UI（最高优先级 — 闭合 paper 验证回路）
 
-| # | 项 | 状态 | 说明 |
-|---|---|---|---|
-| 1 | **解 Lixinger token** | ❌ 失效中 | 2026-06-13 实测 token expired,14 条 critical alert silent (只配 in_app)。不解决一切停摆 |
-| 2 | **跑首个 backtest** | ❌ 未做 | 回测引擎 ship 但 0 runs。重审决策 #7B 要求"先验证策略再信任 draft"。跑内置 6 策略 5-10 年回测,看 CAGR/Sharpe |
-| 3 | **去 watchlist 闸门 (line 494)** | ❌ 未做 | `plan_runner.py:494 if code not in watchlisted: return` 静默吞 296 候选 → 0 draft。改:对所有候选评估交易规则。重审 #1+#4 |
+> 后端 4 信号 + 回填 + 信号告警已就绪（P0-1~P0-4），但用户还看不到/点不动。先把前端补齐才能真正开始 paper 跟踪。
 
-## P1: 架构改动 (重审决策落地)
+| # | 项 | 说明 |
+|---|---|---|
+| 1 | **重建 `/drafts` 页** | 当前是 stub。展示应买/应卖 draft 列表（含 trigger_source / tier / sizing / TTL 倒计时），inline 1-click 审批入口 |
+| 2 | **"确认成交"弹窗** | execute draft 时弹窗回填实际成交价/量/时间 → manual Trade（source_ref=draft.id）。实际可偏离建议价 |
+| 3 | **Cockpit 信号区** | 待办 signals（应买/应卖）置顶，接 `system_alert(category=signal)` |
+| 4 | **T+1 可用股数展示** | SELL draft 显示可卖股数（position_service 冻结逻辑） |
 
-| # | 项 | 决策来源 | 状态 | 说明 |
-|---|---|---|---|---|
-| 1 | **删除 PROMOTE 流程** | 重审 #1 | ✅ ship `5833c25` | candidates 不再走"手动提升 watchlist"通道。Watchlist 仅保留作手动股池 |
-| 2 | **合并 EXECUTE + TRADE_ENTRY** | 重审 #2 | ✅ ship `16fb7b3` | 点"执行" → modal 预填 draft → 填 broker 回报 → 存 = trade 写入 + draft 关闭 |
-| 3 | **Cockpit draft 按 Qiu 排序** | 重审 #6 | ✅ ship `b92f5c5` | 30-100 draft/天流入,按评分排序展示,用户自选 Top N 深审 |
-| 4 | **强制 DisciplineChecklistModal** | 重审 #7B | ✅ ship `16fb7b3` (顺带) | 10 项纪律 (4 AUTO + 6 MANUAL) 全勾 + fillValid 才能启用执行按钮 |
-| 5 | **端到端手动验收** (回归) | 既有 | ⏭️ 跳过 (2026-06-13) | 用户决策,先看真实使用再说 |
-| 6 | **远程 Git 仓库** | 既有 | ⏭️ 跳过 (2026-06-13) | 用户决策 |
-| 7 | **CI** | 既有 | ⏭️ 跳过 (2026-06-13) | 用户决策 |
-| 8 | **cashflow_goal UI 编辑入口** | 既有 | ⏭️ 跳过 (2026-06-13) | 用户决策 |
-| 9 | **配置 server_chan 通道** | 实测发现 | ⏭️ 跳过 (2026-06-13) | 用户决策,需 server酱 key |
+## P1：评价系统（四层指标 — 回答"系统选股能否稳定盈利"）
 
----
+| # | 项 | 说明 |
+|---|---|---|
+| 1 | **组合层** | 总市值 / 已实现+浮动盈亏 / 持仓明细（position_service 派生） |
+| 2 | **基准层** | vs 沪深300（同期收益对比，需引指数序列） |
+| 3 | **质量层** | 夏普 / 交易次数 / **双引擎归因**（只算 source_ref 非空的 draft→trade）|
+| 4 | **信号层** | 建议价 vs 实际价滑点 / 信号质量统计 |
 
-## P2: 体验补全 (中优先级)
+## P2：触发接线补全（让更多自动信号真正产出 draft）
 
-- **月度复盘视图**: 基于 audit_log 时间轴 + 草稿命中率统计。当前 `ReviewPage` 仅基础展示,缺统计图表
-- **预案 diff 视图**: 版本切换时显示与上一版的差异 (`PlanDiffDrawer.tsx` 已删除,需重新实现)
-- **StockDetail 加入"为该股新建预案"**: 自动回填 `code` 字段
-- **候选池筛选持久化**: 当前 7 个筛选条件刷新后丢失,需存到 URL 或 localStorage
-- **Cockpit 数据快过期提示**: 当 Lixinger 数据超过 N 天未更新时,UI 给出红色警告
+- **估值止盈触发**（信号 2）：每日扫候选/持仓估值 > 1.3x → TRIM draft
+- **仓位超限触发**（信号 3）：> 15% → TRIM 回 10%
+- **news_pulse / earnings_review 接线**（信号 4）：异动/财报事件 → 基本面恶化判断 → SELL draft
+- `decision_audit` 表填充（Phase 6 Tier 2 前置）
 
----
+## P3：技术债清理
 
-## P3: 技术债 (低优先级)
+- **删 scheduler.py v1 孤儿 job**：`daily_plan_evaluation_job` / `thesis_evaluation_job` / `weekly_rebalancing_review_job` / `daily_cycle_assessment_job` / `_monthly_thesis_variable_sync_job` / `_weekly_research_refresh_job` / `weekly_business_pattern_inference_job` / `research_stale_sweep_job` 及其 helper（引用已删的 `watchlist_service`/`plan_runner`/`ResearchRun`）。同时修 registry 内 job 触及未导入 `watchlist_service` 的 latent NameError（改用 lifecycle/position 派生 code 列表）。详见审计报告。
+- **澄清/合并两套 research API 命名**（`client.ts` serenity vs `research.ts` v2）
+- **澄清数据校验服务边界**（`data_quality`/`data_sanity`/`data_freshness`/`price_validator`）
+- **确认 `historical_data_pipeline.py`** 是否被 `pipelines/` 取代
+- 前端 bundle 分块（echarts 按需）
 
-- **holding_service 拆层**: 把 `get_portfolio_summary` 拆成纯计算 + 持久查询两层 (cashflow_service 强依赖)
-- **datetime.utcnow() 迁移**: 全部换成 `datetime.now(UTC)` (pytest 跑出 30+ 个 DeprecationWarning)
-- **前端 bundle 分块**: esm.js 已 1.1MB,按需拆分 ECharts (`React.lazy` 已就位,但 echarts 全量引入)
-- **observability_report.py CLI 分离**: 当前 11 个 `print()` 在文件内,可考虑分离为独立 CLI 模块
+## Phase 6（度量系统，对应 v2-implementation-plan）
 
----
+- Tier 1 运营健康：Pipeline 成功率 / 冲突率 / 红线分布 / 月度 LLM 成本 + 前端监控页
+- Tier 2 决策质量：decision_audit 填充 / Draft 批准率 / 论文证伪率
+- Tier 3 系统校准：四大师评分与后续股价相关（数据采集）
+- Pipeline 熔断：conflict_rate_50 > 20% → throttler 暂停 + 告警
 
-## 移除的旧路线 (历史决策)
+## Phase 7-8（测试与部署）
 
-- ~~行业模板评分~~: 文档主张人脑第一性原理判断
-- ~~DCF / 内在价值~~: 文档反对精算
-- ~~手动纪律打勾 (8 项门控)~~: 纪律已上移到 Plan DSL 的 gates 字段
-- ~~candidate_pool 三道筛~~: 被预案 + watchlist 取代
-- ~~决策复盘 manual~~: 被 audit_log 自动替代
-- ~~预案模板库 (plan_templates 表)~~: 表已删除,内置 4 预案硬编码在 `builtin_seeder.py` 即可
-- ~~cashflow_goal.cash_reserve 与 portfolio_settings.cash_reserve 合并~~: portfolio_settings 表已删除 (round4),合并已完成
+- Eval Set 20-30 家公司（`tests/eval/companies/*.json`）+ snapshot + 3-5 条 E2E
+- docker-compose dev/prod cutover + 备份 cron（compose 已存在，未上线）
 
 ---
 
-## 不在路线图上 (明确不做)
+## 不在路线图上（明确不做）
 
-- 用户认证 / 多用户支持 (个人投资工具)
-- PostgreSQL 迁移 (SQLite WAL 已满足并发需求)
-- 移动端 App (响应式 Web 已够用)
-- 第三方数据源接入 (Lixinger 唯一数据源决策已确认)
-- **S6 Docker / DR** (重审 #5, 2026-06-13): 0 实盘前不容器化,先用 dev 模式跑通 2-4 周再回访
-- **watchlist 闸门语义** (重审 #4, 2026-06-13): candidates 不再走"手动提升"通道,自动评估交易规则
-- **draft Top-N 系统强制阈值** (重审 #6, 2026-06-13): 全表现 + Qiu 排序,用户时间天然约束 N
-- **税务 / 合规导出** (原 Q12)
-- **交割单 CSV 自动导入** (原 Q13, 用户选择手动录入)
+- 用户认证 / 多用户（个人工具，单用户 by-design）
+- PostgreSQL 迁移（SQLite WAL 已满足）
+- 移动端 App（响应式 Web 够用）
+- 第三方数据源（Lixinger 唯一源决策已确认；行业映射缺口为已知限制 F20）
+- 止损（v2 决策不做止损，卖出走 4 信号）
+- 范围蔓延加新 Pipeline（严格按 26 决策，新需求 → v3）

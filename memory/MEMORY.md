@@ -93,9 +93,14 @@
 - **v2-rewrite 留下大量 v1-leftover** (2026-06-25): service 层多个孤立/半坏服务(cockpit/cashflow/market_temp/universe/notification)靠惰性 import 或 try/except 掩盖,app 能启动但端点崩;旧 tests/ 树有 ~60 个测已删 v1 功能的死测试 + ~25 个 stale 断言。教训:大重写后必须跑**全套**测试(不只新测试)+ 逐 live 服务 grep 已删模块引用
 - **死测试 vs 真 bug 要分辨** (2026-06-25 #15): collection error 的多是 v1 死测试(删);但「测现存 v2 代码却失败」的可能是真 bug(如 universe_service 引用已删模型致 /universe 崩)。不能一律删
 - **Lixinger 数据表是 squash 基线的前提** (2026-06-25): alembic 从空库 upgrade 失败的根因是早期 base 迁移被删;凡删迁移文件要确认不破坏 down_revision 链
+- **docstring 的 "0 callers" 不可信** (2026-06-26 文档治理): `datetime_utils.utcnow()` docstring 自称 0 callers,实际 `events.py:17/59` 仍用作 Event timestamp default_factory。删任何函数前必 `grep -rn`,不信注释
+- **scheduler.py 是 v1/v2 混合 latent bug 源** (2026-06-26): 残留 v1 孤儿 job 引用已删模块(`watchlist_service`/`plan_runner`/`ResearchRun`);registry 内 `_watched_and_held_codes` 触及从未 import 的 `watchlist_service` → latent NameError。默认 SCHEDULER_ENABLED=false 未暴露,P3 清理
 
 ## 文档导航 (v2)
 
+- `docs/progress/STATUS.md` — **高频快照**(2026-06-26 重写为 v2 真相)
+- `docs/progress/2026-06-26-v2-architecture-and-progress.md` — **v2 完整架构与进展**(LLM 友好,迭代必读)
+- `docs/reports/2026-06-26-codebase-cleanup-audit.md` — 代码库清理审计(冗余/过期/失效项 + 已执行清理)
 - `docs/standards/trading-philosophy.md` — **交易思想权威**(双引擎/评分/去重×3/弃用清单/as-is→to-be)
 - `docs/reports/completed/2026-06-25-legacy-cleanup-test-and-migration.md` — 本轮清理完整记录(测试/迁移/服务)
 - `docs/active/redesign-decisions-v2.md` — **工程决策锚点(AI 首读)**,26 决策

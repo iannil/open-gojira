@@ -4,11 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-Gojira 是一台 **「个人股票自动驾驶舱」**：面向中国 A 股市场,基于 `docs/reference/invest{1,2,3}.md` 的投资体系,实现「策略组合 → 自动扫描 → 候选池 → 交易信号 → 持仓审计」全流程自动化。除了在券商真实下单外,筛选 / 监控 / 告警 / 订单草稿 / 再平衡建议 / 逻辑证伪全部自动。
+Gojira 是一台 **「个人股票自动驾驶舱」**：面向中国 A 股市场,采用**规则筛选 + LLM 深度研究 + 规则/人工审批**的混合架构,实现「选股 → 深研 → 买卖草稿 → 持仓审计 → 论点跟踪」全流程自动化。除了在券商真实下单外,全部自动。
 
-技术栈: FastAPI (Python 3.14) + React 19 (TypeScript) + SQLite (WAL) + Ant Design 6 + ECharts 6。Lixinger (理杏仁) 是唯一外部 A 股数据源。
+**双引擎选股**(两条独立来源,不互相裁决)：价值复利(ai-berkshire 四大师 段/巴/芒/李)+ 产业链卡点(serenity)。交易思想权威见 `docs/standards/trading-philosophy.md`,工程决策见 `docs/active/redesign-decisions-v2.md`(26 决策)。
 
-当前状态: 402 测试通过,业务闭环已打通 (2026-06-11)。详见 `docs/progress/STATUS.md`。
+技术栈: FastAPI (Python 3.14) + React 19 (TypeScript) + SQLite (WAL) + Ant Design 6 + ECharts 6。Lixinger (理杏仁) 是唯一外部 A 股数据源,Zhipu GLM 提供 LLM + web_search。
+
+当前状态: **v2 大重写**(2026-06-24 起),纸面交易后端闭环完成(2026-06-26,555 测试记录值)。详见 `docs/progress/STATUS.md` + `docs/progress/2026-06-26-v2-architecture-and-progress.md`。
+
+> ⚠️ **v1→v2**：v2 删除了 v1 规则策略引擎(Strategy/Plan/Candidate/Watchlist/Holding/builtin_seeder/strategy_engine/plan_runner)。遇到这些名字或 `docs/reference/invest{1,2,3}.md`/`docs/reference/specs/` 一律视为已删除历史。
 
 ## 项目指南
 
@@ -129,32 +133,38 @@ npm run lint
 
 分层架构：**Routers → Services → Models**，使用 **Schemas** 进行请求/响应校验。
 
-- `app/main.py` — FastAPI 应用入口，配置 CORS、生命周期（自动建表）及所有路由注册
-- `app/config.py` — Pydantic Settings，读取 `.env` 配置；默认使用 SQLite，路径为 `data/gojira.db`
-- `app/routers/` — 按业务域划分的 API 端点 (21 个业务模块)：health, stocks, valuation, portfolio, dividend, market, financial, watchlist, alerts, scheduler, cashflow_goal, audit_log, plans, strategies, candidates, drafts, cockpit, review, theme, data_management, observability
-- `app/services/` — 业务逻辑层 (42 个模块)；通过依赖注入接收 SQLAlchemy `Session`
-- `app/services/pipelines/` — Pipeline 子系统 (11 个模块):manager 编排 + base/checkpoint/dead_letter/metrics/throttler 基础设施 + 5 个数据类型 Pipeline
-- `app/schemas/` — Pydantic v2 模型，用于请求/响应数据校验
-- `app/models/` — SQLAlchemy ORM 模型 (17 个)：Stock, Holding, Plan, Draft, Candidate, Strategy, ValuationSnapshot, FinancialStatement, DividendRecord, PriceKline, AlertRule, AuditLog, CashflowGoal, Theme, WatchlistItem, SchedulerJob, PipelineRun
-- `app/db/` — 数据库引擎（SQLite + WAL）、会话管理（`get_db` 依赖）、声明式基类
-- `app/services/lixinger_client.py` — Lixinger (理杏仁) API 客户端，唯一的 A 股数据源
-- `app/scheduler.py` — APScheduler 后台调度（每日快照、K线、警报评估、Plan 评估、周度再平衡、月度论点同步）
-- `app/services/plan_runner.py` — Plan DSL 执行器（扫描 → 评估 → 更新候选 → 生成 Draft；纯函数逻辑提取到 strategy_engine）
-- `app/services/strategy_engine.py` — 纯函数策略评估器（StrategyRule + StockContext → EvalResult）
-- `app/services/builtin_seeder.py` — 内置 6 策略 + 4 预案的硬编码定义（启动时初始化）
-- `app/services/thesis_variable_sync_service.py` — 论点变量行业模板 + 自动同步
-- `app/core/observability.py` + `app/core/observability_report.py` — 全链路可观测系统（装饰器驱动）
-- `app/core/events.py` + `app/core/event_handlers.py` — 进程内 EventBus（异步非阻塞派发）
+实测计数(2026-06-26)：**22 routers · 36 services + llm(10) + pipelines(11 + pipelines/llm 6) · 27 models · 21 schemas · core(14) · 3 alembic 迁移**。
+
+- `app/main.py` — FastAPI 应用入口，配置 CORS、生命周期（建表 + alembic upgrade）及 22 路由注册
+- `app/config.py` — Pydantic Settings，读取 `.env`；默认 SQLite,路径 `data/gojira.db`
+- `app/routers/` — 22 个业务模块：health, stocks, valuation, financial, dividend, portfolio, market, trades, cash, fee_configs, corp_actions, drafts, cockpit, **research_v2**, **theme_scan**, alerts, system_alerts, notifications, scheduler, data_management, audit_log, observability
+- `app/services/` — 业务逻辑层(顶层 36)；依赖注入接收 SQLAlchemy `Session`
+- `app/services/llm/` — LLM 层(10)：`client`(GLM/Anthropic 抽象 + 缓存/重试/watchdog)、`cost_tracker`($150 硬熔断)、`conflict_validator`(5% 后验)、`red_line_checker`(8 红线)、`scoring`、`prompt_loader`、`deep_research_schema`、`theme_scan_schema`
+- `app/services/pipelines/` — Pipeline 框架(11)：manager 编排 + base/checkpoint/dead_letter/metrics/throttler + 5 数据 Pipeline(dividend/financial/kline/valuation/universe_bootstrap)
+- `app/services/pipelines/llm/` — 6 个 LLM Pipeline：quality_screen / deep_research(4 大师并行 + 综合) / thesis_tracker / news_pulse / earnings_review / theme_scan
+- `app/schemas/` — Pydantic v2 请求/响应校验(21)
+- `app/models/` — SQLAlchemy ORM(27)：Stock, Trade, CashBalance, Draft, ResearchReport, ThemeScanReport, StockLifecycle, DecisionAudit, LLMCallLog, RedLineEvent, Valuation, Financial, PriceKline, Dividend, CorpAction, SystemAlert, AuditLog, ...（**无 Holding/Plan/Candidate/Strategy/Watchlist** — v2 已删）
+- `app/services/position_service.py` — **持仓/盈亏唯一真相源**(Trade 账本派生：移动加权 / 已实现+浮动盈亏 / T+1 冻结)。`holdings` 表已删(migration `v2_4`)
+- `app/services/trade_service.py` — `record_trade` 唯一写持仓入口
+- `app/services/draft_generator.py` — BUY 草稿生成(触发条件 D + 仓位 10/30/20 + TTL 7 天)
+- `app/services/lifecycle_service.py` — StockLifecycle 状态机(30 天 re-research 缓存)
+- `app/services/lixinger_client.py` — Lixinger API 客户端,唯一 A 股数据源
+- `app/scheduler.py` — APScheduler 后台调度。live JOB_REGISTRY 含数据同步 + `daily_draft_generation` + v2 LLM(`v2_quality_screen/deep_research/thesis_tracker_weekly`)。⚠️ 仍残留 v1 孤儿 job(引用已删模块,P3 待清,见审计报告)
+- `app/prompts/` — 外部 prompt 目录(按 pipeline 分)
+- `app/core/observability*.py` — 全链路可观测系统(`@tracked` 装饰器 + 模块级批量注入)
+- `app/core/events.py` + `event_handlers.py` — 进程内 EventBus(异步非阻塞)
+- `app/core/scoring_config.py` — 双引擎评分 profile 权重(PROFILE_WEIGHTS)
 
 ### 前端 (React 19 / TypeScript / Vite)
 
-- `src/App.tsx` — Ant Design ConfigProvider + React Router，嵌套路由挂载在 Layout 下
-- `src/api/client.ts` — Axios 客户端，baseURL 为 `/api`；所有 API 函数集中定义在此
-- `src/api/types.ts` — TypeScript 类型定义，与后端 schemas 一一对应
-- `src/pages/` — 路由级页面组件 (9 个)：Cockpit, Universe, Strategies, Plans, Candidates, Review, StockDetail, DataManagement, Scheduler
-- `src/components/` — 按功能组织的组件：QiuScorerWizard, DisciplineChecklistModal, KlineChart 等
-- `src/styles/theme.css` — 全局 CSS 自定义属性主题（"墨韵金阁"风格）
-- `src/components/Layout.tsx` — 应用外壳，包含导航栏
+**feature-based 架构**：`src/pages/*` 是 1 行 re-export shim,真实实现在 `src/features/`。
+
+- `src/App.tsx` — ConfigProvider + React Router + TanStack Query，路由挂在 Layout 下
+- `src/api/client.ts` — API 函数集中定义(含 serenity research 块);`src/api/research.ts` — v2 research 客户端(5 函数)
+- `src/api/types.ts` — TypeScript 类型,与后端 schemas 对应
+- `src/features/` — 路由级功能模块(9)：`cockpit`(信号优先 dashboard) / `universe` / `reports`(研究报告) / `stock-detail`(研究触发+K线) / `trades`(账本+出入金) / `data-management` / `scheduler` / `monitoring`(通知+风控,内嵌 alerts) / `drafts`(⚠️ stub 待重建)
+- `src/components/` — 共享组件：`Layout`(导航壳) / `ErrorBoundary` / `QueryBoundary` / `SystemAlertBanner` / `TradeEntryModal` / `CashAdjustmentModal` / `primitives/`
+- `src/styles/theme.css` — 全局 CSS 主题（"墨韵金阁"风格）
 
 ### 测试
 
@@ -163,25 +173,30 @@ npm run lint
 ## 关键模式
 
 - 所有路由端点通过 `Depends(get_db)` 获取数据库会话，再委托给 service 层处理
-- 前端 API 客户端集中在 `src/api/client.ts`，新增接口在此添加函数
+- 前端 API 客户端集中在 `src/api/client.ts` / `src/api/research.ts`，新增接口在此添加函数
 - Pydantic schemas 与 ORM models 分离，由 service 层负责转换；序列化标准见 `docs/standards/serialization.md`
-- 内置策略与预案硬编码在 `backend/app/services/builtin_seeder.py`，启动时初始化（不读外部 JSON）
-- UI 组件库使用 Ant Design；图表使用 ECharts（通过 echarts-for-react）
-- 可观测性：`@tracked` 装饰器 + 模块级批量注入，158 函数自动埋点；trace_id 全链路唯一
-- EventBus 异步非阻塞：数据到达后的自动响应链（策略重评估 / 告警 / 审计）
+- **双引擎评分 hybrid**：LLM 算分=advisory,Python 按 source profile(`scoring_config.PROFILE_WEIGHTS`)复核为权威分
+- **LLM 防御三层**：Prompt 约束 + 代码后验(单股 ≤5% `conflict_validator`)+ Pipeline 熔断(冲突率 >20%)+ 8 红线否决(`red_line_checker`);成本 `cost_tracker` $150/月硬熔断
+- **持仓真相源唯一**：一切持仓/盈亏经 `position_service` 从 Trade 账本派生,写交易走 `trade_service.record_trade`,勿直接建持仓
+- LLM prompt 走 `app/prompts/{pipeline}/` 外部文件,不硬编码在 py
+- UI 组件库 Ant Design；图表 ECharts(echarts-for-react)
+- 可观测性：`@tracked` 装饰器 + 模块级批量注入,trace_id 全链路唯一
+- EventBus 异步非阻塞：数据/论点/审计的自动响应链；新买卖 draft → in-app `system_alert(category=signal)`
 
 ## 文档索引
 
-- `docs/progress/STATUS.md` — **项目当前状态真相**（AI 首先阅读此文件）
-- `docs/active/roadmap.md` — 下一步优先级计划 (P1/P2/P3)
-- `docs/standards/serialization.md` — 序列化标准（持续生效的代码规范）
+- `docs/progress/STATUS.md` — **项目当前状态快照**（AI 首先阅读此文件）
+- `docs/progress/2026-06-26-v2-architecture-and-progress.md` — **v2 完整架构与进展**(迭代必读)
+- `docs/standards/trading-philosophy.md` — **交易思想权威**(双引擎/评分/去重/弃用清单)
+- `docs/active/redesign-decisions-v2.md` — **工程决策锚点**(26 决策,AI 首读)
+- `docs/active/v2-implementation-plan.md` — 8-Phase 完整蓝图
+- `docs/active/roadmap.md` — 近期优先级 (P0/P1/P2/P3)
+- `docs/standards/serialization.md` — 序列化标准（持续生效）
 - `docs/templates/` — 文档骨架模板（progress-entry / completed-report / acceptance-report）
-- `docs/reports/completed/` — 已完成的修改与历轮审计报告 (round4/5/6)
-- `docs/reports/` — 验收报告
-- `docs/reference/invest{1,2,3}.md` — 投资理论体系（本地,gitignored）
-- `docs/reference/investment-theory-source.md` — 投资理论原文合集
-- `docs/reference/specs/` — 已确认的子系统设计规格 (Pipeline / EventBus / 可观测性等)
-- `docs/archive/` — 归档的早期设计稿
+- `docs/reports/` — 验收报告 + 代码库审计；`docs/reports/completed/` — 已完成的修改记录
+- `docs/reference/ai-berkshire/` · `serenity-skill/` — 双引擎方法论参考（gitignored）
+- `docs/archive/v1/` — v1 废弃文档（redesign-decisions-v1 / ADRs / 审计）；`docs/archive/` — 早期设计稿
+- `memory/MEMORY.md` · `memory/daily/` — 项目记忆（沉积层 + 流层）
 
 **文档规范**（详见项目指南）：
 - 未完成的修改 → `docs/progress/`

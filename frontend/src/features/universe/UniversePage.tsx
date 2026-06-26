@@ -283,7 +283,7 @@ export default function UniversePage() {
       dataIndex: 'in_circle',
       width: 70,
       align: 'center',
-      render: (inCircle: boolean | undefined, record: any) => (
+      render: (inCircle: boolean | undefined, record: UniverseItem) => (
         <Tooltip title={inCircle ? '在我的能力圈内 (invest3 核心十诫 #9)' : '未标记为能力圈内 — plan_runner 默认过滤'}>
           <Switch
             size="small"
@@ -293,7 +293,7 @@ export default function UniversePage() {
                 await axios.put(`/api/stocks/${record.code}`, { in_circle: checked });
                 message.success(`${record.code} 能力圈 ${checked ? '✓' : '✗'}`);
                 myQ.refetch();
-              } catch (e) {
+              } catch {
                 message.error('更新失败');
               }
             }}

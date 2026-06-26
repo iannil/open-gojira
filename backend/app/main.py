@@ -77,7 +77,6 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     _run_alembic_upgrade()
 
-    # Seed built-in strategies and plans
     from app.db.session import SessionLocal
 
     # Eagerly load pipelines to register all @register_pipeline decorators
