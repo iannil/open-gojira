@@ -52,7 +52,7 @@
 - **hybrid 汇合**:serenity 选股 (WHICH) + ai-berkshire 估值/8红线 (PRICE+RISK) → 一张草稿
 - **评分 hybrid**:LLM 算分=advisory,**Python 按 source profile 复核为权威分**;`PROFILE_WEIGHTS` 按 source 切(quality_screen 复利 / theme_scan 主题:李录降权+卡点维度)
 - **去重×3**:① 持久优势三镜(卡点≈护城河≈好生意)同源**整师折叠**封顶(advantage_source 枚举) ② 证据分级**两层**(条目级 strong/med/weak/lead + 包级 A/B/C,各自归属 evidence_grading / defense_methodology) ③ 失败机制:serenity 失败条件**并入芒格** failure_scenarios(§4.3)
-- **trade↔holding(⚠️ 2026-06-26 已决议改为 Trade 派生,实施未开始)**:旧=Holding-only(持仓来自 CSV,trades 独立账本,无同步,`_available_quantity_at` 读 Holding);新决议=持仓/盈亏从 Trade 账本事件溯源推导(新建 `position_service`),CSV→开仓 Trade。详见下方"纸面交易闭环"
+- **持仓/盈亏 = Trade 账本派生(✅ 2026-06-26 完成)**:`position_service` 唯一真相源(移动加权/已实现+浮动盈亏/T+1 冻结);**Holding 模型/表已删**(migration v2_4)。写交易走 `trade_service.record_trade`。详见下方"纸面交易闭环"
 - **notifications = 仅 in-app**:外部渠道(NotificationChannel)已弃用,`notification_service.dispatch_alert` 是 no-op,告警走 system_alert_service
 
 ## 关键决策 (2026-06-25)
