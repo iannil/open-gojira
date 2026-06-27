@@ -19,10 +19,14 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
+import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
-from typing import Any, Optional
+from typing import Any, Iterator, Optional
 
 from sqlalchemy.orm import Session
 
@@ -300,6 +304,46 @@ def _summarize_klines(klines: list[dict]) -> dict:
 # ── Pipeline orchestration ───────────────────────────────────────────────
 
 
+@contextmanager
+def _heartbeat_while(
+    on_progress: Callable[[float, str], None] | None,
+    step_base: float,
+    step_ceiling: float,
+    step_label: str,
+) -> Iterator[None]:
+    """Periodically report progress during a long-running LLM step.
+
+    Fires *on_progress* every 10 s with an elapsed-time message so the
+    front-end progress bar shows the task is alive even while the LLM call
+    blocks the thread.  The progress value creeps from *step_base* toward
+    *step_ceiling* to give visual movement.
+
+    Cleans up the background thread when the ``with`` block exits.
+    """
+    if on_progress is None:
+        yield
+        return
+
+    stop = threading.Event()
+    last_p = [step_base]  # mutable box for closure
+
+    def _tick() -> None:
+        start = time.monotonic()
+        while not stop.wait(10):
+            elapsed = int(time.monotonic() - start)
+            p = min(last_p[0] + 0.01, step_ceiling)
+            last_p[0] = p
+            on_progress(p, f"{step_label} — 已等待 {elapsed}s")
+
+    t = threading.Thread(target=_tick, daemon=True)
+    t.start()
+    try:
+        yield
+    finally:
+        stop.set()
+        t.join(2)
+
+
 def run(
     stock_code: str,
     *,
@@ -311,6 +355,7 @@ def run(
     db_session: Optional[Session] = None,
     llm_client: Optional[LLMClient] = None,
     existing_report_id: Optional[int] = None,
+    on_progress: Callable[[float, str], None] | None = None,
 ) -> DeepResearchResult:
     """Run the full 6-step deep research pipeline for one stock.
 
@@ -328,6 +373,9 @@ def run(
         llm_client: optional injected client (for testing)
         existing_report_id: when set (async flow), update this placeholder
             "running" row in place instead of inserting a new one
+        on_progress: optional callback for granular progress reporting.
+            Called with (progress_0_to_1, message) after each step and
+            periodically during long-running LLM steps.
 
     Returns:
         DeepResearchResult with all fields populated.
@@ -342,25 +390,38 @@ def run(
 
     try:
         # Step 0: gather input
+        if on_progress:
+            on_progress(0.0, f"Gathering input data for {stock_code}")
         input_data = gather_input(db, stock_code)
         if input_data is None:
             raise ValueError(f"Stock not found: {stock_code}")
 
         # Step 1: data_collection
-        data_brief = _run_data_collection(client, db, input_data, model_tier, use_web_search)
+        if on_progress:
+            on_progress(0.10, f"Step 1/6: Data collection for {stock_code}")
+        with _heartbeat_while(on_progress, 0.10, 0.35, "Step 1/6: data_collection"):
+            data_brief = _run_data_collection(client, db, input_data, model_tier, use_web_search)
 
         # Steps 2-5: 4 masters in parallel
-        master_outputs = _run_masters_parallel(
-            client, db, input_data, data_brief, model_tier,
-            failure_conditions=failure_conditions,
-        )
+        if on_progress:
+            on_progress(0.40, f"Step 2-5/6: Running 4 masters for {stock_code}")
+        with _heartbeat_while(on_progress, 0.40, 0.70, "Steps 2-5/6: masters"):
+            master_outputs = _run_masters_parallel(
+                client, db, input_data, data_brief, model_tier,
+                failure_conditions=failure_conditions,
+            )
 
         # Step 6: synthesis
-        synthesis = _run_synthesis(
-            client, db, input_data, data_brief, master_outputs, model_tier
-        )
+        if on_progress:
+            on_progress(0.75, f"Step 6/6: Synthesizing results for {stock_code}")
+        with _heartbeat_while(on_progress, 0.75, 0.88, "Step 6/6: synthesis"):
+            synthesis = _run_synthesis(
+                client, db, input_data, data_brief, master_outputs, model_tier
+            )
 
-        # Defense layer
+        # Defense layer — fast, no heartbeat needed
+        if on_progress:
+            on_progress(0.90, f"Validating for {stock_code}")
         conflicts = _run_conflict_validation(db, stock_code, synthesis)
         red_line_hits = _run_red_line_check(db, stock_code, synthesis)
 
@@ -400,6 +461,8 @@ def run(
         recommendation = REC_PASS if rejected else recommend(authoritative_score)
 
         # Persist
+        if on_progress:
+            on_progress(0.95, f"Persisting report for {stock_code}")
         result = DeepResearchResult(
             stock_code=stock_code,
             overall_score=authoritative_score,

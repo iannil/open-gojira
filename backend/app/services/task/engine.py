@@ -284,6 +284,7 @@ class TaskEngine:
             "triggered_by": run.triggered_by,
             "trace_id": run.trace_id,
             "created_at": run.created_at.isoformat() if run.created_at else None,
+            "log_count": len(run.logs) if run.logs else 0,
         }
 
     # ── Internal: Tick Loop ────────────────────────────────────────────
@@ -474,6 +475,9 @@ class TaskEngine:
             on_progress=lambda p, msg, rid=_run_id: self._update_progress(
                 rid, p, msg,
             ),
+            on_log=lambda level, msg, prog, rid=_run_id: self._append_log(
+                rid, level, msg, prog,
+            ),
         )
 
         # Track timeout
@@ -591,6 +595,29 @@ class TaskEngine:
                     db.commit()
         except Exception:
             pass  # Best-effort progress update
+
+    def _append_log(
+        self,
+        run_id: int,
+        level: str,
+        message: str,
+        progress: float | None = None,
+    ) -> None:
+        """Append a log entry for a task run."""
+        try:
+            with SessionLocal() as db:
+                from app.models.task import TaskRunLog
+
+                entry = TaskRunLog(
+                    run_id=run_id,
+                    level=level,
+                    message=message[:2000],
+                    progress=progress,
+                )
+                db.add(entry)
+                db.commit()
+        except Exception:
+            pass  # Best-effort logging
 
     def _on_task_timeout(self, run_id: int) -> None:
         """Callback invoked by TimeoutWatchdog when a task times out."""

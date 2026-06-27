@@ -1,7 +1,7 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.datetime_utils import now
 from app.db.base import Base
@@ -75,3 +75,35 @@ class TaskRun(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=now(), index=True
     )
+
+    logs: Mapped[list["TaskRunLog"]] = relationship(
+        "TaskRunLog", back_populates="run", cascade="all, delete-orphan",
+    )
+
+
+class TaskRunLog(Base):
+    """A single log entry for a TaskRun execution.
+
+    Provides granular step-by-step logging for task execution,
+    enabling detailed progress tracking and debugging via the frontend.
+    """
+
+    __tablename__ = "task_run_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    run_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("task_runs.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime, default=now(), nullable=False, index=True
+    )
+    level: Mapped[str] = mapped_column(
+        String(16), default="info", nullable=False
+    )
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    progress: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    run: Mapped["TaskRun"] = relationship("TaskRun", back_populates="logs")

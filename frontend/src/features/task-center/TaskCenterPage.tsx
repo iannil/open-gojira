@@ -4,7 +4,9 @@ import {
   Button,
   Card,
   Col,
+  Drawer,
   Popconfirm,
+  Progress,
   Row,
   Space,
   Statistic,
@@ -12,6 +14,7 @@ import {
   Table,
   Tabs,
   Tag,
+  Timeline,
   Tooltip,
   Typography,
 } from 'antd';
@@ -21,6 +24,7 @@ import {
   ClockCircleOutlined,
   CloseCircleOutlined,
   ExclamationCircleOutlined,
+  EyeOutlined,
   PauseCircleOutlined,
   PlayCircleOutlined,
   ReloadOutlined,
@@ -42,6 +46,7 @@ import {
   resumeTask,
   cancelTaskRun,
   retryTaskRun,
+  fetchTaskRunLogs,
 } from '../../api/client';
 import type {
   TaskResponse,
@@ -77,6 +82,13 @@ const statusColorMap: Record<string, string> = {
   running: 'processing',
   queued: 'processing',
   cancelled: 'default',
+};
+
+const levelColorMap: Record<string, string> = {
+  info: 'blue',
+  warning: 'orange',
+  error: 'red',
+  progress: 'green',
 };
 
 // ── Extract business link from task run result ───────────────────────
@@ -146,6 +158,79 @@ function getBizLink(run: TaskRunResponse): BizLink | null {
   return null;
 }
 
+// ── Log Viewer Drawer ───────────────────────────────────────────────
+
+function LogViewerDrawer({
+  runId,
+  taskName,
+  open,
+  onClose,
+}: {
+  runId: number;
+  taskName: string;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const logsQ = useQuery({
+    queryKey: ['task-run-logs', runId],
+    queryFn: () => fetchTaskRunLogs(runId),
+    enabled: open,
+    refetchInterval: open ? 5_000 : false,
+  });
+
+  const logs = logsQ.data ?? [];
+
+  return (
+    <Drawer
+      title={`执行日志 - ${taskName} (Run #{runId})`}
+      placement="right"
+      width={640}
+      open={open}
+      onClose={onClose}
+      extra={
+        <Button size="small" icon={<ReloadOutlined />} onClick={() => logsQ.refetch()}>
+          刷新
+        </Button>
+      }
+    >
+      {logs.length === 0 ? (
+        <Text type="secondary">暂无日志记录</Text>
+      ) : (
+        <Timeline
+          items={[...logs].reverse().map((log) => ({
+            color: levelColorMap[log.level] ?? 'gray',
+            children: (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <Tag
+                    color={levelColorMap[log.level] ?? 'default'}
+                    style={{ fontSize: 'var(--fs-xs)', margin: 0 }}
+                  >
+                    {log.level}
+                  </Tag>
+                  <Text type="secondary" style={{ fontSize: 'var(--fs-xs)' }}>
+                    {formatTime(log.timestamp)}
+                  </Text>
+                </div>
+                <div style={{ marginTop: 4 }}>
+                  <Text style={{ fontSize: 'var(--fs-sm)', whiteSpace: 'pre-wrap' }}>
+                    {log.message}
+                  </Text>
+                </div>
+                {log.progress != null && (
+                  <Text type="secondary" style={{ fontSize: 'var(--fs-xs)', marginTop: 4, display: 'block' }}>
+                    进度: {Math.round(log.progress * 100)}%
+                  </Text>
+                )}
+              </div>
+            ),
+          }))}
+        />
+      )}
+    </Drawer>
+  );
+}
+
 // ── Page Component ───────────────────────────────────────────────────
 
 export default function TaskCenterPage() {
@@ -172,6 +257,11 @@ export default function TaskCenterPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   // Controlled tab key for switching from runs → tasks
   const [activeTabKey, setActiveTabKey] = useState<string>('runs');
+  // Log viewer drawer state
+  const [logDrawer, setLogDrawer] = useState<{
+    runId: number;
+    taskName: string;
+  } | null>(null);
 
   const health = healthQ.data;
   const tasks = tasksQ.data ?? [];
@@ -445,16 +535,42 @@ export default function TaskCenterPage() {
     },
     {
       title: '进度',
-      dataIndex: 'progress',
-      width: 70,
-      render: (p: number) => (
-        <Text className="num">{(p * 100).toFixed(0)}%</Text>
+      width: 200,
+      render: (_: unknown, record: TaskRunResponse) => (
+        <div style={{ minWidth: 160 }}>
+          <Progress
+            percent={Math.round(record.progress * 100)}
+            size="small"
+            status={
+              record.status === 'failed'
+                ? 'exception'
+                : record.status === 'success'
+                  ? 'success'
+                  : 'active'
+            }
+          />
+          {record.progress_message && (
+            <Tooltip title={record.progress_message}>
+              <Text
+                type="secondary"
+                ellipsis
+                style={{
+                  fontSize: 'var(--fs-xs)',
+                  display: 'block',
+                  maxWidth: 180,
+                }}
+              >
+                {record.progress_message}
+              </Text>
+            </Tooltip>
+          )}
+        </div>
       ),
     },
     {
       title: '开始',
       dataIndex: 'started_at',
-      width: 160,
+      width: 150,
       render: (v: string | null) => (
         <Text className="num" style={{ fontSize: 'var(--fs-xs)' }}>
           {formatTime(v)}
@@ -503,6 +619,22 @@ export default function TaskCenterPage() {
         ) : (
           '-'
         ),
+    },
+    {
+      title: '日志',
+      width: 60,
+      render: (_: unknown, record: TaskRunResponse) => (
+        <Button
+          type="link"
+          size="small"
+          icon={<EyeOutlined />}
+          onClick={() =>
+            setLogDrawer({ runId: record.id, taskName: record.task_id })
+          }
+        >
+          {record.status === 'running' ? '实时' : '查看'}
+        </Button>
+      ),
     },
     {
       title: '操作',
@@ -630,7 +762,7 @@ export default function TaskCenterPage() {
                       loading={runsQ.isFetching && !runsQ.data}
                       pagination={{ ...defaultPagination, defaultPageSize: 50 }}
                       size="small"
-                      scroll={{ x: 1100 }}
+                      scroll={{ x: 1400 }}
                     />
                   )}
                 </QueryBoundary>
@@ -675,6 +807,16 @@ export default function TaskCenterPage() {
           },
         ]}
       />
+
+      {/* ── Log Viewer Drawer ── */}
+      {logDrawer && (
+        <LogViewerDrawer
+          runId={logDrawer.runId}
+          taskName={logDrawer.taskName}
+          open={true}
+          onClose={() => setLogDrawer(null)}
+        />
+      )}
     </div>
   );
 }

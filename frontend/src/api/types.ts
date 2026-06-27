@@ -966,6 +966,16 @@ export interface TaskHealthResponse {
 
 export interface TaskRunDetailResponse extends TaskRunResponse {
   task: TaskResponse | null;
+  log_count: number;
+}
+
+export interface TaskRunLogResponse {
+  id: number;
+  run_id: number;
+  timestamp: string;
+  level: string;
+  message: string;
+  progress: number | null;
 }
 
 // ── Sync Data Summaries ───────────────────────────────────────────────

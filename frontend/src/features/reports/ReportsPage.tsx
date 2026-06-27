@@ -239,11 +239,11 @@ export default function ReportsPage() {
                       rec ? <Tag color={REC_COLORS[rec]}>{rec}</Tag> : null,
                   },
                   {
-                    title: '时间',
+                    title: '执行时间',
                     dataIndex: 'created_at',
-                    width: 120,
+                    width: 160,
                     render: (ts: string | null) =>
-                      ts ? new Date(ts).toLocaleDateString('zh-CN') : null,
+                      ts ? new Date(ts).toLocaleString('zh-CN') : null,
                   },
                   {
                     title: '操作',

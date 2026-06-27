@@ -65,6 +65,7 @@ import type {
   TaskHealthResponse,
   TaskResponse,
   TaskRunDetailResponse,
+  TaskRunLogResponse,
   TaskRunResponse,
   TaskUpdate,
   TriggerTaskResponse,
@@ -485,6 +486,16 @@ export async function retryTaskRun(runId: number): Promise<TriggerTaskResponse> 
 
 export async function taskHealth(): Promise<TaskHealthResponse> {
   const res = await apiClient.get<TaskHealthResponse>('/tasks/health');
+  return res.data;
+}
+
+export async function fetchTaskRunLogs(
+  runId: number,
+  limit?: number,
+): Promise<TaskRunLogResponse[]> {
+  const res = await apiClient.get<TaskRunLogResponse[]>(`/tasks/runs/${runId}/logs`, {
+    params: { limit },
+  });
   return res.data;
 }
 

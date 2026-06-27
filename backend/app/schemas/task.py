@@ -73,9 +73,20 @@ class TaskRunResponse(BaseModel):
     created_at: str | None = None
 
 
+class TaskRunLogResponse(BaseModel):
+    """A single log entry for a TaskRun execution."""
+    id: int
+    run_id: int
+    timestamp: str
+    level: str
+    message: str
+    progress: float | None = None
+
+
 class TaskRunDetailResponse(TaskRunResponse):
     """Extended TaskRun with link to parent Task definition."""
     task: TaskResponse | None = None
+    log_count: int = 0
 
 
 class TaskHealthResponse(BaseModel):

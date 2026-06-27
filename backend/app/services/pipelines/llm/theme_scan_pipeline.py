@@ -13,8 +13,12 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
+import time
+from collections.abc import Callable
+from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Iterator, Optional
 
 from sqlalchemy.orm import Session
 
@@ -54,6 +58,46 @@ class ThemeScanResult:
     dropped_codes: list[str] = field(default_factory=list)
     status: str = STATUS_COMPLETED
     report_id: Optional[int] = None
+
+
+@contextmanager
+def _heartbeat_while(
+    on_progress: Callable[[float, str], None] | None,
+    step_base: float,
+    step_ceiling: float,
+    step_label: str,
+) -> Iterator[None]:
+    """Periodically report progress during a long-running LLM step.
+
+    Fires *on_progress* every 10 s with an elapsed-time message so the
+    front-end progress bar shows the task is alive even while the LLM call
+    blocks the thread.  The progress value creeps from *step_base* toward
+    *step_ceiling* to give visual movement.
+
+    Cleans up the background thread when the ``with`` block exits.
+    """
+    if on_progress is None:
+        yield
+        return
+
+    stop = threading.Event()
+    last_p = [step_base]  # mutable box for closure
+
+    def _tick() -> None:
+        start = time.monotonic()
+        while not stop.wait(10):
+            elapsed = int(time.monotonic() - start)
+            p = min(last_p[0] + 0.01, step_ceiling)
+            last_p[0] = p
+            on_progress(p, f"{step_label} — 已等待 {elapsed}s")
+
+    t = threading.Thread(target=_tick, daemon=True)
+    t.start()
+    try:
+        yield
+    finally:
+        stop.set()
+        t.join(2)
 
 
 def _step(
@@ -152,6 +196,7 @@ def run(
     db_session: Optional[Session] = None,
     llm_client: Optional[LLMClient] = None,
     existing_report_id: Optional[int] = None,
+    on_progress: Callable[[float, str], None] | None = None,
 ) -> ThemeScanResult:
     """Run the full 5-step theme_scan workflow for one theme.
 
@@ -163,6 +208,8 @@ def run(
         llm_client: optional injected client (for testing)
         existing_report_id: if set, update this existing ThemeScanReport row
             (created as a placeholder) instead of creating a new one.
+        on_progress: optional callback for granular progress reporting.
+            Called with (progress_0_to_1, message) after each pipeline step.
 
     Returns:
         ThemeScanResult with ranked candidates (status="empty" if no valid
@@ -184,22 +231,41 @@ def run(
             )
 
     try:
-        sc = _step(client, name="system_change", schema=SYSTEM_CHANGE_SCHEMA,
-                   payload={"theme": theme},
-                   model_tier=model_tier, use_web_search=use_web_search, db=db)
-        vc = _step(client, name="value_chain", schema=VALUE_CHAIN_SCHEMA,
-                   payload={"theme": theme, "system_change": sc},
-                   model_tier=model_tier, use_web_search=use_web_search, db=db)
-        sl = _step(client, name="scarce_layer", schema=SCARCE_LAYER_SCHEMA,
-                   payload={"value_chain": vc},
-                   model_tier=model_tier, use_web_search=use_web_search, db=db)
-        cu = _step(client, name="company_universe", schema=COMPANY_UNIVERSE_SCHEMA,
-                   payload={"ranked_layers": sl.get("ranked_layers", [])},
-                   model_tier=model_tier, use_web_search=use_web_search, db=db)
+        if on_progress:
+            on_progress(0.10, "Step 1/5: Analyzing system change")
+        with _heartbeat_while(on_progress, 0.10, 0.28, "Step 1/5: system_change"):
+            sc = _step(client, name="system_change", schema=SYSTEM_CHANGE_SCHEMA,
+                       payload={"theme": theme},
+                       model_tier=model_tier, use_web_search=use_web_search, db=db)
+
+        if on_progress:
+            on_progress(0.30, "Step 2/5: Mapping value chain")
+        with _heartbeat_while(on_progress, 0.30, 0.48, "Step 2/5: value_chain"):
+            vc = _step(client, name="value_chain", schema=VALUE_CHAIN_SCHEMA,
+                       payload={"theme": theme, "system_change": sc},
+                       model_tier=model_tier, use_web_search=use_web_search, db=db)
+
+        if on_progress:
+            on_progress(0.50, "Step 3/5: Ranking scarce layers")
+        with _heartbeat_while(on_progress, 0.50, 0.63, "Step 3/5: scarce_layer"):
+            sl = _step(client, name="scarce_layer", schema=SCARCE_LAYER_SCHEMA,
+                       payload={"value_chain": vc},
+                       model_tier=model_tier, use_web_search=use_web_search, db=db)
+
+        if on_progress:
+            on_progress(0.65, "Step 4/5: Discovering A-share candidates")
+        with _heartbeat_while(on_progress, 0.65, 0.78, "Step 4/5: company_universe"):
+            cu = _step(client, name="company_universe", schema=COMPANY_UNIVERSE_SCHEMA,
+                       payload={"ranked_layers": sl.get("ranked_layers", [])},
+                       model_tier=model_tier, use_web_search=use_web_search, db=db)
 
         valid, dropped = _validate_codes(db, cu.get("candidates", []))
+        if on_progress:
+            on_progress(0.80, f"Validated candidates: {len(valid)} valid, {len(dropped)} dropped")
 
         if not valid:
+            if on_progress:
+                on_progress(0.95, "No valid A-share candidates found")
             result = ThemeScanResult(
                 theme=theme,
                 system_change=sc.get("system_change"),
@@ -219,9 +285,12 @@ def run(
                 db.commit()
             return result
 
-        cr = _step(client, name="candidate_rank", schema=CANDIDATE_RANK_SCHEMA,
-                   payload={"candidates": valid},
-                   model_tier=model_tier, use_web_search=use_web_search, db=db)
+        if on_progress:
+            on_progress(0.85, "Step 5/5: Ranking and scoring candidates")
+        with _heartbeat_while(on_progress, 0.85, 0.98, "Step 5/5: candidate_rank"):
+            cr = _step(client, name="candidate_rank", schema=CANDIDATE_RANK_SCHEMA,
+                       payload={"candidates": valid},
+                       model_tier=model_tier, use_web_search=use_web_search, db=db)
 
         ranked = sorted(
             cr.get("ranked", []),

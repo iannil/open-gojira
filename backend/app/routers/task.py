@@ -232,4 +232,33 @@ def retry_task_run(
         raise HTTPException(status_code=400, detail=str(exc))
 
 
-    return engine.get_health(db)
+# ── Task Run Logs ──────────────────────────────────────────────────────
+
+
+@router.get("/runs/{run_id}/logs", response_model=list[dict])
+def get_task_run_logs(
+    run_id: int,
+    limit: int = Query(500, ge=1, le=2000),
+    db: DBSession = Depends(get_db),
+):
+    """Get execution log entries for a task run."""
+    from app.models.task import TaskRunLog
+
+    logs = (
+        db.query(TaskRunLog)
+        .filter(TaskRunLog.run_id == run_id)
+        .order_by(TaskRunLog.timestamp.asc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        {
+            "id": log.id,
+            "run_id": log.run_id,
+            "timestamp": log.timestamp.isoformat() if log.timestamp else None,
+            "level": log.level,
+            "message": log.message,
+            "progress": log.progress,
+        }
+        for log in logs
+    ]

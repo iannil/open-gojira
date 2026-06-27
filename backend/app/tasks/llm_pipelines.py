@@ -216,6 +216,7 @@ def deep_research_on_demand(ctx: TaskContext) -> dict:
                 use_web_search=use_web_search,
                 db_session=db,
                 existing_report_id=report.id,
+                on_progress=lambda p, m: ctx.report_progress(p, m),
             )
             db.commit()
             ctx.report_progress(1.0, f"Research complete for {stock_code}")
@@ -285,6 +286,7 @@ def theme_scan_on_demand(ctx: TaskContext) -> dict:
                 use_web_search=use_web_search,
                 db_session=db,
                 existing_report_id=report_id,
+                on_progress=lambda p, m: ctx.report_progress(p, m),
             )
             db.commit()
             ctx.report_progress(1.0, f"Theme scan complete for 「{theme}」")
