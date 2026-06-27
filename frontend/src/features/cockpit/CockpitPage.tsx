@@ -17,14 +17,19 @@ import {
   Typography,
 } from 'antd';
 import {
+  BarChartOutlined,
+  BellOutlined,
   DollarOutlined,
   FileTextOutlined,
+  FilterOutlined,
   ReloadOutlined,
   SearchOutlined,
+  WarningOutlined,
+  ClockCircleOutlined,
+  RightOutlined,
 } from '@ant-design/icons';
 
 import { fetchCockpit, fetchEvaluation } from '../../api/client';
-import type { PortfolioEvaluation } from '../../api/client';
 import { getResearchHealth } from '../../api/research';
 import type {
   CockpitDraft,
@@ -143,7 +148,7 @@ export default function CockpitPage() {
 
       {/* ── 评价面板 ─────────────────────────────────────────────── */}
       {ev && (
-        <PageSection title="📈 组合评价">
+        <PageSection title={<><BarChartOutlined /> 组合评价</>}>
           <Row gutter={16} style={{ marginBottom: 16 }}>
             <Col span={6}>
               <Card size="small" title="组合收益">
@@ -208,7 +213,7 @@ export default function CockpitPage() {
       )}
 
       {/* ── 顶部：待办信号 (Drafts 待审批) ─────────────────────────── */}
-      <PageSection title={`🔔 待办信号 — ${c?.drafts_pending_count ?? 0} 个待审批 Draft`}>
+      <PageSection title={<><BellOutlined /> 待办信号 — ${c?.drafts_pending_count ?? 0} 个待审批 Draft</>}>
         <Card>
           {!c || (c.drafts.length === 0 && c.signal_alerts.length === 0) ? (
             <Empty description={
@@ -257,7 +262,7 @@ export default function CockpitPage() {
       </PageSection>
 
       {/* ── 中部：持仓概览 ─────────────────────────────────────────── */}
-      <PageSection title="📊 持仓概览">
+      <PageSection title={<><BarChartOutlined /> 持仓概览</>}>
         <Row gutter={16} style={{ marginBottom: 16 }}>
           <Col span={6}><Card><Statistic title="持仓数" value={(summary.position_count as number) ?? 0} /></Card></Col>
           <Col span={6}><Card><Statistic title="组合市值" value={(summary.total_value as number) ?? 0} precision={0} prefix="¥" /></Card></Col>
@@ -284,7 +289,7 @@ export default function CockpitPage() {
       </PageSection>
 
       {/* ── 底部：候选漏斗 (lifecycle 计数) ────────────────────────── */}
-      <PageSection title="🎯 候选漏斗">
+      <PageSection title={<><FilterOutlined /> 候选漏斗</>}>
         <Card>
           <Row gutter={8} align="middle">
             {FUNNEL.map((s, i) => (
@@ -300,8 +305,35 @@ export default function CockpitPage() {
         </Card>
       </PageSection>
 
+      {/* ── 任务调度健康 ──────────────────────────────────────────── */}
+      {c?.task_health && (
+        <PageSection title={<><ClockCircleOutlined /> 任务调度</>}>
+          <Card size="small">
+            <Row gutter={16}>
+              <Col span={6}>
+                <Statistic title="运行中" value={c.task_health.running_tasks} valueStyle={{ color: c.task_health.running_tasks > 0 ? 'var(--blue-600)' : undefined }} />
+              </Col>
+              <Col span={6}>
+                <Statistic title="排队中" value={c.task_health.queued_tasks} />
+              </Col>
+              <Col span={6}>
+                <Statistic title="24h 失败" value={c.task_health.failed_tasks_24h} valueStyle={{ color: c.task_health.failed_tasks_24h > 0 ? 'var(--red-600)' : undefined }} />
+              </Col>
+              <Col span={6}>
+                <Statistic title="最近执行" value={c.task_health.last_run_status ?? '-'} />
+              </Col>
+            </Row>
+            <div style={{ marginTop: 8 }}>
+              <Link to="/task-center">
+                <Button size="small" type="link" icon={<RightOutlined />}>查看详情</Button>
+              </Link>
+            </div>
+          </Card>
+        </PageSection>
+      )}
+
       {/* ── 最近研究报告 ──────────────────────────────────────────── */}
-      <PageSection title="📄 最近研究报告">
+      <PageSection title={<><FileTextOutlined /> 最近研究报告</>}>
         <Card>
           {!c || c.recent_reports.length === 0 ? (
             <Empty description={<Text type="secondary">还没有研究报告 — 去 <Link to="/universe">股票池</Link> 触发深度研究</Text>} />
@@ -322,7 +354,7 @@ export default function CockpitPage() {
 
       {/* ── 应用内告警列表 ────────────────────────────────────────── */}
       {c && c.alerts.items.length > 0 && (
-        <PageSection title={`⚠️ 系统告警（${c.alerts.items.length}）`}>
+        <PageSection title={<><WarningOutlined /> 系统告警（${c.alerts.items.length}）</>}>
           <Card>
             <Table<CockpitAlertV2> size="small" dataSource={c.alerts.items} rowKey="id" pagination={false}
               columns={[

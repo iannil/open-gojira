@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from app.core.datetime_utils import now
 from app.core.observability import get_logger
 from app.models.research_report import ResearchReport
+from app.models.task import TaskRun
 from app.services import draft_service, holding_service, lifecycle_service
 from app.services import system_alert_service
 
@@ -129,6 +130,14 @@ def build(db: Session) -> dict:
         errors,
     )
 
+    # ── TaskEngine health ─────────────────────────────────────────────────
+    task_health = _safe(
+        "task_health",
+        lambda: _build_task_health(db),
+        {},
+        errors,
+    )
+
     portfolio = portfolio if isinstance(portfolio, dict) else {}
     # Signal-category alerts: filtered from unresolved, shown in signal section
     signal_alerts = [a for a in alerts if a.get("category") == "signal"]
@@ -153,6 +162,8 @@ def build(db: Session) -> dict:
         },
         # 信号 + 报告阅读
         "recent_reports": recent_reports,
+        # 任务调度
+        "task_health": task_health,
         "errors": errors,
     }
 
@@ -163,3 +174,27 @@ def _iso(dt) -> str | None:
     if getattr(dt, "tzinfo", None) is not None:
         dt = dt.replace(tzinfo=None)
     return dt.isoformat()
+
+
+def _build_task_health(db: Session) -> dict:
+    """Build a task health snapshot from the task_runs table."""
+    from app.core.datetime_utils import now as _now
+    from sqlalchemy import func
+
+    one_day_ago = _now() - __import__("datetime").timedelta(days=1)
+
+    running = db.query(func.count(TaskRun.id)).filter(TaskRun.status == "running").scalar() or 0
+    queued = db.query(func.count(TaskRun.id)).filter(TaskRun.status == "queued").scalar() or 0
+    failed_24h = db.query(func.count(TaskRun.id)).filter(
+        TaskRun.status == "failed",
+        TaskRun.created_at >= one_day_ago,
+    ).scalar() or 0
+    last_run = db.query(TaskRun).order_by(TaskRun.created_at.desc()).first()
+
+    return {
+        "running_tasks": running,
+        "queued_tasks": queued,
+        "failed_tasks_24h": failed_24h,
+        "last_run_at": _iso(last_run.created_at) if last_run else None,
+        "last_run_status": last_run.status if last_run else None,
+    }

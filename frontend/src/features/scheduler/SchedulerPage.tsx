@@ -17,6 +17,7 @@ import {
   useTriggerSchedulerJobMutation,
   useUpdateSchedulerJobMutation,
 } from './useSchedulerMutations';
+import TaskListTab from './components/TaskListTab';
 import type { JobExecutionResponse, SchedulerJobResponse } from '../../api/types';
 
 function formatDuration(ms: number | null): string {
@@ -374,6 +375,15 @@ export default function SchedulerPage() {
                     size="middle"
                   />
                 )}
+              </QueryBoundary>
+            ),
+          },
+          {
+            key: 'tasks',
+            label: 'Task 管理',
+            children: (
+              <QueryBoundary query={jobsQ}>
+                {() => <TaskListTab />}
               </QueryBoundary>
             ),
           },

@@ -1,19 +1,15 @@
 import { Tabs } from 'antd';
 import {
   BarChartOutlined,
-  BellOutlined,
-  SafetyCertificateOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
 import { useSearchParams } from 'react-router-dom';
 
 import { PageHeader } from '../../components/primitives';
-import ChannelsTab from './components/ChannelsTab';
 import MetricsTab from './components/MetricsTab';
-import RiskRulesTab from './components/RiskRulesTab';
 import { AlertsTab } from '../alerts';
 
-const VALID_TABS = ['metrics', 'channels', 'risk_rules', 'alerts'] as const;
+const VALID_TABS = ['metrics', 'alerts'] as const;
 type TabKey = (typeof VALID_TABS)[number];
 
 export default function MonitoringPage() {
@@ -22,11 +18,11 @@ export default function MonitoringPage() {
   const activeTab: TabKey =
     tabFromUrl && (VALID_TABS as readonly string[]).includes(tabFromUrl)
       ? (tabFromUrl as TabKey)
-      : 'channels';
+      : 'metrics';
 
   const handleTabChange = (key: string) => {
     const next = new URLSearchParams(searchParams);
-    if (key === 'channels') next.delete('tab');
+    if (key === 'metrics') next.delete('tab');
     else next.set('tab', key);
     setSearchParams(next, { replace: true });
   };
@@ -52,24 +48,6 @@ export default function MonitoringPage() {
               </span>
             ),
             children: <MetricsTab />,
-          },
-          {
-            key: 'channels',
-            label: (
-              <span>
-                <BellOutlined /> 通知通道
-              </span>
-            ),
-            children: <ChannelsTab />,
-          },
-          {
-            key: 'risk_rules',
-            label: (
-              <span>
-                <SafetyCertificateOutlined /> 止损止盈规则
-              </span>
-            ),
-            children: <RiskRulesTab />,
           },
           {
             key: 'alerts',

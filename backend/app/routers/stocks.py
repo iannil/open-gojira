@@ -30,6 +30,7 @@ from app.schemas.stock import (
 )
 from app.services.data_service import fetch_stock_info, stock_to_response
 from app.services.kline_service import get_klines, get_valuation_bands
+from app.services.lifecycle_service import get_by_state as get_lifecycle_by_state
 from app.services.lixinger_client import LixingerError
 from app.services.stocks_sync_service import fetch_industry_constituents, sync_stocks_from_lixinger as run_stock_sync
 from app.services.stocks_detail_service import (
@@ -215,6 +216,38 @@ def create_stock(payload: StockCreate, db: Session = Depends(get_db)):
     db.refresh(stock)
 
     return stock_to_response(stock, db)
+
+
+@router.get("/lifecycle")
+def list_lifecycle_stocks(
+    state: str | None = Query(None, description="Filter by lifecycle state e.g. 'watchlist', 'holding'. Omit for all."),
+    limit: int = Query(200, ge=1, le=1000),
+    db: Session = Depends(get_db),
+):
+    """List stocks filtered by lifecycle state.
+
+    Returns stock code + name + lifecycle current_state + timestamps.
+    Useful for the Engine page: list stocks that passed quality_screen
+    (state=watchlist) or are candidates (state=candidate).
+    """
+    lcs = get_lifecycle_by_state(db, state, limit=limit)
+    codes = [lc.stock_code for lc in lcs]
+    stocks_map = {
+        s.code: s
+        for s in db.query(Stock).filter(Stock.code.in_(codes)).all()
+    }
+    results = []
+    for lc in lcs:
+        s = stocks_map.get(lc.stock_code)
+        results.append({
+            "stock_code": lc.stock_code,
+            "name": s.name if s else None,
+            "industry": s.industry if s else None,
+            "current_state": lc.current_state,
+            "entered_state_at": lc.entered_state_at.isoformat() if lc.entered_state_at else None,
+            "last_research_at": lc.last_research_at.isoformat() if lc.last_research_at else None,
+        })
+    return results
 
 
 @router.get("", response_model=list[StockResponse])

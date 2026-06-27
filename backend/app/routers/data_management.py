@@ -114,12 +114,33 @@ async def start_pipeline(pipeline_type: str, request: Request, db: Session = Dep
 
     mgr = PipelineManager(db)
     try:
+        # Map pipeline_type to corresponding @task for TaskEngine visibility
+        _TASK_MAP = {
+            "valuations": "daily_base_sync",
+            "financials": "quarterly_financials_refresh",
+            "klines": "daily_kline_sync",
+            "dividends": "weekly_dividend_sync",
+            "universe_bootstrap": "daily_universe_bootstrap",
+        }
+        task_id = _TASK_MAP.get(pipeline_type)
+        if task_id:
+            try:
+                from app.routers.task import _get_engine as _task_engine
+                engine = _task_engine()
+                engine.trigger_task(task_id, db, triggered_by="api")
+                db.commit()
+                return {"status": "triggered", "task_id": task_id, "message": f"Triggered via TaskEngine"}
+            except Exception:
+                logger.warning("TaskEngine unavailable for %s, falling back to PipelineManager", pipeline_type)
+
+        # Fallback: direct PipelineManager execution (background=False = sync)
         return mgr.start(
             pipeline_type=pipeline_type,
             stock_codes=parsed.stock_codes,
             force_full=parsed.force_full,
             years=parsed.years,
             granularity=parsed.granularity,
+            background=False,
         )
     except ValueError as e:
         msg = str(e)

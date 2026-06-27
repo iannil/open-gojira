@@ -133,7 +133,7 @@ npm run lint
 
 分层架构：**Routers → Services → Models**，使用 **Schemas** 进行请求/响应校验。
 
-实测计数(2026-06-26)：**22 routers · 36 services + llm(10) + pipelines(11 + pipelines/llm 6) · 27 models · 21 schemas · core(14) · 3 alembic 迁移**。
+实测计数(2026-06-26)：**25 routers · 36 services + llm(10) + pipelines(11 + pipelines/llm 6) · 27 models · 21 schemas · core(14) · 3 alembic 迁移**。
 
 - `app/main.py` — FastAPI 应用入口，配置 CORS、生命周期（建表 + alembic upgrade）及 22 路由注册
 - `app/config.py` — Pydantic Settings，读取 `.env`；默认 SQLite,路径 `data/gojira.db`
@@ -149,7 +149,7 @@ npm run lint
 - `app/services/draft_generator.py` — BUY 草稿生成(触发条件 D + 仓位 10/30/20 + TTL 7 天)
 - `app/services/lifecycle_service.py` — StockLifecycle 状态机(30 天 re-research 缓存)
 - `app/services/lixinger_client.py` — Lixinger API 客户端,唯一 A 股数据源
-- `app/scheduler.py` — APScheduler 后台调度。live JOB_REGISTRY 含数据同步 + `daily_draft_generation` + v2 LLM(`v2_quality_screen/deep_research/thesis_tracker_weekly`)。⚠️ 仍残留 v1 孤儿 job(引用已删模块,P3 待清,见审计报告)
+- `app/scheduler.py` — APScheduler 后台调度。JOB_REGISTRY 含 19 个 job(数据同步 + 股息 + 公司行动 + v2 LLM Pipeline)，无 v1 残留引用。
 - `app/prompts/` — 外部 prompt 目录(按 pipeline 分)
 - `app/core/observability*.py` — 全链路可观测系统(`@tracked` 装饰器 + 模块级批量注入)
 - `app/core/events.py` + `event_handlers.py` — 进程内 EventBus(异步非阻塞)
@@ -162,7 +162,7 @@ npm run lint
 - `src/App.tsx` — ConfigProvider + React Router + TanStack Query，路由挂在 Layout 下
 - `src/api/client.ts` — API 函数集中定义(含 serenity research 块);`src/api/research.ts` — v2 research 客户端(5 函数)
 - `src/api/types.ts` — TypeScript 类型,与后端 schemas 对应
-- `src/features/` — 路由级功能模块(9)：`cockpit`(信号优先 dashboard) / `universe` / `reports`(研究报告) / `stock-detail`(研究触发+K线) / `trades`(账本+出入金) / `data-management` / `scheduler` / `monitoring`(通知+风控,内嵌 alerts) / `drafts`(⚠️ stub 待重建)
+- `src/features/` — 路由级功能模块(17)：`cockpit`(信号优先 dashboard) / `universe` / `reports`(研究报告) / `stock-detail`(研究触发+K线) / `trades`(账本+出入金) / `drafts`(草稿审批) / `portfolio`(持仓组合) / `dividend`(股息红利) / `fee-configs`(券商费率) / `audit-log`(审计日志) / `market`(市场指数) / `corp-actions`(公司行动) / `valuation`(估值分析) / `data-management` / `scheduler` / `monitoring`(通知+风控,内嵌 alerts) / `eval`
 - `src/components/` — 共享组件：`Layout`(导航壳) / `ErrorBoundary` / `QueryBoundary` / `SystemAlertBanner` / `TradeEntryModal` / `CashAdjustmentModal` / `primitives/`
 - `src/styles/theme.css` — 全局 CSS 主题（"墨韵金阁"风格）
 

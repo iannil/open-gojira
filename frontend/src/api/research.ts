@@ -65,6 +65,7 @@ export interface ResearchTriggerRequest {
 export interface ResearchReportSummary {
   id: number;
   stock_code: string;
+  stock_name: string | null;
   pipeline_type: PipelineType;
   overall_score: number | null;
   recommendation: Recommendation | null;

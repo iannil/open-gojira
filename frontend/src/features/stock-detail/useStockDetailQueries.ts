@@ -5,7 +5,6 @@ import {
   fetchRevenueComposition,
   fetchShareholders,
   getStock,
-  listCandidates,
   listHoldings,
 } from '../../api/client';
 import { stockKeys } from './queries';
@@ -20,18 +19,6 @@ export function useStockQuery(code: string | undefined) {
     queryFn: () => getStock(code!),
     enabled: !!code,
     staleTime: 60_000,
-  });
-}
-
-export function useStockCandidatesQuery(code: string | undefined) {
-  return useQuery({
-    queryKey: stockKeys.candidates(code ?? ''),
-    queryFn: async () => {
-      const all = await listCandidates({ status: 'active' });
-      return all.filter((c) => c.stock_code === code);
-    },
-    enabled: !!code,
-    staleTime: 30_000,
   });
 }
 

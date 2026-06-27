@@ -9,10 +9,10 @@ from fastapi import APIRouter
 router = APIRouter(prefix="/api/notifications", tags=["notifications"])
 
 
-@router.get("/channels")
-def list_channels() -> dict:
+@router.get("/channels", response_model=list)
+def list_channels() -> list:
     """v2 stub: in-app notifications only."""
-    return {"channels": [], "message": "v2: in-app notifications only"}
+    return []
 
 
 @router.get("/health")

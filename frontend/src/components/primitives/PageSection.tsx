@@ -3,7 +3,7 @@ import { Card } from 'antd';
 
 export interface PageSectionProps {
   /** Section title. Omit for a content-only section. */
-  title?: string;
+  title?: ReactNode;
   /** Optional tertiary subtitle below title. */
   subtitle?: string;
   /** Optional right-aligned action area (e.g. "刷新" / "展开"). */

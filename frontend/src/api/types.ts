@@ -114,7 +114,20 @@ export interface HoldingResponse {
   weight_pct?: number | null;
 }
 
-// ── Autopilot ─────────────────────────────────────────────────────────
+export interface PortfolioSummary {
+  total_cost: number;
+  total_value: number;
+  total_pnl: number | null;
+  total_pnl_pct: number | null;
+  position_count: number;
+  holdings: HoldingResponse[];
+  warnings: string[];
+  cash_reserve: number;
+  cash_ratio_pct: number;
+  portfolio_weighted_dyr: number | null;
+  target_weighted_dyr: number;
+  portfolio_annualized_pct: number | null;
+}
 
 export interface CashflowGoalResponse {
   annual_expense: number;
@@ -447,6 +460,14 @@ export interface CockpitResponse {
   };
   // 信号 + 报告
   recent_reports: CockpitReportItem[];
+  // 任务调度
+  task_health: {
+    running_tasks: number;
+    queued_tasks: number;
+    failed_tasks_24h: number;
+    last_run_at: string | null;
+    last_run_status: string | null;
+  };
   errors: string[];
 }
 
@@ -876,6 +897,77 @@ export interface JobExecutionResponse {
   error_message: string | null;
 }
 
+// ── Tasks ──────────────────────────────────────────────────────────────
+
+export interface TaskResponse {
+  task_id: string;
+  type: string;
+  status: string;
+  trigger_type: string;
+  cron_expr: string | null;
+  event_source: string | null;
+  depends_on: string[] | null;
+  retry_config: Record<string, unknown> | null;
+  timeout_seconds: number | null;
+  mutex_enabled: boolean;
+  enabled: boolean;
+  tags: string[] | null;
+  description: string | null;
+  next_run_time: string | null;
+  last_run_at: string | null;
+  last_run_status: string | null;
+  last_duration_ms: number | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface TaskUpdate {
+  cron_expr?: string;
+  enabled?: boolean;
+  timeout_seconds?: number;
+  retry_config?: Record<string, unknown>;
+  description?: string;
+}
+
+export interface TaskRunResponse {
+  id: number;
+  task_id: string;
+  status: string;
+  progress: number;
+  progress_message: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  duration_ms: number | null;
+  retry_count: number;
+  max_retries: number;
+  last_error: string | null;
+  result_summary: string | null;
+  worker_id: string | null;
+  triggered_by: string;
+  trace_id: string | null;
+  created_at: string | null;
+}
+
+export interface TriggerTaskResponse {
+  task_id: string;
+  run_id: number;
+  status: string;
+  message: string;
+}
+
+export interface TaskHealthResponse {
+  engine_running: boolean;
+  running_tasks: number;
+  queued_tasks: number;
+  failed_tasks_24h: number;
+  workers_active: number;
+  uptime_seconds: number | null;
+}
+
+export interface TaskRunDetailResponse extends TaskRunResponse {
+  task: TaskResponse | null;
+}
+
 // ── Sync Data Summaries ───────────────────────────────────────────────
 
 export interface KlineSyncSummary {
@@ -884,6 +976,18 @@ export interface KlineSyncSummary {
   earliest_date: string | null;
   latest_date: string | null;
   total_bars: number;
+}
+
+export interface DividendRecordResponse {
+  id: number;
+  stock_code: string;
+  stock_name: string | null;
+  ex_date: string | null;
+  amount_per_share: number;
+  quantity_held: number;
+  total_received: number;
+  reinvested: boolean | null;
+  created_at: string | null;
 }
 
 export interface DividendYearSummary {
@@ -1192,6 +1296,65 @@ export interface BrokerFeeConfig {
   transfer_fee_rate: number;
   effective_from: string;
   is_active: boolean;
+}
+
+export interface BrokerFeeConfigCreate {
+  broker_name: string;
+  commission_rate: number;
+  commission_min: number;
+  stamp_duty_rate: number;
+  transfer_fee_rate: number;
+  effective_from: string;
+  is_active?: boolean;
+}
+
+// ── Valuation ──────────────────────────────────────────────────────────
+
+export interface PercentileBand {
+  percentile: number;
+  value: number;
+}
+
+export interface PercentileResponse {
+  pe_bands: PercentileBand[];
+  pb_bands: PercentileBand[];
+  current_pe: number | null;
+  current_pb: number | null;
+  current_pe_percentile: number | null;
+  current_pb_percentile: number | null;
+}
+
+export interface ValuationSnapshot {
+  id: number;
+  stock_code: string;
+  date: string | null;
+  pe_ttm: number | null;
+  pb: number | null;
+  pe_percentile_10y: number | null;
+  pb_percentile_10y: number | null;
+  dividend_yield: number | null;
+  created_at: string | null;
+}
+
+export interface ForwardDyrResponse {
+  stock_code: string;
+  forward_dyr: number | null;
+  payout_ratio_avg_3y: number | null;
+  eps: number | null;
+  current_price: number | null;
+  trailing_dyr: number | null;
+  basis_note: string;
+}
+
+export interface ValuationDashboard {
+  stock_code: string;
+  latest_snapshot: ValuationSnapshot | null;
+  snapshots: ValuationSnapshot[];
+  current_pe: number | null;
+  current_pb: number | null;
+  current_price: number | null;
+  dividend_yield: number | null;
+  market_cap: number | null;
 }
 
 // ── System alerts (S3 infra-level alerts) ─────────────────────────────

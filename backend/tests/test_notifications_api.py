@@ -10,8 +10,8 @@ def test_channels_stub_empty(client):
     resp = client.get("/api/notifications/channels")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["channels"] == []
-    assert "in-app" in data["message"]
+    assert isinstance(data, list)
+    assert data == []
 
 
 def test_health_ok(client):

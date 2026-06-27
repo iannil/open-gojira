@@ -6,13 +6,13 @@
 | 字段 | 值 |
 |---|---|
 | 项目状态 | **v2（双引擎 + LLM Pipeline 重写）** — 全链路闭环完成 |
-| 最后更新 | 2026-06-26（本轮文档治理日期） |
+| 最后更新 | 2026-06-27（本轮前端补全 + 测试扩充） |
 | 分支 | `master`（v2 已并入）；远程仓库：暂无 |
-| 测试 | **587 passed**（2026-06-26 记录值） |
-| 测试文件 | 66（root 48 + routers 3 + v2 15） |
+| 测试 | **686 passed**（2026-06-27 记录值） |
+| 测试文件 | 69（root 52 + routers 3 + v2 13 + eval 1） |
 | Alembic head | `v2_4_drop_holdings_table`（仅 3 个迁移文件，基线 `v2_baseline_squash` down_revision=None） |
-| 后端模块 | 22 routers · 40 services + llm(11) + pipelines(11 + pipelines/llm 6) · 29 models · 22 schemas · core(14) |
-| 前端 | feature-based（`src/features/` + `src/pages/` shim），9 路由页 + 1 dev-only |
+| 后端模块 | 25 routers · 40 services + llm(11) + pipelines(11 + pipelines/llm 6) · 29 models · 22 schemas · core(14) |
+| 前端 | feature-based（`src/features/` + `src/pages/` shim），17 路由页 |
 | 数据源 | Lixinger（理杏仁，唯一 A 股数据源）+ Zhipu GLM web_search |
 | 下次 milestone | 真实券商接入 / 评价系统 Tier 2/3 / Eval Set |
 
@@ -55,7 +55,7 @@ universe ─ quality_screen/theme_scan ─▶ StockLifecycle(观察池/候选)
 - **Routers(22)**：health/stocks/valuation/financial/dividend/portfolio/market/trades/cash/fee_configs/corp_actions/drafts/cockpit/**research_v2**/**theme_scan**/alerts/system_alerts/notifications/scheduler/data_management/audit_log/observability。
 - **Services**：顶层 40 + `llm/`(11：client/cost_tracker/conflict_validator/red_line_checker/scoring/prompt_loader/deep_research_schema/theme_scan_schema/prompts/zhipu_client) + `pipelines/`(12) + `pipelines/llm/`(7)。交易核心：`position_service`/`trade_service`/`draft_generator`/`draft_service`/`lifecycle_service`/`sell_trigger`/`decision_audit_service`。
 - **Models(29)**：v2 新表 stock_lifecycle/research_report/theme_scan_report/decision_audit/llm_call_log/red_line_event/eval_run/eval_result；交易 trade/cash_balance/cash_adjustment/broker_fee_config/draft；数据 stock/valuation/financial/historical_financial/historical_valuation/price_kline/dividend/corp_action/historical_kline 等。
-- **前端 9 页**：Cockpit(信号 dashboard+待办Drafts+signal告警) / Universe / Reports / StockDetail / Trades / DataManagement / Scheduler / Monitoring / Drafts(确认成交弹窗+T+1可卖股数)。
+- **前端 17 页**：Cockpit(信号 dashboard+待办Drafts+signal告警) / Portfolio(持仓组合+评价) / Dividend(股息红利汇总) / FeeConfigs(CRUD) / AuditLog(过滤查询) / Market(指数行情+K线) / CorpActions(批量处理) / Valuation(估值仪表盘) / Universe / Reports / StockDetail / Trades / DataManagement / Scheduler / Monitoring / Drafts(确认成交弹窗+T+1可卖股数) / Eval。
 
 ## 5. 实施进度
 
@@ -63,13 +63,20 @@ universe ─ quality_screen/theme_scan ─▶ StockLifecycle(观察池/候选)
 |---|---|---|---|---|
 | 0 Foundation | ✅ | | 5 Draft/卖出触发 | ✅ 全链路闭环 |
 | 1 LLM 基础设施 | ✅ | | 6 度量系统 | 🟡 Tier 1 + 部分 Tier 2 |
-| 2 首 Pipeline 闭环 | ✅ | | 7 测试/Eval Set | ✅ 589 tests |
+| 2 首 Pipeline 闭环 | ✅ | | 7 测试/Eval Set | ✅ **686 tests** |
 | 3 Dashboard MVP | ✅ | | 8 部署上线 | 🟡 docker-compose base+dev |
 | 4 完整 Pipeline 套件 | ✅ | | | |
 
 **全链路闭环完成**(2026-06-26)：position_service 真相源 + execute 回填 Trade + thesis INVALIDATED→SELL draft + sell_trigger 信号2/3/5 + decision_audit + Pipeline熔断 + quality_screen prompt外化 + docker-compose dev。
 
 **已完成待办项**：
+- ✅ 前端 7 个新页面：Portfolio / Dividend / FeeConfigs / AuditLog / Market / CorpActions / Valuation
+- ✅ 前端 emoji 清理 → 统一 Ant Design Icons 风格
+- ✅ CLAUDE.md 过时标注更新（Drafts stub → 完整, scheduler 孤儿 job 已清, 计数修正）
+- ✅ 导航图标去重（Drafts: FileTextOutlined → EditOutlined）
+- ✅ 代码质量修复：DatePicker Dayjs 类型, 股息率 100× 差异, market_cap 非空断言, QueryBoundary 缺失, onError 缺失
+- ✅ 后端测试扩充 +47（audit_log 10, dividend 15, market 10, index 12）
+- ✅ scheduler.py 孤儿 job 引用验证（JOB_REGISTRY 19 条均指向有效函数）
 - ✅ Drafts 页（确认成交弹窗 + T+1 可卖股数 + 三种状态Tab）
 - ✅ Cockpit 信号区（待审批Drafts表格 + signal_alerts）
 - ✅ sell_trigger（估值止盈 信号2 + 仓位超限 信号3 + 基本面恶化 信号5）
@@ -88,7 +95,7 @@ universe ─ quality_screen/theme_scan ─▶ StockLifecycle(观察池/候选)
 - **`data_quality`/`data_sanity`/`price_validator` 服务边界需澄清**：四个数据校验服务职责有重叠，待重构。
 - **前端 bundle 分块**：echarts 按需加载未做，首屏体积偏大。
 - **评价系统 Tier 3 未实现**：四大师评分与后续股价相关分析未做。
-- **Eval Set 未构建**：`tests/eval/companies/` 目录不存在。
+- **Eval Set 基线未构建**：`tests/eval/companies/` 已有 20 个 JSON 数据文件，但基线运行记录尚未创建。
 - 完整审计(冗余/过期/失效项 + 已执行清理)见 `docs/reports/2026-06-26-codebase-cleanup-audit.md`。
 
 ## 7. 文档导航（v2）

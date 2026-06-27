@@ -23,6 +23,7 @@ from app.models.stock import Stock
 from app.models.stock_lifecycle import StockLifecycle
 from app.models.theme_scan_report import ThemeScanReport
 from app.models.system_alert import SystemAlert
+from app.models.task import Task, TaskRun
 from app.models.trade import Trade
 from app.models.trading_calendar import TradingCalendar
 from app.models.valuation import ValuationSnapshot
@@ -47,6 +48,8 @@ __all__ = [
     "SchedulerJob",
     "JobExecution",
     "Trade",
+    "Task",
+    "TaskRun",
     "SystemAlert",
     "DataFreshness",
     "TradingCalendar",

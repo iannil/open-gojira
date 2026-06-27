@@ -8,6 +8,13 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { queryClient } from './lib/queryClient';
 
 const CockpitPage = lazy(() => import('./pages/CockpitPage'));
+const PortfolioPage = lazy(() => import('./pages/PortfolioPage'));
+const DividendPage = lazy(() => import('./pages/DividendPage'));
+const FeeConfigsPage = lazy(() => import('./pages/FeeConfigsPage'));
+const AuditLogPage = lazy(() => import('./pages/AuditLogPage'));
+const MarketPage = lazy(() => import('./pages/MarketPage'));
+const CorpActionsPage = lazy(() => import('./pages/CorpActionsPage'));
+const ValuationPage = lazy(() => import('./pages/ValuationPage'));
 const UniversePage = lazy(() => import('./pages/UniversePage'));
 const TradesPage = lazy(() => import('./pages/TradesPage'));
 const StockDetailPage = lazy(() => import('./pages/StockDetailPage'));
@@ -17,6 +24,8 @@ const MonitoringPage = lazy(() => import('./pages/MonitoringPage'));
 const EvalPage = lazy(() => import('./pages/EvalPage'));
 const DraftsPage = lazy(() => import('./pages/DraftsPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
+const EnginePage = lazy(() => import('./pages/EnginePage'));
+const TaskCenterPage = lazy(() => import('./pages/TaskCenterPage'));
 
 // DEV-ONLY primitives preview route. Vite tree-shakes the dynamic import
 // out of production builds because the false branch is dead code.
@@ -86,13 +95,22 @@ function App() {
                 <Routes>
                   <Route path="/" element={<Layout />}>
                     <Route index element={<CockpitPage />} />
+                    <Route path="portfolio" element={<PortfolioPage />} />
+                    <Route path="dividend" element={<DividendPage />} />
+                    <Route path="fee-configs" element={<FeeConfigsPage />} />
+                    <Route path="audit-log" element={<AuditLogPage />} />
+                    <Route path="market" element={<MarketPage />} />
+                    <Route path="corp-actions" element={<CorpActionsPage />} />
+                    <Route path="valuation" element={<ValuationPage />} />
                     <Route path="universe" element={<UniversePage />} />
                     <Route path="drafts" element={<DraftsPage />} />
                     <Route path="reports" element={<ReportsPage />} />
+                    <Route path="engine" element={<EnginePage />} />
                     <Route path="trades" element={<TradesPage />} />
                     <Route path="stock/:code" element={<StockDetailPage />} />
                     <Route path="data-management" element={<DataManagementPage />} />
                     <Route path="scheduler" element={<SchedulerPage />} />
+                    <Route path="task-center" element={<TaskCenterPage />} />
                     <Route path="monitoring" element={<MonitoringPage />} />
                     <Route path="eval" element={<EvalPage />} />
                     {import.meta.env.DEV && (

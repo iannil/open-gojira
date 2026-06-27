@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -20,8 +20,9 @@ import {
   Typography,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { FilterOutlined, SearchOutlined } from '@ant-design/icons';
+import { FilterOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 
+import { addToStockPool } from '../../api/client';
 import { PageHeader, FilterBar, EmptyState, StatCard } from '../../components/primitives';
 import QueryBoundary from '../../components/QueryBoundary';
 import { defaultPagination } from '../../lib/pagination';
@@ -441,6 +442,41 @@ export default function UniversePage() {
     },
   ];
 
+  // Add a trailing action column for the full market view
+  const inUniverseSet = useMemo(() => new Set(data.map((d) => d.code)), [data]);
+  const fullColumnsWithAction = useMemo<ColumnsType<FullUniverseItem>>(
+    () => [
+      ...fullColumns,
+      {
+        title: '操作',
+        width: 80,
+        render: (_: unknown, record: FullUniverseItem) => {
+          const alreadyIn = inUniverseSet.has(record.code);
+          return (
+            <Button
+              type="link"
+              size="small"
+              disabled={alreadyIn}
+              icon={<PlusOutlined />}
+              onClick={async () => {
+                try {
+                  await addToStockPool([record.code]);
+                  message.success(`已添加 ${record.code} ${record.name}`);
+                  myQ.refetch();
+                } catch {
+                  message.error('添加失败');
+                }
+              }}
+            >
+              {alreadyIn ? '已添加' : '添加'}
+            </Button>
+          );
+        },
+      },
+    ],
+    [fullColumns, inUniverseSet, myQ, message],
+  );
+
   const hasFullCoverage = statsQ.data?.mode === 'full_coverage';
   const segments: string[] = ['我的 Universe'];
   if (hasFullCoverage) segments.push('全市场');
@@ -764,7 +800,7 @@ export default function UniversePage() {
             {() => (
               <Table<FullUniverseItem>
                 dataSource={fullData}
-                columns={fullColumns}
+                columns={fullColumnsWithAction}
                 rowKey="code"
                 size="small"
                 loading={fullQ.isFetching}

@@ -149,13 +149,30 @@ export default function ReportsPage() {
                   {
                     title: '股票',
                     dataIndex: 'stock_code',
-                    render: (code: string) => <strong>{code}</strong>,
+                    render: (code: string, r: ResearchReportSummary) => (
+                      <span>
+                        <strong>{code}</strong>
+                        {r.stock_name && (
+                          <span style={{ color: 'var(--gray-500)', marginLeft: 6, fontSize: 'var(--fs-sm)' }}>
+                            {r.stock_name}
+                          </span>
+                        )}
+                      </span>
+                    ),
                   },
                   {
                     title: 'Pipeline',
                     dataIndex: 'pipeline_type',
                     render: (pt: PipelineType) => (
                       <Tag>{PIPELINE_LABELS[pt] ?? pt}</Tag>
+                    ),
+                  },
+                  {
+                    title: '状态',
+                    dataIndex: 'status',
+                    width: 80,
+                    render: (s: ReportStatus) => (
+                      <Tag color={STATUS_COLORS[s]}>{s}</Tag>
                     ),
                   },
                   {
@@ -224,7 +241,14 @@ function ReportDetail({ report }: { report: ResearchReportFull }) {
         {/* Header */}
         <div>
           <h3 style={{ marginBottom: 4 }}>
-            <Link to={`/stock/${report.stock_code}`}>{report.stock_code}</Link>
+            <Link to={`/stock/${report.stock_code}`}>
+              {report.stock_code}
+              {report.stock_name && (
+                <span style={{ color: 'var(--gray-500)', marginLeft: 8, fontWeight: 400, fontSize: 'var(--fs-base)' }}>
+                  {report.stock_name}
+                </span>
+              )}
+            </Link>
             <Tag
               color={STATUS_COLORS[report.status]}
               style={{ marginLeft: 12 }}

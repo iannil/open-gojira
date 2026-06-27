@@ -12,7 +12,7 @@ Defense:
 
 Output:
   - ResearchReport row (json_output + markdown_output)
-  - StockLifecycle transition to 'researched' (or stays 'watchlist' on red_line)
+  - StockLifecycle transition to 'researched' → 'candidate' (on success) or stays 'researched' (on red_line)
   - RedLineEvent rows for any hits
 """
 from __future__ import annotations
@@ -432,11 +432,12 @@ def run(
         if rejected:
             _persist_red_lines(db, stock_code, red_line_hits, report.id)
 
-        # Update lifecycle
+        # Update lifecycle — promote to candidate on success (§2)
         lifecycle_service.mark_researched(
             db, stock_code,
             rejected=rejected,
             reason=result.rejection_reason or "deep_research completed",
+            promote_to_candidate=not rejected,
         )
 
         if owns_session:

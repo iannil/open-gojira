@@ -27,9 +27,9 @@ import dayjs from 'dayjs';
 
 import { PageHeader, EmptyState } from '../../components/primitives';
 import QueryBoundary from '../../components/QueryBoundary';
-import { getAvailableQuantity, listDrafts, executeDraft, cancelDraft } from '../../api/client';
+import { getAvailableQuantity, listDrafts } from '../../api/client';
 import type { DraftResponse } from '../../api/types';
-import { useToastMutation } from '../../lib/useToastMutation';
+import { useExecuteDraftMutation, useCancelDraftMutation } from './useDraftMutations';
 import { draftKeys } from './queries';
 
 const { Text, Paragraph } = Typography;
@@ -295,25 +295,6 @@ function DraftCard({ draft, onExecute, onCancel, cancelPending }: DraftCardProps
 }
 
 // ── Mutations ──────────────────────────────────────────────────────────
-
-function useExecuteDraftMutation() {
-  return useToastMutation(
-    (args: { id: number; payload: { price?: number; quantity?: number; filled_at?: string } }) =>
-      executeDraft(args.id, args.payload),
-    {
-      successMsg: '已登记成交',
-      invalidate: () => [draftKeys.all(), ['trades'], ['cockpit'], ['holdings']],
-    },
-  );
-}
-
-function useCancelDraftMutation() {
-  return useToastMutation((id: number) => cancelDraft(id), {
-    successMsg: '已取消草稿',
-    invalidate: () => [draftKeys.all(), ['cockpit']],
-  });
-}
-
 // ── Main Page ──────────────────────────────────────────────────────────
 
 export default function DraftsPage() {

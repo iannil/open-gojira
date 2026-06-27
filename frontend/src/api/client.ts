@@ -5,19 +5,14 @@
 import axios from 'axios';
 
 import type {
-  AnnualReview,
   ApiUsageResponse,
   AuditLogEntry,
   AvailableQuantity,
-  BacktestConfig,
-  BacktestRun,
   BrokerFeeConfig,
-  CandidateResponse,
+  BrokerFeeConfigCreate,
   CashAdjustment,
   CashAdjustmentInput,
   CashBalance,
-  CashflowGoalResponse,
-  CashflowGoalUpdate,
   CleanupPreview,
   CleanupResult,
   CockpitResponse,
@@ -29,31 +24,20 @@ import type {
   DataQualityResponse,
   DataStatusOverview,
   DeadLetterStatsResponse,
+  DividendRecordResponse,
   DividendSummaryResponse,
   DraftResponse,
   HoldingResponse,
-  HoldingRiskRule,
   JobExecutionResponse,
   KlineResponse,
   KlineSyncSummary,
   MarginTradingRecord,
   NorthFlowRecord,
-  NotificationChannel,
-  NotificationChannelCreate,
-  NotificationChannelUpdate,
-  NotificationTestResult,
   PipelineHealthResponse,
   PipelineRunDetail,
-  PlanCreate,
-  PlanResponse,
-  PlanUpdate,
   PriceBand,
-  QuarterlyReview,
   QiuScoreInput,
   ResourceFlagsUpdate,
-  ReviewResponse,
-  RiskRuleCreate,
-  RiskRuleUpdate,
   SchedulerJobResponse,
   SchedulerJobUpdate,
   ShareholderRecord,
@@ -63,14 +47,8 @@ import type {
   SystemAlert,
   SystemAlertCategory,
   SystemAlertSeverity,
-  StrategyCreate,
-  StrategyResponse,
-  StrategyTestResponse,
-  StrategyUpdate,
   SyncTaskStatus,
   SyncTriggerResponse,
-  ThemeExposureAnalysis,
-  ThemeItem,
   ThesisVariable,
   Trade,
   TradeCreateInput,
@@ -80,15 +58,16 @@ import type {
   UniverseItem,
   FullUniverseResponse,
   UniverseCoverageStats,
-  WatchlistGroupResponse,
-  BusinessPattern,
-  BusinessPatternCreate,
-  BusinessPatternUpdate,
-  BusinessPatternThesisTemplates,
-  InferAllSummary,
   LLMMetrics,
   LLMTrend,
   PipelineMetrics,
+  PortfolioSummary,
+  TaskHealthResponse,
+  TaskResponse,
+  TaskRunDetailResponse,
+  TaskRunResponse,
+  TaskUpdate,
+  TriggerTaskResponse,
 } from './types';
 
 import { installTracer } from '../observability/tracer';
@@ -99,86 +78,6 @@ export const apiClient = axios.create({
 });
 
 installTracer(apiClient);
-
-// ── Strategies ────────────────────────────────────────────────────────
-
-export async function listStrategies(): Promise<StrategyResponse[]> {
-  const res = await apiClient.get<StrategyResponse[]>('/strategies');
-  return res.data;
-}
-
-export async function createStrategy(payload: StrategyCreate): Promise<StrategyResponse> {
-  const res = await apiClient.post<StrategyResponse>('/strategies', payload);
-  return res.data;
-}
-
-export async function updateStrategy(id: number, payload: StrategyUpdate): Promise<StrategyResponse> {
-  const res = await apiClient.put<StrategyResponse>(`/strategies/${id}`, payload);
-  return res.data;
-}
-
-export async function deleteStrategy(id: number): Promise<void> {
-  await apiClient.delete(`/strategies/${id}`);
-}
-
-export async function testStrategy(id: number, stockCode: string): Promise<StrategyTestResponse> {
-  const res = await apiClient.post(`/strategies/${id}/test`, { stock_code: stockCode });
-  return res.data;
-}
-
-// ── Plans ─────────────────────────────────────────────────────────────
-
-export async function listPlans(): Promise<PlanResponse[]> {
-  const res = await apiClient.get<PlanResponse[]>('/plans');
-  return res.data;
-}
-
-export async function getPlan(id: number): Promise<PlanResponse> {
-  const res = await apiClient.get<PlanResponse>(`/plans/${id}`);
-  return res.data;
-}
-
-export async function createPlan(payload: PlanCreate): Promise<PlanResponse> {
-  const res = await apiClient.post<PlanResponse>('/plans', payload);
-  return res.data;
-}
-
-export async function updatePlan(id: number, payload: PlanUpdate): Promise<PlanResponse> {
-  const res = await apiClient.put<PlanResponse>(`/plans/${id}`, payload);
-  return res.data;
-}
-
-export async function deletePlan(id: number): Promise<void> {
-  await apiClient.delete(`/plans/${id}`);
-}
-
-export async function runPlan(id: number): Promise<unknown> {
-  const res = await apiClient.post(`/plans/${id}/run`);
-  return res.data;
-}
-
-// ── Candidates ────────────────────────────────────────────────────────
-
-export async function listCandidates(params?: {
-  plan_id?: number;
-  status?: string;
-  source?: 'rule_based' | 'serenity';
-}): Promise<CandidateResponse[]> {
-  const res = await apiClient.get<CandidateResponse[]>('/candidates', { params });
-  return res.data;
-}
-
-export async function updateCandidate(id: number, payload: {
-  pinned?: boolean;
-  notes?: string;
-}): Promise<CandidateResponse> {
-  const res = await apiClient.put<CandidateResponse>(`/candidates/${id}`, payload);
-  return res.data;
-}
-
-export async function removeCandidate(id: number): Promise<void> {
-  await apiClient.delete(`/candidates/${id}`);
-}
 
 // ── Cockpit ───────────────────────────────────────────────────────────
 
@@ -237,18 +136,6 @@ export async function fetchEvaluation(): Promise<PortfolioEvaluation> {
   return res.data;
 }
 
-export async function fetchCashflowGoal(): Promise<CashflowGoalResponse> {
-  const res = await apiClient.get<CashflowGoalResponse>('/cashflow-goal');
-  return res.data;
-}
-
-export async function updateCashflowGoal(
-  payload: CashflowGoalUpdate,
-): Promise<CashflowGoalResponse> {
-  const res = await apiClient.put<CashflowGoalResponse>('/cashflow-goal', payload);
-  return res.data;
-}
-
 // ── Drafts ────────────────────────────────────────────────────────────
 
 export async function listDrafts(params?: {
@@ -293,11 +180,86 @@ export async function fetchAuditLog(params?: {
   return res.data;
 }
 
-export async function fetchMonthlyReview(params?: {
-  month?: string;
-  entry_limit?: number;
-}): Promise<ReviewResponse> {
-  const res = await apiClient.get<ReviewResponse>('/review', { params });
+// ── Theme Scan ────────────────────────────────────────────────────────
+
+export interface ThemeScanSummary {
+  id: number;
+  theme: string;
+  evidence_grade: string | null;
+  status: string;
+  created_at: string | null;
+}
+
+export interface ThemeScanFull extends ThemeScanSummary {
+  system_change: string | null;
+  ranked_layers: Array<Record<string, unknown>> | null;
+  ranked_candidates: Array<Record<string, unknown>> | null;
+  markdown_output: string | null;
+  prompt_version: string | null;
+}
+
+export async function triggerThemeScan(payload: {
+  theme: string;
+  model_tier?: string;
+  use_web_search?: boolean;
+}): Promise<ThemeScanFull> {
+  const res = await apiClient.post<ThemeScanFull>('/theme-scan', payload);
+  return res.data;
+}
+
+export async function listThemeScanReports(limit = 20): Promise<ThemeScanSummary[]> {
+  const res = await apiClient.get<ThemeScanSummary[]>('/theme-scan/reports', {
+    params: { limit },
+  });
+  return res.data;
+}
+
+export async function getThemeScanReport(reportId: number): Promise<ThemeScanFull> {
+  const res = await apiClient.get<ThemeScanFull>(`/theme-scan/${reportId}`);
+  return res.data;
+}
+
+// ── Engine (双引擎选股) ───────────────────────────────────────────────
+
+export interface LifecycleStockItem {
+  stock_code: string;
+  name: string | null;
+  industry: string | null;
+  current_state: string;
+  entered_state_at: string | null;
+  last_research_at: string | null;
+}
+
+export async function listLifecycleStocks(
+  state?: string,
+  limit = 200,
+): Promise<LifecycleStockItem[]> {
+  const res = await apiClient.get<LifecycleStockItem[]>('/stocks/lifecycle', {
+    params: state ? { state, limit } : { limit },
+  });
+  return res.data;
+}
+
+export interface BatchResearchRequest {
+  stock_codes: string[];
+  source?: string;
+  model_tier?: string;
+  use_web_search?: boolean;
+  scarcity_score?: number | null;
+  failure_conditions?: string[] | null;
+}
+
+export interface BatchResearchResponse {
+  triggered: string[];
+  triggered_count: number;
+  skipped: Array<{ code: string; reason: string }>;
+  skipped_count: number;
+}
+
+export async function triggerBatchResearch(
+  payload: BatchResearchRequest,
+): Promise<BatchResearchResponse> {
+  const res = await apiClient.post<BatchResearchResponse>('/research/batch', payload);
   return res.data;
 }
 
@@ -310,6 +272,11 @@ export async function getStock(code: string): Promise<StockResponse> {
 
 export async function listHoldings(): Promise<HoldingResponse[]> {
   const res = await apiClient.get<HoldingResponse[]>('/portfolio');
+  return res.data;
+}
+
+export async function fetchPortfolioSummary(): Promise<PortfolioSummary> {
+  const res = await apiClient.get<PortfolioSummary>('/portfolio/summary');
   return res.data;
 }
 
@@ -326,18 +293,6 @@ export async function fetchNorthFlow(code: string): Promise<NorthFlowRecord[]> {
 export async function fetchMarginTrading(code: string): Promise<MarginTradingRecord[]> {
   const res = await apiClient.get<MarginTradingRecord[]>(`/stocks/${code}/margin-trading`);
   return res.data;
-}
-
-export async function listWatchlistGroups(): Promise<WatchlistGroupResponse[]> {
-  const res = await apiClient.get<WatchlistGroupResponse[]>('/watchlist/groups');
-  return res.data;
-}
-
-export async function bulkAddWatchlistItems(groupId: number, codes: string[]): Promise<void> {
-  await apiClient.post(`/watchlist/groups/${groupId}/items/bulk`, {
-    group_id: groupId,
-    stock_codes: codes,
-  });
 }
 
 export async function fetchRevenueComposition(
@@ -362,18 +317,6 @@ export async function fetchKline(
   return res.data;
 }
 
-// ── Themes ────────────────────────────────────────────────────────────
-
-export async function listThemes(): Promise<ThemeItem[]> {
-  const res = await apiClient.get<ThemeItem[]>('/themes');
-  return res.data;
-}
-
-export async function getThemeExposure(): Promise<ThemeExposureAnalysis> {
-  const res = await apiClient.get<ThemeExposureAnalysis>('/themes/exposure/analysis');
-  return res.data;
-}
-
 // ── Thesis variables ──────────────────────────────────────────────────
 
 export async function updateThesisVariables(
@@ -389,68 +332,6 @@ export async function fetchThesisTemplates(code: string): Promise<{
   templates: { name: string; unit: string; source: string }[];
 }> {
   const res = await apiClient.get(`/stocks/${code}/thesis-templates`);
-  return res.data;
-}
-
-// ── Business patterns (生意模式) ─────────────────────────────────────
-
-export async function listBusinessPatterns(
-  builtinOnly = false,
-): Promise<BusinessPattern[]> {
-  const res = await apiClient.get<BusinessPattern[]>('/business-patterns', {
-    params: builtinOnly ? { builtin_only: true } : undefined,
-  });
-  return res.data;
-}
-
-export async function createBusinessPattern(
-  payload: BusinessPatternCreate,
-): Promise<BusinessPattern> {
-  const res = await apiClient.post<BusinessPattern>('/business-patterns', payload);
-  return res.data;
-}
-
-export async function getBusinessPattern(id: number): Promise<BusinessPattern> {
-  const res = await apiClient.get<BusinessPattern>(`/business-patterns/${id}`);
-  return res.data;
-}
-
-export async function updateBusinessPattern(
-  id: number,
-  payload: BusinessPatternUpdate,
-): Promise<BusinessPattern> {
-  const res = await apiClient.patch<BusinessPattern>(`/business-patterns/${id}`, payload);
-  return res.data;
-}
-
-export async function deleteBusinessPattern(id: number): Promise<void> {
-  await apiClient.delete(`/business-patterns/${id}`);
-}
-
-export async function inferAllBusinessPatterns(force = false): Promise<InferAllSummary> {
-  const res = await apiClient.post<InferAllSummary>('/business-patterns/infer-all', null, {
-    params: force ? { force: true } : undefined,
-  });
-  return res.data;
-}
-
-export async function getBusinessPatternThesisTemplates(
-  patternId: number,
-): Promise<BusinessPatternThesisTemplates> {
-  const res = await apiClient.get<BusinessPatternThesisTemplates>(
-    `/business-patterns/${patternId}/thesis-templates`,
-  );
-  return res.data;
-}
-
-export async function updateStockBusinessPattern(
-  code: string,
-  patternId: number | null,
-): Promise<StockResponse> {
-  const res = await apiClient.patch<StockResponse>(
-    `/stocks/${code}/business-pattern`,
-    { business_pattern_id: patternId },
-  );
   return res.data;
 }
 
@@ -504,18 +385,6 @@ export async function updateQiuScore(
   return res.data;
 }
 
-// ── Periodic Review ───────────────────────────────────────────────────
-
-export async function fetchQuarterlyReview(year: number, q: number): Promise<QuarterlyReview> {
-  const res = await apiClient.get<QuarterlyReview>('/review/quarterly', { params: { year, q } });
-  return res.data;
-}
-
-export async function fetchAnnualReview(year: number): Promise<AnnualReview> {
-  const res = await apiClient.get<AnnualReview>('/review/annual', { params: { year } });
-  return res.data;
-}
-
 // ── Scheduler ──────────────────────────────────────────────────────────
 
 export async function listSchedulerJobs(): Promise<SchedulerJobResponse[]> {
@@ -553,6 +422,72 @@ export async function listJobExecutions(
   return res.data;
 }
 
+// ── Tasks ──────────────────────────────────────────────────────────────
+
+export async function listTasks(): Promise<TaskResponse[]> {
+  const res = await apiClient.get<TaskResponse[]>('/tasks');
+  return res.data;
+}
+
+export async function getTask(taskId: string): Promise<TaskResponse> {
+  const res = await apiClient.get<TaskResponse>(`/tasks/${taskId}`);
+  return res.data;
+}
+
+export async function updateTask(
+  taskId: string,
+  payload: TaskUpdate,
+): Promise<TaskResponse> {
+  const res = await apiClient.put<TaskResponse>(`/tasks/${taskId}`, payload);
+  return res.data;
+}
+
+export async function triggerTask(taskId: string): Promise<TriggerTaskResponse> {
+  const res = await apiClient.post<TriggerTaskResponse>(`/tasks/${taskId}/trigger`);
+  return res.data;
+}
+
+export async function pauseTask(taskId: string): Promise<TaskResponse> {
+  const res = await apiClient.post<TaskResponse>(`/tasks/${taskId}/pause`);
+  return res.data;
+}
+
+export async function resumeTask(taskId: string): Promise<TaskResponse> {
+  const res = await apiClient.post<TaskResponse>(`/tasks/${taskId}/resume`);
+  return res.data;
+}
+
+export async function listTaskRuns(params?: {
+  task_id?: string;
+  status?: string;
+  limit?: number;
+}): Promise<TaskRunResponse[]> {
+  const res = await apiClient.get<TaskRunResponse[]>('/tasks/runs/list', {
+    params,
+  });
+  return res.data;
+}
+
+export async function getTaskRun(runId: number): Promise<TaskRunDetailResponse> {
+  const res = await apiClient.get<TaskRunDetailResponse>(`/tasks/runs/${runId}`);
+  return res.data;
+}
+
+export async function cancelTaskRun(runId: number): Promise<{ run_id: number; status: string }> {
+  const res = await apiClient.post(`/tasks/runs/${runId}/cancel`);
+  return res.data;
+}
+
+export async function retryTaskRun(runId: number): Promise<TriggerTaskResponse> {
+  const res = await apiClient.post<TriggerTaskResponse>(`/tasks/runs/${runId}/retry`);
+  return res.data;
+}
+
+export async function taskHealth(): Promise<TaskHealthResponse> {
+  const res = await apiClient.get<TaskHealthResponse>('/tasks/health');
+  return res.data;
+}
+
 // ── Sync Data Summaries ───────────────────────────────────────────────
 
 export async function fetchKlineSyncSummary(): Promise<KlineSyncSummary[]> {
@@ -562,6 +497,12 @@ export async function fetchKlineSyncSummary(): Promise<KlineSyncSummary[]> {
 
 export async function fetchDividendSummary(): Promise<DividendSummaryResponse> {
   const res = await apiClient.get<DividendSummaryResponse>('/dividends/summary');
+  return res.data;
+}
+
+export async function listDividendRecords(stockCode?: string): Promise<DividendRecordResponse[]> {
+  const params = stockCode ? { stock_code: stockCode } : undefined;
+  const res = await apiClient.get<DividendRecordResponse[]>('/dividends', { params });
   return res.data;
 }
 
@@ -754,6 +695,97 @@ export async function listFeeConfigs(brokerName?: string): Promise<BrokerFeeConf
   return res.data;
 }
 
+export async function createFeeConfig(payload: BrokerFeeConfigCreate): Promise<BrokerFeeConfig> {
+  const res = await apiClient.post<BrokerFeeConfig>('/fee-configs', payload);
+  return res.data;
+}
+
+export async function updateFeeConfig(configId: number, payload: Partial<BrokerFeeConfigCreate>): Promise<BrokerFeeConfig> {
+  const res = await apiClient.patch<BrokerFeeConfig>(`/fee-configs/${configId}`, payload);
+  return res.data;
+}
+
+export async function deleteFeeConfig(configId: number): Promise<void> {
+  await apiClient.delete(`/fee-configs/${configId}`);
+}
+
+// ── Market indices ─────────────────────────────────────────────────────
+
+export interface MarketIndexItem {
+  code: string;
+  name: string;
+  close: number | null;
+  change_pct: number | null;
+}
+
+export async function fetchMarketIndices(): Promise<MarketIndexItem[]> {
+  const res = await apiClient.get<MarketIndexItem[]>('/market/indices');
+  return res.data;
+}
+
+export async function fetchIndexKline(code: string, days = 365): Promise<{
+  stock_code: string;
+  points: Array<{ date: string; open: number | null; high: number | null; low: number | null; close: number | null; volume: number | null }>;
+}> {
+  const res = await apiClient.get(`/market/index/${code}/kline`, { params: { days } });
+  return res.data;
+}
+
+// ── Valuation ──────────────────────────────────────────────────────────
+
+export interface ValuationSnapshotItem {
+  id: number;
+  stock_code: string;
+  date: string | null;
+  pe_ttm: number | null;
+  pb: number | null;
+  pe_percentile_10y: number | null;
+  pb_percentile_10y: number | null;
+  dividend_yield: number | null;
+  created_at: string | null;
+}
+
+export interface ValuationDashboardData {
+  stock_code: string;
+  latest_snapshot: ValuationSnapshotItem | null;
+  snapshots: ValuationSnapshotItem[];
+  current_pe: number | null;
+  current_pb: number | null;
+  current_price: number | null;
+  dividend_yield: number | null;
+  market_cap: number | null;
+}
+
+export async function fetchValuationDashboard(code: string): Promise<ValuationDashboardData> {
+  const res = await apiClient.get<ValuationDashboardData>(`/valuation/${code}/dashboard`);
+  return res.data;
+}
+
+export async function fetchValuationPercentile(code: string, years = 10): Promise<{
+  pe_bands: Array<{ percentile: number; value: number }>;
+  pb_bands: Array<{ percentile: number; value: number }>;
+  current_pe: number | null;
+  current_pb: number | null;
+  current_pe_percentile: number | null;
+  current_pb_percentile: number | null;
+}> {
+  const res = await apiClient.get(`/valuation/${code}/percentile`, { params: { years } });
+  return res.data;
+}
+
+export async function fetchForwardDyr(code: string): Promise<{
+  stock_code: string;
+  forward_dyr: number | null;
+  payout_ratio_avg_3y: number | null;
+  eps: number | null;
+  current_price: number | null;
+  trailing_dyr: number | null;
+  basis_note: string;
+}> {
+  const res = await apiClient.get(`/valuation/${code}/forward-dyr`);
+  return res.data;
+}
+
 // ── Price band / available quantity (S2 UI validation) ────────────────
 
 export async function getPriceBand(code: string): Promise<PriceBand> {
@@ -837,92 +869,6 @@ export async function syncDividends(
     payload,
   );
   return res.data;
-}
-
-// ── Backtests (S4D) ───────────────────────────────────────────────────
-
-export async function submitBacktest(config: BacktestConfig): Promise<BacktestRun> {
-  const res = await apiClient.post<BacktestRun>('/backtests', config);
-  return res.data;
-}
-
-export async function listBacktests(limit = 20): Promise<BacktestRun[]> {
-  const res = await apiClient.get<BacktestRun[]>('/backtests', { params: { limit } });
-  return res.data;
-}
-
-export async function getBacktest(id: number): Promise<BacktestRun> {
-  const res = await apiClient.get<BacktestRun>(`/backtests/${id}`);
-  return res.data;
-}
-
-// ── Notifications (S5.4) ──────────────────────────────────────────────
-
-export async function listNotificationChannels(
-  enabledOnly = false,
-): Promise<NotificationChannel[]> {
-  const res = await apiClient.get<NotificationChannel[]>('/notifications/channels', {
-    params: enabledOnly ? { enabled_only: true } : undefined,
-  });
-  return res.data;
-}
-
-export async function createNotificationChannel(
-  payload: NotificationChannelCreate,
-): Promise<NotificationChannel> {
-  const res = await apiClient.post<NotificationChannel>('/notifications/channels', payload);
-  return res.data;
-}
-
-export async function updateNotificationChannel(
-  id: number,
-  payload: NotificationChannelUpdate,
-): Promise<NotificationChannel> {
-  const res = await apiClient.patch<NotificationChannel>(
-    `/notifications/channels/${id}`,
-    payload,
-  );
-  return res.data;
-}
-
-export async function deleteNotificationChannel(id: number): Promise<void> {
-  await apiClient.delete(`/notifications/channels/${id}`);
-}
-
-export async function testNotificationChannel(id: number): Promise<NotificationTestResult> {
-  const res = await apiClient.post<NotificationTestResult>(`/notifications/test/${id}`);
-  return res.data;
-}
-
-// ── Holding risk rules (S5.4) ─────────────────────────────────────────
-
-export async function listRiskRules(): Promise<HoldingRiskRule[]> {
-  const res = await apiClient.get<HoldingRiskRule[]>('/risk-rules');
-  return res.data;
-}
-
-export async function getRiskRule(
-  stockCode: string,
-): Promise<HoldingRiskRule | null> {
-  const res = await apiClient.get<HoldingRiskRule | null>(`/risk-rules/${stockCode}`);
-  return res.data;
-}
-
-export async function createRiskRule(payload: RiskRuleCreate): Promise<HoldingRiskRule> {
-  const res = await apiClient.post<HoldingRiskRule>('/risk-rules', payload);
-  return res.data;
-}
-
-export async function updateRiskRule(
-  id: number,
-  payload: RiskRuleUpdate,
-): Promise<HoldingRiskRule> {
-  const res = await apiClient.patch<HoldingRiskRule>(`/risk-rules/${id}`, payload);
-  return res.data;
-}
-
-export async function deleteRiskRule(id: number): Promise<void> {
-  await apiClient.delete(`/risk-rules/${id}`);
 }
 
 // ── Phase 6 Metrics (Tier 1) ────────────────────────────────────────────────

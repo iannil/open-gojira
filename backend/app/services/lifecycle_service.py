@@ -150,16 +150,22 @@ def mark_researched(
     *,
     rejected: bool = False,
     reason: str = "",
+    promote_to_candidate: bool = False,
 ) -> StockLifecycle:
     """Mark a stock as researched (after deep_research_pipeline runs).
 
     Updates last_research_at (for 30-day cache). If rejected=True (mirror test
     failed or red line hit), increments rejected_count but still moves to
     researched state (so we don't re-research too often).
+
+    If promote_to_candidate=True and not rejected, transitions directly to
+    candidate state (skipping intermediate researched) — see trading-philosophy
+    §2: a successful deep_research promotes the stock to candidate pool.
     """
+    target = STATE_CANDIDATE if (promote_to_candidate and not rejected) else STATE_RESEARCHED
     lc = enter_state(
-        db, stock_code, STATE_RESEARCHED,
-        reason=reason or ("rejected" if rejected else "research completed"),
+        db, stock_code, target,
+        reason=reason or ("rejected" if rejected else f"research completed → {target}"),
         bump_research_at=True,
     )
     if rejected:
@@ -185,6 +191,30 @@ def needs_research(
         return True
     age = now() - lc.last_research_at
     return age.days >= cache_days
+
+
+def get_by_state(
+    db: Session,
+    states: str | list[str] | None = None,
+    *,
+    limit: int = 200,
+) -> list[StockLifecycle]:
+    """List lifecycle records filtered by state(s).
+
+    Args:
+        states: single state, list of states, or None (all).
+        limit: max rows to return (default 200).
+
+    Returns:
+        List of StockLifecycle records, ordered by entered_state_at desc.
+    """
+    q = db.query(StockLifecycle)
+    if states is not None:
+        if isinstance(states, str):
+            states = [states]
+        q = q.filter(StockLifecycle.current_state.in_(states))
+    q = q.order_by(StockLifecycle.entered_state_at.desc()).limit(limit)
+    return q.all()
 
 
 def count_by_state(db: Session) -> dict[str, int]:

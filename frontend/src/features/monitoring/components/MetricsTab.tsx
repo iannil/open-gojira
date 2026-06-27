@@ -21,7 +21,7 @@ import {
   DollarOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
-import ReactEChartsCore from 'echarts-for-react/lib/core';
+import ReactEChartsCore from 'echarts-for-react/esm/core';
 import echarts from '../../../lib/echarts';
 
 import { fetchLLMMetrics, fetchLLMTrend, fetchPipelineMetrics } from '../../../api/client';
@@ -228,11 +228,11 @@ export default function MetricsTab() {
             </Col>
           </Row>
 
-          {/* ⚠️ 预算告警 */}
+          {/* 预算告警 */}
           {llm.monthly_cost.over_hard && (
             <Alert
               type="error"
-              message={`🚨 LLM 月度预算硬熔断！本月已花费 $${llm.monthly_cost.total_usd.toFixed(2)}，非关键 Pipeline 已暂停`}
+              message={`LLM 月度预算硬熔断！本月已花费 $${llm.monthly_cost.total_usd.toFixed(2)}，非关键 Pipeline 已暂停`}
               showIcon
               style={{ marginBottom: 16 }}
             />
@@ -240,7 +240,7 @@ export default function MetricsTab() {
           {llm.monthly_cost.over_soft && !llm.monthly_cost.over_hard && (
             <Alert
               type="warning"
-              message={`⚠️ LLM 月度预算接近上限：$${llm.monthly_cost.total_usd.toFixed(2)} / $${llm.monthly_cost.hard_cap_usd.toFixed(2)}`}
+              message={`LLM 月度预算接近上限：$${llm.monthly_cost.total_usd.toFixed(2)} / $${llm.monthly_cost.hard_cap_usd.toFixed(2)}`}
               showIcon
               style={{ marginBottom: 16 }}
             />
@@ -281,7 +281,7 @@ export default function MetricsTab() {
       )}
 
       {/* ── LLM 费用趋势 ────────────────────────────────────────────────────── */}
-      {trend && trend.labels.length > 0 && (
+      {trend && Array.isArray(trend.labels) && trend.labels.length > 0 && (
         <>
           <Title level={5} style={{ marginTop: 32 }}>日级别费用趋势</Title>
           <ReactEChartsCore
@@ -291,14 +291,14 @@ export default function MetricsTab() {
               grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
               xAxis: {
                 type: 'category',
-                data: (trend.labels || []).map((d: string) => d.slice(5)), // MM-DD
+                data: trend.labels.map((d: string) => d.slice(5)), // MM-DD
               },
               yAxis: { type: 'value', name: 'USD' },
               series: [
                 {
                   name: '费用 (USD)',
                   type: 'line',
-                  data: trend.cost_usd,
+                  data: trend.cost_usd ?? [],
                   smooth: true,
                   areaStyle: { opacity: 0.15 },
                   itemStyle: { color: '#1677ff' },
@@ -309,7 +309,7 @@ export default function MetricsTab() {
           />
         </>
       )}
-      {trend && trend.labels.length === 0 && (
+      {trend && Array.isArray(trend.labels) && trend.labels.length === 0 && (
         <Text type="secondary">近 30 天无 LLM 调用记录</Text>
       )}
     </div>

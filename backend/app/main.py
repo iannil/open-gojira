@@ -35,6 +35,8 @@ from app.routers import (
     observability as observability_router,
     portfolio,
     research_v2 as research_v2_router,
+    task as task_router,
+    risk_rules as risk_rules_router,
     scheduler as scheduler_router,
     stocks,
     system_alerts as system_alerts_router,
@@ -42,7 +44,6 @@ from app.routers import (
     trades as trades_router,
     valuation,
 )
-from app.scheduler import shutdown_scheduler, start_scheduler
 
 logger = logging.getLogger(__name__)
 
@@ -100,11 +101,42 @@ async def lifespan(app: FastAPI):
     except Exception:
         logger.exception("recover_stale_runs failed on startup")
 
-    start_scheduler()
+    # Recover orphaned research reports: any report stuck in "running" state
+    # is presumed dead (server restart / crash killed the in-memory task).
+    try:
+        from app.models.research_report import ResearchReport, STATUS_RUNNING
+        with SessionLocal() as db:
+            orphaned = (
+                db.query(ResearchReport)
+                .filter(ResearchReport.status == STATUS_RUNNING)
+                .all()
+            )
+            for r in orphaned:
+                r.status = "failed"
+                r.markdown_output = (
+                    "**报告未完成** — 服务重启导致研究任务中断。\n\n"
+                    "请重新触发深度研究以生成完整报告。"
+                )
+            db.commit()
+        if orphaned:
+            log.info("Recovered %d orphaned research reports on startup", len(orphaned))
+    except Exception:
+        logger.exception("recover_orphaned_research failed on startup")
+
+    # Start the unified TaskEngine
+    from app.services.task.engine import TaskEngine
+    from app.routers.task import set_engine
+
+    # Import all @task definitions to register them with TaskRegistry
+    import app.tasks  # noqa: F401
+
+    task_engine = TaskEngine(tick_interval=1.0, cron_check_interval=60, max_sync_workers=4)
+    set_engine(task_engine)
+    task_engine.start()
 
     yield
 
-    shutdown_scheduler()
+    task_engine.shutdown(wait=True, timeout=10.0)
     from app.core.events import shutdown_executor
     shutdown_executor(wait=True, timeout=10.0)
     log.info("Application_Stopping")
@@ -243,7 +275,9 @@ app.include_router(fee_configs_router.router)
 app.include_router(system_alerts_router.router)
 app.include_router(corp_actions_router.router)
 app.include_router(notifications_router.router)
+app.include_router(risk_rules_router.router)
 app.include_router(research_v2_router.router)
 app.include_router(theme_scan_router.router)
 app.include_router(metrics_router.router)
+app.include_router(task_router.router)
 app.include_router(eval_set_router.router)
