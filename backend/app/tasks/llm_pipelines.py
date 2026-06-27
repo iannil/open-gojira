@@ -230,7 +230,7 @@ def deep_research_on_demand(ctx: TaskContext) -> dict:
                 r.status = STATUS_FAILED
                 db.commit()
             ctx.report_progress(1.0, "Failed")
-            return {"status": "failed", "stock_code": stock_code}
+            raise
 
 
 # ── On-Demand Theme Scan ──────────────────────────────────────────
@@ -308,4 +308,4 @@ def theme_scan_on_demand(ctx: TaskContext) -> dict:
                 r.status = STATUS_FAILED
                 db.commit()
             ctx.report_progress(1.0, "Failed")
-            return {"status": "failed", "theme": theme}
+            raise
