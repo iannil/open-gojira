@@ -22,7 +22,7 @@
 |---|------|------|
 | 1 | `backend/requirements.txt` | `psycopg2-binary` → `psycopg2` |
 | 2 | `backend/Dockerfile` | 加 `libpq-dev`（构建阶段）+ `libpq5`（运行时阶段） |
-| 3 | `backend/app/config.py` | 默认 `DATABASE_URL` → `postgresql://gojira:gojira@localhost:5432/gojira` |
+| 3 | `backend/app/config.py` | 默认 `DATABASE_URL` → `postgresql://gojira:gojira@localhost:7155/gojira` |
 | 4 | `backend/alembic/env.py` | 删除 `render_as_batch=True` |
 | 5 | `backend/app/core/datetime_utils.py` | 删除 `beijing_now_sql()` / `beijing_now_minus_sql()` 死代码 |
 | 6 | `docker-compose.yml` | 新增 `postgres:16-alpine` 服务，更新 backend `DATABASE_URL`，db-backup 用 `pg_dump` |

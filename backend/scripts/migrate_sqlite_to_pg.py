@@ -39,7 +39,7 @@ logger = logging.getLogger("migrate")
 SQLITE_PATH = Path(os.environ.get("SQLITE_PATH", _BACKEND / "data" / "gojira.db"))
 PG_URL = os.environ.get(
     "DATABASE_URL",
-    "postgresql://gojira:gojira@localhost:5432/gojira",
+    "postgresql://gojira:gojira@localhost:7155/gojira",
 )
 
 # Tables that should be skipped (system/internal)

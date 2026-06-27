@@ -10,7 +10,7 @@
 #
 # Environment variables (for PostgreSQL):
 #   PGHOST       PostgreSQL host (default: postgres)
-#   PGPORT       PostgreSQL port (default: 5432)
+#   PGPORT       PostgreSQL port (default: 7155)
 #   POSTGRES_DB  Database name (default: gojira)
 #   POSTGRES_USER Database user (default: gojira)
 #   KEEP_BACKUPS Number of backups to retain (default: 30)
@@ -27,7 +27,7 @@ TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 
 # PostgreSQL defaults
 PGHOST="${PGHOST:-postgres}"
-PGPORT="${PGPORT:-5432}"
+PGPORT="${PGPORT:-7155}"
 POSTGRES_DB="${POSTGRES_DB:-gojira}"
 POSTGRES_USER="${POSTGRES_USER:-gojira}"
 
