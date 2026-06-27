@@ -1,4 +1,4 @@
-# Gojira 交易思想总纲 (trading-philosophy)
+# Open Gojira 交易思想总纲 (trading-philosophy)
 
 > **状态**：Phase 1 草案 (2026-06-25)，待用户 review 确认。确认后即为 Gojira 交易体系的**唯一权威来源**，Phase 2 代码整合以此为准。
 >

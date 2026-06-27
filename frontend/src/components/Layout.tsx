@@ -127,7 +127,7 @@ export default function Layout() {
     <div className="app-shell">
       <header className="topnav" role="navigation" aria-label="主导航">
         <div className="topnav-brand">
-          <span className="topnav-brand-name">Gojira</span>
+          <span className="topnav-brand-name">Open Gojira</span>
           <span className="topnav-brand-tagline">自动驾驶舱 v2</span>
         </div>
 

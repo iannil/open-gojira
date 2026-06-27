@@ -1,4 +1,4 @@
-# Gojira 项目状态 (Snapshot)
+# Open Gojira 项目状态 (Snapshot)
 
 > **此文档是项目当前状态的高频快照。AI 代理应首先阅读此文件,再按需展开。**
 > 完整架构与进展见 `docs/progress/2026-06-26-v2-architecture-and-progress.md`。
@@ -20,7 +20,7 @@
 
 ## 1. 项目定位
 
-Gojira 是一台 **「个人股票自动驾驶舱」**：规则筛选 + LLM 深度研究 + 规则/人工审批的混合架构,把「选股 → 深研 → 买卖草稿 → 持仓审计 → 论点跟踪」全流程自动化,**唯一不自动的是券商真实下单**。
+Open Gojira 是一台 **「个人股票自动驾驶舱」**：规则筛选 + LLM 深度研究 + 规则/人工审批的混合架构,把「选股 → 深研 → 买卖草稿 → 持仓审计 → 论点跟踪」全流程自动化,**唯一不自动的是券商真实下单**。
 
 技术栈: FastAPI (Python 3.14) + React 19 (TypeScript) + PostgreSQL + Ant Design 6 + ECharts 6。
 

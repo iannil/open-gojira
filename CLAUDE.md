@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-Gojira 是一台 **「个人股票自动驾驶舱」**：面向中国 A 股市场,采用**规则筛选 + LLM 深度研究 + 规则/人工审批**的混合架构,实现「选股 → 深研 → 买卖草稿 → 持仓审计 → 论点跟踪」全流程自动化。除了在券商真实下单外,全部自动。
+Open Gojira 是一台 **「个人股票自动驾驶舱」**：面向中国 A 股市场,采用**规则筛选 + LLM 深度研究 + 规则/人工审批**的混合架构,实现「选股 → 深研 → 买卖草稿 → 持仓审计 → 论点跟踪」全流程自动化。除了在券商真实下单外,全部自动。
 
 **双引擎选股**(两条独立来源,不互相裁决)：价值复利(ai-berkshire 四大师 段/巴/芒/李)+ 产业链卡点(serenity)。交易思想权威见 `docs/standards/trading-philosophy.md`,工程决策见 `docs/active/redesign-decisions-v2.md`(26 决策)。
 

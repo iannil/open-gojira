@@ -1,0 +1,3 @@
+# Open Gojira Website — Cloudflare Pages config
+name = "open-gojira"
+pages_build_output_dir = "dist"
