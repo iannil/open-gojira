@@ -23,6 +23,7 @@ from app.models.stock import Stock
 from app.models.theme_scan_report import (
     STATUS_COMPLETED,
     STATUS_EMPTY,
+    STATUS_FAILED,
     ThemeScanReport,
 )
 from app.services.llm.client import GLMTier, LLMClient, LLMClientError, get_llm_client
@@ -112,8 +113,16 @@ def _validate_codes(
     return valid, dropped
 
 
-def _persist(db: Session, result: ThemeScanResult, raw: dict) -> ThemeScanReport:
-    report = ThemeScanReport(
+def _persist(
+    db: Session, result: ThemeScanResult, raw: dict,
+    existing_report: Optional[ThemeScanReport] = None,
+) -> ThemeScanReport:
+    """Persist result to a new or existing ThemeScanReport row.
+
+    If *existing_report* is provided, update its fields in-place instead of
+    creating a new row.
+    """
+    data = dict(
         theme=result.theme,
         system_change=result.system_change,
         ranked_layers_json=result.ranked_layers,
@@ -124,6 +133,12 @@ def _persist(db: Session, result: ThemeScanResult, raw: dict) -> ThemeScanReport
         prompt_version=PROMPT_VERSION,
         status=result.status,
     )
+    if existing_report is not None:
+        for key, value in data.items():
+            setattr(existing_report, key, value)
+        db.flush()
+        return existing_report
+    report = ThemeScanReport(**data)
     db.add(report)
     db.flush()
     return report
@@ -136,6 +151,7 @@ def run(
     use_web_search: bool = True,
     db_session: Optional[Session] = None,
     llm_client: Optional[LLMClient] = None,
+    existing_report_id: Optional[int] = None,
 ) -> ThemeScanResult:
     """Run the full 5-step theme_scan workflow for one theme.
 
@@ -145,6 +161,8 @@ def run(
         use_web_search: enable web_search in LLM steps
         db_session: caller's session; else creates own
         llm_client: optional injected client (for testing)
+        existing_report_id: if set, update this existing ThemeScanReport row
+            (created as a placeholder) instead of creating a new one.
 
     Returns:
         ThemeScanResult with ranked candidates (status="empty" if no valid
@@ -153,6 +171,17 @@ def run(
     owns_session = db_session is None
     db = db_session or SessionLocal()
     client = llm_client or get_llm_client()
+
+    existing_report: Optional[ThemeScanReport] = None
+    if existing_report_id is not None:
+        existing_report = db.query(ThemeScanReport).filter(
+            ThemeScanReport.id == existing_report_id
+        ).first()
+        if existing_report is None:
+            logger.warning(
+                "existing_report_id=%s not found, will create new report",
+                existing_report_id,
+            )
 
     try:
         sc = _step(client, name="system_change", schema=SYSTEM_CHANGE_SCHEMA,
@@ -184,7 +213,7 @@ def run(
             report = _persist(db, result, raw={
                 "system_change": sc, "value_chain": vc, "scarce_layer": sl,
                 "company_universe": cu, "dropped_codes": dropped,
-            })
+            }, existing_report=existing_report)
             result.report_id = report.id
             if owns_session:
                 db.commit()
@@ -212,7 +241,7 @@ def run(
         report = _persist(db, result, raw={
             "system_change": sc, "value_chain": vc, "scarce_layer": sl,
             "company_universe": cu, "dropped_codes": dropped, "candidate_rank": cr,
-        })
+        }, existing_report=existing_report)
         result.report_id = report.id
         if owns_session:
             db.commit()

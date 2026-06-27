@@ -7,15 +7,14 @@
 
 ## 决策记录：DB 选型
 
-**2026-06-26**: 生产交付差距分析确认——保留 SQLite WAL，不改 PostgreSQL。
-`docker-compose.yml` 已从 PostgreSQL 改为 SQLite volume 挂载。
-理由：单用户系统 SQLite WAL 完全够用，不违背 redesign decision #25，不改 models/不改测试。
+**2026-06-27**: 从 SQLite 迁移到 PostgreSQL。生产环境统一使用 PostgreSQL，SQLite 仅保留在测试内存中使用。
+`docker-compose.yml` 恢复 PostgreSQL 服务，`engine.py` 移除所有 SQLite 特有逻辑。
 详见 `docs/progress/2026-06-26-production-gap-analysis.md`。
 
 ## 项目上下文
 
 - **定位**: 个人股票自动驾驶舱 (规则+LLM 混合 → 全流程自动化,除券商下单外)
-- **技术栈**: FastAPI (Python 3.14) + React 19 + SQLite (WAL) + Ant Design 6 + ECharts 6
+- **技术栈**: FastAPI (Python 3.14) + React 19 + PostgreSQL + Ant Design 6 + ECharts 6
 - **当前状态**: **2026-06-26 纸面交易后端闭环全部完成 (P0-1~P0-4)**。全套测试 **555 passed / 0 failed**。买入主链路 + 卖出后端闭环(论点失效→SELL draft / 实际价回填→Trade / in-app signal alert)+ research_v2 API + 报告查看 UI 已建。双引擎评分核心 + serenity theme_scan 引擎 + v1-leftover 清理为前序完成
 - **评判锚点(两份互补)**:
   - `docs/standards/trading-philosophy.md` — **交易思想权威**(双引擎/hybrid/评分 profile/去重×3/弃用清单)。取代 invest{1,2,3} 散落约定

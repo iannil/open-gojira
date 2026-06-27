@@ -17,7 +17,7 @@ DATA_DIR = REPO_ROOT / "backend" / "data"
 
 
 class Settings(BaseSettings):
-    DATABASE_URL: str = "sqlite:///data/gojira.db"
+    DATABASE_URL: str = "postgresql://gojira:gojira@localhost:5432/gojira"
     CORS_ORIGINS: list[str] = ["http://localhost:7149"]
     LIXINGER_TOKEN: str = ""
     SCHEDULER_ENABLED: bool = True

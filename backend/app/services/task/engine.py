@@ -158,6 +158,8 @@ class TaskEngine:
             input_data=json.dumps(input_data) if input_data else None,
         )
         db.add(run)
+        # ── Sync Task business status ──
+        task_model.status = "queued"
         db.flush()
         logger.info("Task %s manually triggered (run=%d, by=%s)", task_id, run.id, triggered_by)
         return run
@@ -171,12 +173,20 @@ class TaskEngine:
         if run.status == "queued":
             run.status = "cancelled"
             run.finished_at = now()
+            # ── Sync Task business status ──
+            task = self._registry.get_task_model(db, run.task_id)
+            if task:
+                task.status = "cancelled"
             db.flush()
             return True
 
         if run.status == "running":
             run.status = "cancelled"
             run.finished_at = now()
+            # ── Sync Task business status ──
+            task = self._registry.get_task_model(db, run.task_id)
+            if task:
+                task.status = "cancelled"
             db.flush()
             # Also tell the executor to cancel
             self._executor.cancel_run(run_id)
@@ -327,12 +337,18 @@ class TaskEngine:
                     run.status = "failed"
                     run.last_error = f"[PERMANENT] Task definition '{run.task_id}' not found in registry"
                     run.finished_at = now()
+                    # ── Sync Task business status ──
+                    task = self._registry.get_task_model(db, run.task_id)
+                    if task:
+                        task.status = "failed"
                     continue
 
                 if not task_model.enabled:
                     # Task is disabled — cancel the run
                     run.status = "cancelled"
                     run.finished_at = now()
+                    # ── Sync Task business status ──
+                    task_model.status = "cancelled"
                     continue
 
                 # Check dependencies
@@ -422,6 +438,8 @@ class TaskEngine:
                                 trace_id=_generate_id(),
                             )
                             db.add(run)
+                            # ── Sync Task business status ──
+                            task.status = "queued"
                             logger.info(
                                 "Cron task %s triggered at %s",
                                 task.task_id, now_dt.isoformat(),
@@ -441,6 +459,7 @@ class TaskEngine:
         """Dispatch a single TaskRun to the executor."""
         # Mark as running
         run.status = "running"
+        task_model.status = "running"  # ── Sync business status ──
         run.started_at = now()
         run.worker_id = self._worker_mgr.worker_id
 
@@ -551,6 +570,11 @@ class TaskEngine:
                         if retry_run:
                             run.last_error = (run.last_error or "") + " [retry scheduled]"
 
+                # ── Sync Task business status to match this run ──
+                task = self._registry.get_task_model(db, run.task_id)
+                if task:
+                    task.status = "active" if success else "failed"
+
                 db.commit()
         except Exception:
             logger.exception("Failed to finalize task run=%d", run_id)
@@ -580,6 +604,10 @@ class TaskEngine:
                     # Cancel the executor thread
                     self._executor.cancel_run(run_id)
                     self._worker_mgr.end_run(run_id)
+                    # ── Sync Task business status ──
+                    task = self._registry.get_task_model(db, run.task_id)
+                    if task:
+                        task.status = "failed"
                     db.commit()
                     logger.warning("Task run=%d marked as failed due to timeout", run_id)
         except Exception:
@@ -601,5 +629,29 @@ class TaskEngine:
             run.status = "failed"
             run.last_error = "[RECOVERED] Process restarted while task was in progress"
             run.finished_at = now_ts
+            # ── Sync Task business status ──
+            task = self._registry.get_task_model(db, run.task_id)
+            if task:
+                task.status = "failed"
             count += 1
+
+        # ── Recover business entities stuck in transient states ──
+        self._recover_stuck_theme_scan_reports(db)
+
         return count
+
+    def _recover_stuck_theme_scan_reports(self, db: DBSession) -> None:
+        """Recover ThemeScanReport placeholders left in 'running' status by a crash."""
+        try:
+            from app.models.theme_scan_report import STATUS_FAILED, ThemeScanReport
+            stuck = (
+                db.query(ThemeScanReport)
+                .filter(ThemeScanReport.status == "running")
+                .all()
+            )
+            for r in stuck:
+                r.status = STATUS_FAILED
+            if stuck:
+                logger.info("Recovered %d stuck ThemeScanReport(s) on startup", len(stuck))
+        except Exception:
+            logger.exception("Failed to recover stuck ThemeScanReports")

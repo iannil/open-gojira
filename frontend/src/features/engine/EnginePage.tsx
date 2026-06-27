@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -254,7 +254,32 @@ function ThemeScanPanel({ onNavigateToStock }: { onNavigateToStock: (code: strin
     queryKey: ['theme-scan', 'report', selectedReportId],
     queryFn: () => getThemeScanReport(selectedReportId!),
     enabled: selectedReportId !== null,
+    // While the report is "running", poll every 3s until terminal
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === 'running' ? 3000 : false;
+    },
   });
+
+  // Detect running→terminal transition and notify + refresh
+  const prevStatusRef = useRef<string | null>(null);
+  useEffect(() => {
+    const current = reportDetailQuery.data?.status;
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = current ?? null;
+
+    if (prev === 'running' && current && current !== 'running') {
+      // Transitioned from running → terminal
+      if (current === 'completed') {
+        message.success(`主题扫描「${reportDetailQuery.data?.theme}」已完成`);
+      } else if (current === 'empty') {
+        message.info('扫描完成，但未找到有效的 A 股候选标的');
+      } else if (current === 'failed') {
+        message.error(`主题扫描失败，请查看服务端日志`);
+      }
+      queryClient.invalidateQueries({ queryKey: ['theme-scan', 'reports'] });
+    }
+  }, [reportDetailQuery.data?.status, reportDetailQuery.data?.theme, queryClient]);
 
   const triggerM = useMutation({
     mutationFn: () =>
@@ -264,12 +289,13 @@ function ThemeScanPanel({ onNavigateToStock }: { onNavigateToStock: (code: strin
         use_web_search: true,
       }),
     onSuccess: (data) => {
-      message.success(`主题扫描「${themeInput.trim()}」已启动，报告 ID: ${data.id}`);
+      message.success(`主题扫描「${themeInput.trim()}」已提交，ID: ${data.id}`);
       setThemeInput('');
+      setSelectedReportId(data.id);
       queryClient.invalidateQueries({ queryKey: ['theme-scan', 'reports'] });
     },
     onError: (err: unknown) => {
-      message.error(`扫描失败：${err instanceof Error ? err.message : '未知错误'}`);
+      message.error(`扫描提交失败：${err instanceof Error ? err.message : '未知错误'}`);
     },
   });
 

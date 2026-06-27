@@ -230,3 +230,80 @@ def deep_research_on_demand(ctx: TaskContext) -> dict:
                 db.commit()
             ctx.report_progress(1.0, "Failed")
             return {"status": "failed", "stock_code": stock_code}
+
+
+# ── On-Demand Theme Scan ──────────────────────────────────────────
+
+
+@task(
+    name="theme_scan_on_demand",
+    trigger_type="api",
+    retry=1,
+    timeout=1800,
+    tags=["llm", "theme_scan", "ondemand"],
+    description="手动触发的主题扫描（来自 Engine 页面）",
+)
+def theme_scan_on_demand(ctx: TaskContext) -> dict:
+    """Run theme_scan pipeline for a theme, triggered on-demand from the UI.
+
+    The ThemeScanReport placeholder is already created by the router before
+    triggering this task. This function reads the placeholder and updates it.
+    """
+    import json
+
+    from app.services.llm.client import GLMTier
+    from app.services.pipelines.llm import theme_scan_pipeline
+    from app.models.theme_scan_report import (
+        STATUS_FAILED,
+        STATUS_RUNNING,
+        ThemeScanReport,
+    )
+
+    with SessionLocal() as db:
+        run = db.query(TaskRun).filter(TaskRun.id == ctx.run_id).first()
+        input_data = json.loads(run.input_data) if run and run.input_data else {}
+        report_id = input_data.get("report_id")
+        theme = input_data.get("theme", "")
+
+        if not report_id:
+            logger.error("theme_scan_on_demand: no report_id in input_data")
+            return {"error": "no report_id"}
+
+        ctx.report_progress(0.0, f"Starting theme scan for 「{theme}」")
+
+        tier_str = input_data.get("model_tier", "sonnet")
+        use_web_search = input_data.get("use_web_search", True)
+        tier_map = {"sonnet": GLMTier.SONNET, "opus": GLMTier.OPUS, "haiku": GLMTier.HAIKU}
+        tier = tier_map.get(tier_str.lower(), GLMTier.SONNET)
+
+        ctx.report_progress(0.1, f"Running theme scan pipeline for 「{theme}」")
+
+        try:
+            result = theme_scan_pipeline.run(
+                theme,
+                model_tier=tier,
+                use_web_search=use_web_search,
+                db_session=db,
+                existing_report_id=report_id,
+            )
+            db.commit()
+            ctx.report_progress(1.0, f"Theme scan complete for 「{theme}」")
+            return {
+                "status": "completed",
+                "theme": theme,
+                "report_id": result.report_id,
+                "evidence_grade": result.evidence_grade,
+                "candidate_count": len(result.ranked_candidates),
+            }
+        except Exception:
+            db.rollback()
+            logger.exception("theme_scan_on_demand failed for theme=%s", theme)
+            # Mark the placeholder report as failed
+            r = db.query(ThemeScanReport).filter(
+                ThemeScanReport.id == report_id
+            ).first()
+            if r:
+                r.status = STATUS_FAILED
+                db.commit()
+            ctx.report_progress(1.0, "Failed")
+            return {"status": "failed", "theme": theme}

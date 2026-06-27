@@ -15,9 +15,8 @@
 #   POSTGRES_USER Database user (default: gojira)
 #   KEEP_BACKUPS Number of backups to retain (default: 30)
 #
-# Supports both SQLite and PostgreSQL:
-#   - Detects database type from DATABASE_URL or falls back to PG variables.
-#   - SQLite: uses sqlite3 .backup command.
+# Supports PostgreSQL only.
+# Detects database connection from PGHOST/PGPORT/POSTGRES_DB/POSTGRES_USER env vars.
 #   - PostgreSQL: uses pg_dump.
 # ──────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
@@ -40,79 +39,43 @@ echo "  Timestamp : $TIMESTAMP"
 echo "  Target    : $BACKUP_DIR"
 echo ""
 
-# ── Determine database type ────────────────────────────────────────────────
-DATABASE_URL="${DATABASE_URL:-}"
+# ── Backup (PostgreSQL only) ───────────────────────────────────────────────
+BACKUP_FILE="$BACKUP_DIR/gojira_${TIMESTAMP}.sql.gz"
 
-if [[ "$DATABASE_URL" == postgres* ]]; then
-    # ── PostgreSQL Backup ───────────────────────────────────────────────────
-    echo "[PostgreSQL] Starting backup..."
+echo "[PostgreSQL] Starting backup..."
 
-    # Extract connection info from DATABASE_URL if set
-    if [[ -n "$DATABASE_URL" ]]; then
-        # Parse postgresql+psycopg2://user:pass@host:port/dbname
-        DB_PART="${DATABASE_URL#*://}"
-        CREDENTIALS="${DB_PART%%@*}"
-        DB_USER="${CREDENTIALS%%:*}"
-        REST="${DB_PART#*@}"
-        DB_HOST_PORT="${REST%%/*}"
-        DB_NAME="${REST#*/}"
+# If DATABASE_URL is set (postgres://...), parse credentials from it.
+# Otherwise fall back to individual PGHOST/PGPORT/POSTGRES_DB/POSTGRES_USER.
+if [[ -n "$DATABASE_URL" ]]; then
+    # Parse postgresql+psycopg2://user:pass@host:port/dbname
+    DB_PART="${DATABASE_URL#*://}"
+    CREDENTIALS="${DB_PART%%@*}"
+    DB_USER="${CREDENTIALS%%:*}"
+    DB_PASS="${CREDENTIALS#*:}"
+    REST="${DB_PART#*@}"
+    DB_HOST_PORT="${REST%%/*}"
+    DB_NAME="${REST#*/}"
 
-        # Export for pg_dump
-        export PGHOST="${DB_HOST_PORT%%:*}"
-        export PGPORT="${DB_HOST_PORT##*:}"
-        export PGUSER="$DB_USER"
-        export PGDATABASE="$DB_NAME"
-    fi
-
-    BACKUP_FILE="$BACKUP_DIR/gojira_${TIMESTAMP}.sql.gz"
-
-    PGPASSWORD="${POSTGRES_PASSWORD:-}" pg_dump \
-        -h "$PGHOST" \
-        -p "$PGPORT" \
-        -U "$POSTGRES_USER" \
-        -d "$POSTGRES_DB" \
-        --no-owner \
-        --no-privileges \
-        --clean \
-        --if-exists \
-        | gzip > "$BACKUP_FILE"
-
-    echo "[PostgreSQL] Backup completed: $BACKUP_FILE"
-    echo "[PostgreSQL] Size: $(du -h "$BACKUP_FILE" | cut -f1)"
-
-elif [[ "$DATABASE_URL" == sqlite* ]] || [[ -z "$DATABASE_URL" ]]; then
-    # ── SQLite Backup ───────────────────────────────────────────────────────
-    echo "[SQLite] Starting backup..."
-
-    # Resolve SQLite database path
-    if [[ -n "$DATABASE_URL" ]]; then
-        # Strip sqlite:/// prefix
-        DB_PATH="${DATABASE_URL#sqlite:///}"
-    else
-        DB_PATH="data/gojira.db"
-    fi
-
-    if [[ ! -f "$DB_PATH" ]]; then
-        echo "[ERROR] SQLite database not found at: $DB_PATH"
-        exit 1
-    fi
-
-    BACKUP_FILE="$BACKUP_DIR/gojira_${TIMESTAMP}.db"
-
-    sqlite3 "$DB_PATH" ".backup '$BACKUP_FILE'"
-
-    if command -v gzip &>/dev/null; then
-        gzip "$BACKUP_FILE"
-        BACKUP_FILE="${BACKUP_FILE}.gz"
-    fi
-
-    echo "[SQLite] Backup completed: $BACKUP_FILE"
-    echo "[SQLite] Size: $(du -h "$BACKUP_FILE" | cut -f1)"
-
-else
-    echo "[ERROR] Unsupported DATABASE_URL scheme: $DATABASE_URL"
-    exit 1
+    export PGHOST="${DB_HOST_PORT%%:*}"
+    export PGPORT="${DB_HOST_PORT##*:}"
+    export PGUSER="$DB_USER"
+    export PGPASSWORD="${DB_PASS}"
+    export PGDATABASE="$DB_NAME"
 fi
+
+PGPASSWORD="${PGPASSWORD:-${POSTGRES_PASSWORD:-}}" pg_dump \
+    -h "$PGHOST" \
+    -p "$PGPORT" \
+    -U "$POSTGRES_USER" \
+    -d "$POSTGRES_DB" \
+    --no-owner \
+    --no-privileges \
+    --clean \
+    --if-exists \
+    | gzip > "$BACKUP_FILE"
+
+echo "[PostgreSQL] Backup completed: $BACKUP_FILE"
+echo "[PostgreSQL] Size: $(du -h "$BACKUP_FILE" | cut -f1)"
 
 # ── Cleanup old backups ────────────────────────────────────────────────────
 echo ""

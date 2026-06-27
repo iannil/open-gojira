@@ -14,14 +14,19 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from app.core.rate_limit import limiter
 from app.db.session import get_db
-from app.models.theme_scan_report import ThemeScanReport
+from app.models.theme_scan_report import (
+    STATUS_COMPLETED,
+    STATUS_FAILED,
+    STATUS_RUNNING,
+    ThemeScanReport,
+)
 from app.services.llm.cost_tracker import check_budget_available
 from app.services.pipelines.llm import theme_scan_pipeline
 
@@ -60,15 +65,22 @@ class ThemeScanFull(ThemeScanSummary):
 # ── Endpoints ────────────────────────────────────────────────────────────
 
 
-@router.post("", response_model=ThemeScanFull)
+@router.post("", response_model=ThemeScanFull, status_code=202)
 @limiter.limit(TRIGGER_RATE_LIMIT)
 def trigger_theme_scan(
     request: Request,
     payload: ThemeScanRequest,
+    response: Response,
     db: Session = Depends(get_db),
 ) -> ThemeScanFull:
-    """Run the serenity theme_scan workflow for one theme.
+    """Run the serenity theme_scan workflow for one theme (asynchronous).
 
+    theme_scan is a multi-minute LLM pipeline (5 sequential LLM calls), so
+    it runs in the background: this returns 202 immediately with a placeholder
+    report whose ``status`` is ``"running"``. The client polls
+    GET /api/theme-scan/{report_id} to observe completion.
+
+    Follows the same async pattern as deep_research (research_v2.py).
     Produces a ranked bottleneck candidate list. Convert a pick to a buy
     decision via POST /api/research/{code} with source=theme_scan +
     scarcity_score (trading-philosophy.md §2, manual handoff).
@@ -81,29 +93,20 @@ def trigger_theme_scan(
     if not allowed:
         raise HTTPException(429, f"LLM budget exhausted: {reason}")
 
-    from app.services.llm.client import GLMTier
-    tier_map = {"sonnet": GLMTier.SONNET, "opus": GLMTier.OPUS, "haiku": GLMTier.HAIKU}
-    tier = tier_map.get(payload.model_tier.lower(), GLMTier.SONNET)
+    # Create running placeholder so the client gets an id to poll
+    placeholder = ThemeScanReport(
+        theme=theme,
+        status=STATUS_RUNNING,
+    )
+    db.add(placeholder)
+    db.commit()
+    db.refresh(placeholder)
 
-    try:
-        result = theme_scan_pipeline.run(
-            theme,
-            model_tier=tier,
-            use_web_search=payload.use_web_search,
-            db_session=db,
-        )
-        db.commit()
-    except Exception as exc:
-        db.rollback()
-        logger.exception("theme_scan failed for theme=%s", theme)
-        raise HTTPException(502, "theme_scan failed; see server logs") from exc
+    # Try TaskEngine first; fall back to synchronous execution
+    _try_trigger_task(db, theme, placeholder.id, payload.model_tier, payload.use_web_search)
 
-    report = db.query(ThemeScanReport).filter(
-        ThemeScanReport.id == result.report_id
-    ).first()
-    if report is None:
-        raise HTTPException(500, "report not persisted")
-    return _to_full(report)
+    response.status_code = 202
+    return _to_full(placeholder)
 
 
 @router.get("/reports", response_model=list[ThemeScanSummary])
@@ -145,3 +148,59 @@ def _to_full(r: ThemeScanReport) -> ThemeScanFull:
         markdown_output=r.markdown_output,
         prompt_version=r.prompt_version,
     )
+
+
+# ── Async Helper ───────────────────────────────────────────────────────
+
+
+def _try_trigger_task(
+    db: Session,
+    theme: str,
+    report_id: int,
+    model_tier: str,
+    use_web_search: bool,
+) -> None:
+    """Try TaskEngine first; fall back to synchronous execution."""
+    try:
+        from app.routers.task import _get_engine as _task_engine
+        engine = _task_engine()
+        engine.trigger_task(
+            "theme_scan_on_demand",
+            db,
+            triggered_by="api",
+            input_data={
+                "theme": theme,
+                "report_id": report_id,
+                "model_tier": model_tier,
+                "use_web_search": use_web_search,
+            },
+        )
+        db.commit()
+        logger.info("theme_scan_on_demand task triggered for theme=%s (report_id=%s)", theme, report_id)
+        return  # TaskEngine will handle execution
+    except Exception:
+        logger.warning("TaskEngine unavailable, running synchronously for theme=%s", theme)
+        db.rollback()
+
+    # Fallback: synchronous execution (for tests / engine-not-ready scenarios)
+    from app.services.llm.client import GLMTier
+    tier_map = {"sonnet": GLMTier.SONNET, "opus": GLMTier.OPUS, "haiku": GLMTier.HAIKU}
+    tier = tier_map.get(model_tier.lower(), GLMTier.SONNET)
+
+    try:
+        theme_scan_pipeline.run(
+            theme,
+            model_tier=tier,
+            use_web_search=use_web_search,
+            db_session=db,
+            existing_report_id=report_id,
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Fallback sync theme_scan failed for theme=%s", theme)
+        # Mark placeholder as failed
+        r = db.query(ThemeScanReport).filter(ThemeScanReport.id == report_id).first()
+        if r:
+            r.status = STATUS_FAILED
+            db.commit()

@@ -3,11 +3,16 @@ FROM python:3.12-slim AS builder
 
 WORKDIR /build
 
+# Install build dependencies for psycopg2 (libpq-dev) and other C extensions
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libpq-dev && \
+    rm -rf /var/lib/apt/lists/*
+
 # Install dependencies into a virtual environment
 COPY requirements.txt .
 RUN python -m venv /build/venv && \
-    /build/venv/bin/pip install --no-cache-dir --upgrade pip && \
-    /build/venv/bin/pip install --no-cache-dir -r requirements.txt
+    /build/venv/bin/pip install --no-cache-dir --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple --trusted-host pypi.tuna.tsinghua.edu.cn && \
+    /build/venv/bin/pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple --trusted-host pypi.tuna.tsinghua.edu.cn
 
 # ── Stage 2: Runtime ───────────────────────────────────────────────────────
 FROM python:3.12-slim
@@ -16,7 +21,10 @@ LABEL maintainer="Gojira Team"
 LABEL description="Gojira Investment System - Backend API"
 
 # Create non-root user
-RUN groupadd --gid 1000 appuser && \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libpq5 && \
+    rm -rf /var/lib/apt/lists/* && \
+    groupadd --gid 1000 appuser && \
     useradd --uid 1000 --gid appuser --shell /bin/bash --create-home appuser
 
 WORKDIR /app
@@ -24,11 +32,15 @@ WORKDIR /app
 # Copy virtual environment from builder
 COPY --from=builder /build/venv /app/.venv
 
+# Fix shebangs: builder stage path ( /build/venv ) → runtime path ( /app/.venv )
+# Without this, scripts like uvicorn fail with "no such file or directory"
+RUN sed -i 's|#!/build/venv/bin/python|#!/app/.venv/bin/python|g' /app/.venv/bin/*
+
 # Copy application code
 COPY . .
 
-# Ensure data directory exists for SQLite fallback
-RUN mkdir -p /app/data && chown -R appuser:appuser /app/data
+# Ensure data and logs directories exist for observability logs
+RUN mkdir -p /app/data /app/logs/observability && chown -R appuser:appuser /app/data /app/logs
 
 # Use the virtual environment binaries
 ENV PATH="/app/.venv/bin:${PATH}"

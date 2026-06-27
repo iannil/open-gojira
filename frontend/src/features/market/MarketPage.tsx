@@ -1,21 +1,22 @@
 import { useState } from 'react';
-import { Card, Col, Row, Statistic, Table, Typography, Tag } from 'antd';
+
+import { Card, Col, Row, Statistic, Tag } from 'antd';
 import {
-  LineChartOutlined,
-  ArrowUpOutlined,
   ArrowDownOutlined,
+  ArrowUpOutlined,
+  LineChartOutlined,
   MinusOutlined,
 } from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
+import ReactEChartsCore from 'echarts-for-react/esm/core';
+import type { EChartsOption } from 'echarts';
 
-import { fetchMarketIndices, fetchIndexKline } from '../../api/client';
+import { fetchIndexKline, fetchMarketIndices } from '../../api/client';
 import type { MarketIndexItem } from '../../api/client';
+import echarts from '../../lib/echarts';
 import { PageHeader } from '../../components/primitives';
 import PageSection from '../../components/primitives/PageSection';
 import QueryBoundary from '../../components/QueryBoundary';
-
-const { Text } = Typography;
 
 const INDEX_NAMES: Record<string, string> = {
   '000001': '上证指数',
@@ -115,24 +116,97 @@ export default function MarketPage() {
         <QueryBoundary query={klineQ} isEmpty={(d) => d.points.length === 0}>
           {() => {
             const pts = klineQ.data?.points ?? [];
-            const recent = pts.slice(-30).reverse();
+            // points come newest-first from API; reverse to chronological
+            const sorted = [...pts].reverse();
 
-            const columns: ColumnsType<{ date: string; open: number | null; high: number | null; low: number | null; close: number | null; volume: number | null }> = [
-              { title: '日期', dataIndex: 'date', width: 100 },
-              { title: '开盘', dataIndex: 'open', width: 90, align: 'right', render: (v: number | null) => v?.toFixed(2) ?? '—' },
-              { title: '最高', dataIndex: 'high', width: 90, align: 'right', render: (v: number | null) => v?.toFixed(2) ?? '—' },
-              { title: '最低', dataIndex: 'low', width: 90, align: 'right', render: (v: number | null) => v?.toFixed(2) ?? '—' },
-              { title: '收盘', dataIndex: 'close', width: 90, align: 'right', render: (v: number | null) => <Text strong>{v?.toFixed(2) ?? '—'}</Text> },
-              { title: '成交量', dataIndex: 'volume', width: 100, align: 'right', render: (v: number | null) => v?.toLocaleString('zh-CN') ?? '—' },
-            ];
+            const dates = sorted.map((p) => p.date);
+            // ECharts candlestick expects [open, close, low, high]
+            const candlestickData = sorted.map(
+              (p) => [p.open ?? 0, p.close ?? 0, p.low ?? 0, p.high ?? 0] as [number, number, number, number],
+            );
+            const volumeData = sorted.map((p) => p.volume ?? 0);
+
+            const option: EChartsOption = {
+              animation: false,
+              tooltip: {
+                trigger: 'axis',
+                axisPointer: { type: 'cross' },
+              },
+              grid: [
+                { left: '8%', right: '8%', top: 48, height: '50%' },
+                { left: '8%', right: '8%', top: '72%', height: '18%' },
+              ],
+              xAxis: [
+                {
+                  type: 'category',
+                  data: dates,
+                  gridIndex: 0,
+                  axisLine: { onZero: false },
+                  axisLabel: { show: false },
+                },
+                {
+                  type: 'category',
+                  data: dates,
+                  gridIndex: 1,
+                  axisLabel: { rotate: 45, fontSize: 11 },
+                },
+              ],
+              yAxis: [
+                { type: 'value', gridIndex: 0, scale: true, splitNumber: 5 },
+                { type: 'value', gridIndex: 1, splitNumber: 3, axisLabel: { show: true } },
+              ],
+              dataZoom: [
+                {
+                  type: 'inside',
+                  xAxisIndex: [0, 1],
+                  start: Math.max(0, 100 - (120 / dates.length) * 100),
+                  end: 100,
+                },
+                {
+                  type: 'slider',
+                  xAxisIndex: [0, 1],
+                  start: Math.max(0, 100 - (120 / dates.length) * 100),
+                  end: 100,
+                  bottom: 4,
+                  height: 16,
+                },
+              ],
+              series: [
+                {
+                  name: 'K线',
+                  type: 'candlestick',
+                  xAxisIndex: 0,
+                  yAxisIndex: 0,
+                  data: candlestickData,
+                  itemStyle: {
+                    color: '#cf1322',
+                    color0: '#3f8600',
+                    borderColor: '#cf1322',
+                    borderColor0: '#3f8600',
+                  },
+                },
+                {
+                  name: '成交量',
+                  type: 'bar',
+                  xAxisIndex: 1,
+                  yAxisIndex: 1,
+                  data: volumeData,
+                  itemStyle: {
+                    color: (params: { dataIndex: number }) => {
+                      const p = sorted[params.dataIndex];
+                      return p && (p.close ?? 0) >= (p.open ?? 0) ? '#cf1322' : '#3f8600';
+                    },
+                  },
+                },
+              ],
+            };
 
             return (
-              <Table
-                columns={columns}
-                dataSource={recent}
-                rowKey="date"
-                size="small"
-                pagination={false}
+              <ReactEChartsCore
+                echarts={echarts}
+                option={option}
+                style={{ height: 520 }}
+                notMerge
               />
             );
           }}

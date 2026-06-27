@@ -28,7 +28,6 @@ Scope (per 2026-06-18 decision, "pragmatic"):
 Behaviour:
     - Single SQLAlchemy transaction (commit at end; rollback on any error).
     - DELETEs in dependency order (children before parents).
-    - Resets sqlite_sequence for cleared tables (next insert id=1).
     - Prints before/after row counts to stdout.
 
 Safety:
@@ -115,25 +114,6 @@ def main() -> int:
         for t in CLEAR_TABLES:
             result = db.execute(text(f'DELETE FROM "{t}"'))
             print(f"  {t:35s} deleted {result.rowcount:>8}")
-
-        print("\nResetting sqlite_sequence...")
-        has_seq = db.execute(
-            text(
-                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='sqlite_sequence'"
-            )
-        ).first()
-        if not has_seq:
-            print("  (sqlite_sequence table does not exist — using INTEGER PRIMARY KEY, no reset needed)")
-        else:
-            names_sql = ", ".join(f"'{t}'" for t in CLEAR_TABLES)
-            existing = db.execute(
-                text(f"SELECT name FROM sqlite_sequence WHERE name IN ({names_sql})")
-            ).fetchall()
-            if not existing:
-                print("  (no matching sequences to reset)")
-            for (name,) in existing:
-                db.execute(text("DELETE FROM sqlite_sequence WHERE name = :n"), {"n": name})
-                print(f"  reset sequence: {name}")
 
         db.commit()
         print("\nCommit OK.")

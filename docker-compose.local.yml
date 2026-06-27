@@ -1,0 +1,55 @@
+# Gojira 本地长期运行配置（生产模式）
+# =========================================
+# 基于生产级 Dockerfile，去除 Caddy / db-backup 等本地不必要的组件，
+# 将端口映射到与 dev.sh 一致的本地端口，便于持续运行在本地。
+#
+# 用法:
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
+#
+# 启动后访问:
+#   Frontend: http://localhost:7149
+#   Backend:   http://localhost:7150  (直接 API 调试可用)
+#
+# 停止:
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml down
+#
+# 查看日志:
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml logs -f
+#
+# 前提条件:
+#   - 项目根目录的 .env 文件必须存在（含 LIXINGER_TOKEN / ZHIPU_API_KEY）
+#   - 首次启动会自动搭建 PostgreSQL（postgres:16-alpine），无需手动安装
+
+services:
+  # ── Backend ──────────────────────────────────────────────────────────────
+  backend:
+    # 暴露后端 API 端口，方便直接调试/调用
+    ports:
+      - "7150:3001"
+    environment:
+      # 前端从 nginx 访问（同源），后端接收到的 Origin 正确匹配
+      CORS_ORIGINS: '["http://localhost:7149","http://localhost:7150"]'
+
+  # ── Frontend ─────────────────────────────────────────────────────────────
+  frontend:
+    # 前端 nginx 映射到 7149（与 dev.sh 一致）
+    ports:
+      - "7149:80"
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────
+  # 暴露 PG 端口 5432 给本地 dev.sh（uvicorn 运行在宿主机，通过 localhost:5432 连接）
+  postgres:
+    ports:
+      - "5432:5432"
+
+  # ── Caddy 反向代理 ──────────────────────────────────────────────────────
+  # 本地运行不需要 HTTPS 反向代理，直接通过 nginx 访问前端即可
+  caddy:
+    profiles:
+      - dont-start
+
+  # ── 数据库备份 ──────────────────────────────────────────────────────────
+  # 本地运行按需手动触发备份，不需要定时容器
+  db-backup:
+    profiles:
+      - dont-start

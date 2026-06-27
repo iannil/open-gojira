@@ -18,8 +18,10 @@ from app.core.datetime_utils import now
 PIPELINE_THEME_SCAN = "theme_scan"
 
 # Report status (mirrors research_report status vocabulary)
+STATUS_RUNNING = "running"
 STATUS_COMPLETED = "completed"
 STATUS_EMPTY = "empty"        # no scarce layer / no valid A-share candidate found
+STATUS_FAILED = "failed"
 
 
 class ThemeScanReport(Base):

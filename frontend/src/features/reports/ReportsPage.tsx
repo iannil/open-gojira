@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   Alert,
   Badge,
@@ -16,17 +16,19 @@ import {
   Tag,
   Typography,
 } from 'antd';
-import { ReloadOutlined, SearchOutlined } from '@ant-design/icons';
+import { RedoOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 import {
   listRecentReports,
   getReportById,
+  triggerResearch,
   type PipelineType,
   type Recommendation,
   type ReportStatus,
   type ResearchReportFull,
+  type ResearchReportSummary,
 } from '../../api/research';
 import PageHeader from '../../components/primitives/PageHeader';
 import PageSection from '../../components/primitives/PageSection';
@@ -102,6 +104,21 @@ export default function ReportsPage() {
     }
     return null;
   }, [reportDetailQuery.data, selectedReportId, reports]);
+
+  // Retry mutation for failed/rejected reports
+  const retryMutation = useMutation({
+    mutationFn: (stockCode: string) => triggerResearch(stockCode, { force: true }),
+    onSuccess: () => {
+      // Refetch the reports list after triggering retry
+      setTimeout(() => {
+        reportsQuery.refetch();
+      }, 2000);
+    },
+  });
+
+  const handleRetry = (stockCode: string) => {
+    retryMutation.mutate(stockCode);
+  };
 
   return (
     <div>
@@ -228,6 +245,25 @@ export default function ReportsPage() {
                     render: (ts: string | null) =>
                       ts ? new Date(ts).toLocaleDateString('zh-CN') : null,
                   },
+                  {
+                    title: '操作',
+                    width: 90,
+                    render: (_: unknown, r: ResearchReportSummary) =>
+                      (r.status === 'failed' || r.status === 'rejected') && (
+                        <Button
+                          type="link"
+                          size="small"
+                          icon={<RedoOutlined />}
+                          loading={retryMutation.isPending && retryMutation.variables === r.stock_code}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRetry(r.stock_code);
+                          }}
+                        >
+                          重试
+                        </Button>
+                      ),
+                  },
                 ]}
               />
             )}
@@ -248,7 +284,11 @@ export default function ReportsPage() {
                 </Space>
               </Card>
             ) : (
-              <ReportDetail report={selectedReport} />
+              <ReportDetail
+                report={selectedReport}
+                retrying={retryMutation.isPending && retryMutation.variables === selectedReport.stock_code}
+                onRetry={() => handleRetry(selectedReport.stock_code)}
+              />
             )}
           </PageSection>
         </Col>
@@ -259,7 +299,17 @@ export default function ReportsPage() {
 
 // ── Report Detail component ──────────────────────────────────────────────
 
-function ReportDetail({ report }: { report: ResearchReportFull }) {
+function ReportDetail({
+  report,
+  retrying,
+  onRetry,
+}: {
+  report: ResearchReportFull;
+  retrying: boolean;
+  onRetry: () => void;
+}) {
+  const canRetry = report.status === 'failed' || report.status === 'rejected';
+
   return (
     <Card>
       <Space direction="vertical" size="middle" style={{ width: '100%' }}>
@@ -281,7 +331,7 @@ function ReportDetail({ report }: { report: ResearchReportFull }) {
               {report.status}
             </Tag>
           </h3>
-          <Space size="middle">
+          <Space size="middle" wrap>
             <Tag>{PIPELINE_LABELS[report.pipeline_type] ?? report.pipeline_type}</Tag>
             {report.recommendation && (
               <Tag color={REC_COLORS[report.recommendation]}>
@@ -295,6 +345,22 @@ function ReportDetail({ report }: { report: ResearchReportFull }) {
             )}
             {report.overall_score !== null && (
               <Text strong>评分 {report.overall_score.toFixed(1)}</Text>
+            )}
+            {/* Retry button for failed/rejected reports */}
+            {canRetry && (
+              <Button
+                type="primary"
+                danger
+                size="small"
+                icon={<RedoOutlined />}
+                loading={retrying}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRetry();
+                }}
+              >
+                重新研究
+              </Button>
             )}
           </Space>
         </div>

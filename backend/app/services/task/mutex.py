@@ -9,10 +9,10 @@ logger = logging.getLogger(__name__)
 
 
 class MutexLock:
-    """Task-level mutex using SQLite atomic UPDATE.
+    """Task-level mutex using an atomic status transition.
 
     Ensures at most one instance of a task runs at any given time.
-    Works with WAL mode; uses an atomic conditional update.
+    Uses a conditional UPDATE pattern via the ORM status check.
     """
 
     @staticmethod

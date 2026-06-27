@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Button,
   Card,
@@ -78,6 +79,73 @@ const statusColorMap: Record<string, string> = {
   cancelled: 'default',
 };
 
+// ── Extract business link from task run result ───────────────────────
+
+interface BizLink {
+  path: string;
+  label: string;
+}
+
+function getBizLink(run: TaskRunResponse): BizLink | null {
+  if (!run.result_summary) return null;
+  try {
+    const data = JSON.parse(run.result_summary);
+    switch (run.task_id) {
+      // On-demand deep research: link to the stock detail page with reports
+      case 'deep_research_on_demand':
+        if (data.stock_code && data.status === 'completed') {
+          return { path: `/stock/${data.stock_code}`, label: data.stock_code };
+        }
+        break;
+
+      // On-demand theme scan: link to the engine page
+      case 'theme_scan_on_demand':
+        if (data.status === 'completed') {
+          return { path: `/engine`, label: data.theme ?? '产业链扫描' };
+        }
+        break;
+
+      // Weekly quality screen → universe/watchlist page
+      case 'v2_quality_screen_weekly':
+        if (data.completed != null && data.completed > 0) {
+          return { path: `/universe`, label: `${data.completed} 只入库` };
+        }
+        break;
+
+      // Weekly deep research → reports list
+      case 'v2_deep_research_weekly':
+        if (data.completed != null && data.completed > 0) {
+          return { path: `/reports`, label: `${data.completed} 份报告` };
+        }
+        break;
+
+      // Weekly thesis tracker → reports list
+      case 'v2_thesis_tracker_weekly':
+        if (data.completed != null && data.completed > 0) {
+          return { path: `/reports`, label: `${data.completed} 份复核` };
+        }
+        break;
+
+      // Draft generation → drafts page
+      case 'daily_draft_generation':
+        if (data.generated != null && data.generated > 0) {
+          return { path: `/drafts`, label: `${data.generated} 个草稿` };
+        }
+        break;
+
+      // Sell trigger → drafts page
+      case 'daily_sell_trigger':
+        if (data.total_drafts != null && data.total_drafts > 0) {
+          return { path: `/drafts`, label: `${data.total_drafts} 个卖出草稿` };
+        }
+        break;
+    }
+  } catch {
+    // ignore parse errors
+  }
+  return null;
+}
+
 // ── Page Component ───────────────────────────────────────────────────
 
 export default function TaskCenterPage() {
@@ -102,6 +170,8 @@ export default function TaskCenterPage() {
 
   // Action state
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  // Controlled tab key for switching from runs → tasks
+  const [activeTabKey, setActiveTabKey] = useState<string>('runs');
 
   const health = healthQ.data;
   const tasks = tasksQ.data ?? [];
@@ -334,13 +404,34 @@ export default function TaskCenterPage() {
       dataIndex: 'task_id',
       width: 160,
       render: (v: string) => (
-        <code style={{ fontSize: 'var(--fs-sm)' }}>{v}</code>
+        <a
+          style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-sm)' }}
+          onClick={() => setActiveTabKey('tasks')}
+        >
+          {v}
+        </a>
       ),
       filters: [...new Set(runs.map((r) => r.task_id))].map((j) => ({
         text: j,
         value: j,
       })),
       onFilter: (value, record) => record.task_id === value,
+    },
+    {
+      title: '业务对象',
+      width: 140,
+      render: (_: unknown, record: TaskRunResponse) => {
+        const link = getBizLink(record);
+        return link ? (
+          <Link to={link.path} style={{ fontSize: 'var(--fs-sm)' }}>
+            {link.label}
+          </Link>
+        ) : (
+          <Text type="secondary" style={{ fontSize: 'var(--fs-sm)' }}>
+            —
+          </Text>
+        );
+      },
     },
     {
       title: '状态',
@@ -518,6 +609,8 @@ export default function TaskCenterPage() {
 
       <Tabs
         type="card"
+        activeKey={activeTabKey}
+        onChange={(key) => setActiveTabKey(key)}
         items={[
           {
             key: 'runs',

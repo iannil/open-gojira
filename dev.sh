@@ -9,10 +9,12 @@
 #   ./dev.sh logs        查看日志（tail -f）
 #
 # 启动的服务:
+#   - PostgreSQL (Docker, 端口 5432)
 #   - Backend (uvicorn --reload, 端口 7150)
 #   - Frontend (Vite dev server, 端口 7149)
 #
 # 要求:
+#   - Docker (用于运行 PostgreSQL 容器)
 #   - .env 文件在项目根目录 (复制 .env.example 并填入 API keys)
 set -euo pipefail
 
@@ -22,6 +24,65 @@ BACKEND_PID_FILE="$PID_DIR/backend.pid"
 FRONTEND_PID_FILE="$PID_DIR/frontend.pid"
 BACKEND_LOG="$PID_DIR/backend.log"
 FRONTEND_LOG="$PID_DIR/frontend.log"
+
+# ── PostgreSQL 开发容器 ────────────────────────────────────────────────
+PG_CONTAINER_NAME="gojira-pg-dev"
+
+_ensure_postgres() {
+  if ! command -v docker &>/dev/null; then
+    echo "[PostgreSQL] WARN: docker 不可用，跳过自动启动 PG。请确保 PG 已在 localhost:5432 运行。"
+    return
+  fi
+
+  # 检查容器是否已在运行
+  if docker ps --format '{{.Names}}' | grep -q "^${PG_CONTAINER_NAME}$"; then
+    echo "[PostgreSQL] 容器 ${PG_CONTAINER_NAME} 已在运行"
+    return
+  fi
+
+  # 容器存在但已停止 → 启动
+  if docker ps -a --format '{{.Names}}' | grep -q "^${PG_CONTAINER_NAME}$"; then
+    echo "[PostgreSQL] 启动已有容器 ${PG_CONTAINER_NAME}..."
+    docker start "${PG_CONTAINER_NAME}" > /dev/null
+  else
+    # 容器不存在 → 创建并启动
+    echo "[PostgreSQL] 创建并启动容器 ${PG_CONTAINER_NAME}..."
+    docker run -d \
+      --name "${PG_CONTAINER_NAME}" \
+      -p 5432:5432 \
+      -e POSTGRES_USER=gojira \
+      -e POSTGRES_PASSWORD=gojira \
+      -e POSTGRES_DB=gojira \
+      -v gojira_pg_data:/var/lib/postgresql/data \
+      postgres:16-alpine \
+      > /dev/null
+  fi
+
+  # 等待 PG 可用
+  echo "[PostgreSQL] 等待 PG 就绪..."
+  for i in $(seq 1 30); do
+    if docker exec "${PG_CONTAINER_NAME}" pg_isready -U gojira -d gojira &>/dev/null; then
+      echo "[PostgreSQL] PG 已就绪 (${i}s)"
+      return
+    fi
+    sleep 1
+  done
+  echo "[PostgreSQL] WARN: PG 未在 30s 内就绪，请手动检查。"
+}
+
+_pg_running() {
+  if command -v docker &>/dev/null && docker ps --format '{{.Names}}' | grep -q "^${PG_CONTAINER_NAME}$"; then
+    return 0
+  fi
+  return 1
+}
+
+_pg_container_exists() {
+  if command -v docker &>/dev/null && docker ps -a --format '{{.Names}}' | grep -q "^${PG_CONTAINER_NAME}$"; then
+    return 0
+  fi
+  return 1
+}
 
 # ── 辅助函数 ────────────────────────────────────────────────────────────
 
@@ -61,6 +122,9 @@ cmd_start() {
     echo ""
   fi
 
+  # ── 启动 PostgreSQL ───────────────────────────────────────────────────
+  _ensure_postgres
+
   # ── 启动 backend ──────────────────────────────────────────────────────
   echo "[Backend] 启动 uvicorn (端口 7150)..."
   cd "$ROOT_DIR/backend"
@@ -87,8 +151,9 @@ cmd_start() {
 
   echo ""
   echo "=== 启动完成 ==="
-  echo "  Backend:  http://localhost:7150"
-  echo "  Frontend: http://localhost:7149"
+  echo "  PostgreSQL: localhost:5432"
+  echo "  Backend:    http://localhost:7150"
+  echo "  Frontend:   http://localhost:7149"
   echo "  /api/health → http://localhost:7150/api/health"
   echo ""
   echo "查看日志: ./dev.sh logs"
@@ -204,7 +269,18 @@ cmd_status() {
     fi
   fi
 
-  echo "=== 服务状态 ==="
+  # ── PostgreSQL 状态 ──────────────────────────────────────────────────────
+  local pg_status="未安装 Docker"
+  if _pg_running; then
+    pg_status="运行中"
+  elif _pg_container_exists; then
+    pg_status="已停止"
+  elif command -v docker &>/dev/null; then
+    pg_status="未创建"
+  fi
+
+  echo "=== Gojira 开发环境 ==="
+  echo "  PostgreSQL [${pg_status}]  ${PG_CONTAINER_NAME}  localhost:5432"
   if [ "$backend_running" = true ]; then
     echo "  Backend  [运行中]  PID $(_pid_display "$backend_pid")  http://localhost:7150"
   else
@@ -242,8 +318,8 @@ cmd_logs() {
 usage() {
   echo "用法: $0 {start|stop|restart|status|logs}"
   echo ""
-  echo "  start    启动所有服务"
-  echo "  stop     停止所有服务"
+  echo "  start    启动全部服务（PG + Backend + Frontend）"
+  echo "  stop     停止前端和后端（PG 容器保持运行）"
   echo "  restart  重启所有服务"
   echo "  status   查看服务状态"
   echo "  logs     查看日志 (tail -f)"

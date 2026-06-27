@@ -22,7 +22,7 @@
 
 Gojira 是一台 **「个人股票自动驾驶舱」**：规则筛选 + LLM 深度研究 + 规则/人工审批的混合架构,把「选股 → 深研 → 买卖草稿 → 持仓审计 → 论点跟踪」全流程自动化,**唯一不自动的是券商真实下单**。
 
-技术栈: FastAPI (Python 3.14) + React 19 (TypeScript) + SQLite (WAL) + Ant Design 6 + ECharts 6。
+技术栈: FastAPI (Python 3.14) + React 19 (TypeScript) + PostgreSQL + Ant Design 6 + ECharts 6。
 
 > **v1→v2 提示**：2026-06-24 起进行了大重写,删除了 v1 规则策略引擎(Strategy/Plan/Candidate/Watchlist/Holding/builtin_seeder)。遇到 `plan_runner`/`strategy_engine`/`builtin_seeder`/`docs/reference/specs/`/`invest{1,2,3}.md` 等名字一律视为已删除的历史。详见 v2 进展文档 §1。
 
