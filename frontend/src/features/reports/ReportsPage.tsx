@@ -22,6 +22,7 @@ import remarkGfm from 'remark-gfm';
 
 import {
   listRecentReports,
+  getReportById,
   type PipelineType,
   type Recommendation,
   type ReportStatus,
@@ -68,7 +69,7 @@ const PIPELINE_LABELS: Record<PipelineType, string> = {
 
 export default function ReportsPage() {
   const [pipelineFilter, setPipelineFilter] = useState<PipelineType | undefined>(undefined);
-  const [selectedReport, setSelectedReport] = useState<ResearchReportFull | null>(null);
+  const [selectedReportId, setSelectedReportId] = useState<number | null>(null);
   const [searchCode, setSearchCode] = useState('');
 
   const reportsQuery = useQuery({
@@ -77,12 +78,30 @@ export default function ReportsPage() {
     refetchInterval: 60_000,
   });
 
+  // Fetch full report details when a report is selected
+  const reportDetailQuery = useQuery({
+    queryKey: ['research', 'report', selectedReportId],
+    queryFn: () => getReportById(selectedReportId!),
+    enabled: selectedReportId !== null,
+  });
+
   const reports = reportsQuery.data ?? [];
   const filtered = useMemo(() => {
     if (!searchCode.trim()) return reports;
     const q = searchCode.toLowerCase();
     return reports.filter((r) => r.stock_code.toLowerCase().includes(q));
   }, [reports, searchCode]);
+
+  // When the list updates, re-select the same report if still present
+  const selectedReport = useMemo(() => {
+    const full = reportDetailQuery.data;
+    if (full) return full;
+    // If detail not yet loaded, fall back to summary data from the list
+    if (selectedReportId !== null) {
+      return reports.find((r) => r.id === selectedReportId) as unknown as ResearchReportFull ?? null;
+    }
+    return null;
+  }, [reportDetailQuery.data, selectedReportId, reports]);
 
   return (
     <div>
@@ -139,11 +158,11 @@ export default function ReportsPage() {
                 rowKey="id"
                 pagination={{ pageSize: 20 }}
                 onRow={(r) => ({
-                  onClick: () => setSelectedReport(r as unknown as ResearchReportFull),
+                  onClick: () => setSelectedReportId(r.id),
                   style: { cursor: 'pointer' },
                 })}
                 rowClassName={(r) =>
-                  r.id === selectedReport?.id ? 'ant-table-row-selected' : ''
+                  r.id === selectedReportId ? 'ant-table-row-selected' : ''
                 }
                 columns={[
                   {
@@ -222,8 +241,14 @@ export default function ReportsPage() {
               <Card>
                 <Empty description="点击左侧报告查看详情" />
               </Card>
+            ) : reportDetailQuery.isLoading ? (
+              <Card>
+                <Space style={{ width: '100%', justifyContent: 'center', padding: 24 }}>
+                  <Text type="secondary">加载报告详情...</Text>
+                </Space>
+              </Card>
             ) : (
-              <ReportDetail report={selectedReport as ResearchReportFull} />
+              <ReportDetail report={selectedReport} />
             )}
           </PageSection>
         </Col>

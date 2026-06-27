@@ -18,7 +18,7 @@ DATA_DIR = REPO_ROOT / "backend" / "data"
 
 class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///data/gojira.db"
-    CORS_ORIGINS: list[str] = ["http://localhost:3000"]
+    CORS_ORIGINS: list[str] = ["http://localhost:7149"]
     LIXINGER_TOKEN: str = ""
     SCHEDULER_ENABLED: bool = True
     RATE_LIMIT: str = "60/minute"

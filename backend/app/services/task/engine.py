@@ -1,5 +1,6 @@
 """TaskEngine — scheduling core for the unified task abstraction layer."""
 
+import asyncio
 import json
 import logging
 import threading
@@ -278,7 +279,22 @@ class TaskEngine:
     # ── Internal: Tick Loop ────────────────────────────────────────────
 
     def _tick_loop(self) -> None:
-        """Main scheduling loop — runs in a background thread."""
+        """Main scheduling loop — runs in a background thread with a running event loop.
+
+        Creates and runs an asyncio event loop so that _dispatch_run (which
+        uses run_coroutine_threadsafe → _execute_and_finalize → execute_sync
+        → loop.run_in_executor) actually executes instead of being queued on
+        a dead loop. Without this, tasks stay "queued" forever.
+        """
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(self._async_tick())
+        finally:
+            loop.close()
+
+    async def _async_tick(self) -> None:
+        """Async tick loop — runs on a running event loop."""
         while not self._stop_event.is_set():
             try:
                 # Check cron tasks periodically (not every tick)
@@ -290,7 +306,7 @@ class TaskEngine:
                 self._process_pending_tasks()
             except Exception:
                 logger.exception("TaskEngine tick error")
-            self._stop_event.wait(self._tick_interval)
+            await asyncio.sleep(self._tick_interval)
 
     def _process_pending_tasks(self) -> None:
         """Process one tick: pick up queued tasks and dispatch them."""
@@ -429,14 +445,15 @@ class TaskEngine:
         run.worker_id = self._worker_mgr.worker_id
 
         # Create TaskContext
+        _run_id = run.id
         ctx = TaskContext(
             task_id=run.task_id,
-            run_id=run.id,
+            run_id=_run_id,
             trace_id=run.trace_id,
             worker_id=run.worker_id,
             triggered_by=run.triggered_by,
-            on_progress=lambda p, msg: self._update_progress(
-                run.id, p, msg,
+            on_progress=lambda p, msg, rid=_run_id: self._update_progress(
+                rid, p, msg,
             ),
         )
 
@@ -447,7 +464,6 @@ class TaskEngine:
         db.flush()
 
         # Execute async in the event loop
-        import asyncio
         loop = self._get_event_loop()
         future = asyncio.run_coroutine_threadsafe(
             self._execute_and_finalize(run.id, definition.func, ctx, timeout),
@@ -471,8 +487,6 @@ class TaskEngine:
         timeout: int,
     ) -> None:
         """Execute the task function and finalize the run in DB."""
-        import asyncio
-
         try:
             result = await asyncio.wait_for(
                 self._executor.execute_sync(run_id, fn, ctx),

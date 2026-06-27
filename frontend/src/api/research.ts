@@ -153,6 +153,15 @@ export async function getReportHistory(
   return res.data;
 }
 
+export async function getReportById(
+  reportId: number,
+): Promise<ResearchReportFull | null> {
+  const res = await apiClient.get<ResearchReportFull | null>(
+    `/research/reports/${reportId}`,
+  );
+  return res.data;
+}
+
 export async function listRecentReports(
   pipelineType?: PipelineType,
   limit = 50,

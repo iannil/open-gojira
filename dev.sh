@@ -9,8 +9,8 @@
 #   ./dev.sh logs        查看日志（tail -f）
 #
 # 启动的服务:
-#   - Backend (uvicorn --reload, 端口 3001)
-#   - Frontend (Vite dev server, 端口 3000)
+#   - Backend (uvicorn --reload, 端口 7150)
+#   - Frontend (Vite dev server, 端口 7149)
 #
 # 要求:
 #   - .env 文件在项目根目录 (复制 .env.example 并填入 API keys)
@@ -62,7 +62,7 @@ cmd_start() {
   fi
 
   # ── 启动 backend ──────────────────────────────────────────────────────
-  echo "[Backend] 启动 uvicorn (端口 3001)..."
+  echo "[Backend] 启动 uvicorn (端口 7150)..."
   cd "$ROOT_DIR/backend"
   if [ ! -d ".venv" ]; then
     echo "[Backend] 首次运行：创建虚拟环境..."
@@ -72,24 +72,24 @@ cmd_start() {
   else
     source .venv/bin/activate
   fi
-  nohup uvicorn app.main:app --reload --host 0.0.0.0 --port 3001 \
+  nohup uvicorn app.main:app --reload --host 0.0.0.0 --port 7150 \
     > "$BACKEND_LOG" 2>&1 &
   echo $! > "$BACKEND_PID_FILE"
   echo "[Backend] PID $(cat "$BACKEND_PID_FILE")"
 
   # ── 启动 frontend ─────────────────────────────────────────────────────
-  echo "[Frontend] 启动 Vite dev server (端口 3000)..."
+  echo "[Frontend] 启动 Vite dev server (端口 7149)..."
   cd "$ROOT_DIR/frontend"
-  nohup npm run dev -- --host 0.0.0.0 --port 3000 \
+  nohup npm run dev -- --host 0.0.0.0 --port 7149 \
     > "$FRONTEND_LOG" 2>&1 &
   echo $! > "$FRONTEND_PID_FILE"
   echo "[Frontend] PID $(cat "$FRONTEND_PID_FILE")"
 
   echo ""
   echo "=== 启动完成 ==="
-  echo "  Backend:  http://localhost:3001"
-  echo "  Frontend: http://localhost:3000"
-  echo "  /api/health → http://localhost:3001/api/health"
+  echo "  Backend:  http://localhost:7150"
+  echo "  Frontend: http://localhost:7149"
+  echo "  /api/health → http://localhost:7150/api/health"
   echo ""
   echo "查看日志: ./dev.sh logs"
   echo "停止服务: ./dev.sh stop"
@@ -113,10 +113,10 @@ cmd_stop() {
   else
     # 尝试按端口查找（兜底）
     local pid
-    pid=$(lsof -ti:3001 2>/dev/null || true)
+    pid=$(lsof -ti:7150 2>/dev/null || true)
     if [ -n "$pid" ]; then
       kill "$pid" 2>/dev/null || true
-      echo "[Backend] 已停止端口 3001 上的进程 PID $pid"
+      echo "[Backend] 已停止端口 7150 上的进程 PID $pid"
       any=true
     fi
   fi
@@ -133,10 +133,10 @@ cmd_stop() {
     rm -f "$FRONTEND_PID_FILE"
   else
     local pid
-    pid=$(lsof -ti:3000 2>/dev/null || true)
+    pid=$(lsof -ti:7149 2>/dev/null || true)
     if [ -n "$pid" ]; then
       kill "$pid" 2>/dev/null || true
-      echo "[Frontend] 已停止端口 3000 上的进程 PID $pid"
+      echo "[Frontend] 已停止端口 7149 上的进程 PID $pid"
       any=true
     fi
   fi
@@ -182,7 +182,7 @@ cmd_status() {
   # 兜底：按端口查找
   if [ "$backend_running" = false ]; then
     local all_pids
-    all_pids=$(_pids_on_port 3001)
+    all_pids=$(_pids_on_port 7150)
     if [ -n "$all_pids" ]; then
       backend_running=true
       backend_pid="$all_pids"
@@ -197,7 +197,7 @@ cmd_status() {
   fi
   if [ "$frontend_running" = false ]; then
     local all_pids
-    all_pids=$(_pids_on_port 3000)
+    all_pids=$(_pids_on_port 7149)
     if [ -n "$all_pids" ]; then
       frontend_running=true
       frontend_pid="$all_pids"
@@ -206,12 +206,12 @@ cmd_status() {
 
   echo "=== 服务状态 ==="
   if [ "$backend_running" = true ]; then
-    echo "  Backend  [运行中]  PID $(_pid_display "$backend_pid")  http://localhost:3001"
+    echo "  Backend  [运行中]  PID $(_pid_display "$backend_pid")  http://localhost:7150"
   else
     echo "  Backend  [已停止]"
   fi
   if [ "$frontend_running" = true ]; then
-    echo "  Frontend [运行中]  PID $(_pid_display "$frontend_pid")  http://localhost:3000"
+    echo "  Frontend [运行中]  PID $(_pid_display "$frontend_pid")  http://localhost:7149"
   else
     echo "  Frontend [已停止]"
   fi

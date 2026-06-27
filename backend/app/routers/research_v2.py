@@ -325,6 +325,23 @@ def get_history(
     return [_to_summary(r, stock_name) for r in rows]
 
 
+@router.get("/reports/{report_id}", response_model=ResearchReportFull | None)
+def get_report_by_id(
+    report_id: int,
+    db: Session = Depends(get_db),
+) -> ResearchReportFull | None:
+    """Get a single report by ID with full detail (markdown, conflicts, red lines)."""
+    report = db.query(ResearchReport).filter(ResearchReport.id == report_id).first()
+    if report is None:
+        return None
+    # Join stock name for display
+    stock = db.query(Stock.name).filter(Stock.code == report.stock_code).first()
+    stock_name = stock[0] if stock else None
+    rv = _to_full_response(report)
+    rv.stock_name = stock_name
+    return rv
+
+
 @router.get("/reports", response_model=list[ResearchReportSummary])
 def list_recent_reports(
     pipeline_type: str | None = None,
