@@ -377,6 +377,110 @@ a:hover { color: var(--primary-500); }
   font-weight: 400;
 }
 
+/* ── Tab Bar (multi-tab support) ─────────────────────────────────── */
+.tab-bar {
+  display: flex;
+  align-items: stretch;
+  height: 36px;
+  background: var(--surface-page);
+  border-bottom: 1px solid var(--border-light);
+  flex-shrink: 0;
+  overflow: hidden;
+  padding: 0 8px;
+}
+
+.tab-bar-scroll {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  flex: 1;
+}
+
+.tab-bar-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.tab-bar-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+  font-family: var(--font-sans);
+  position: relative;
+  flex: 1;
+  max-width: 100px;
+  min-width: 0;
+  user-select: none;
+  margin-bottom: -1px;
+  line-height: 1;
+}
+
+.tab-bar-tab:hover {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+
+.tab-bar-tab.active {
+  color: var(--primary-700);
+  border-bottom-color: var(--primary-500);
+  font-weight: 600;
+  background: #FFFFFF;
+}
+
+.tab-bar-tab-title {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-bar-tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  font-size: 8px;
+  opacity: 0;
+  transition: all var(--transition-fast);
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.tab-bar-tab:hover .tab-bar-tab-close {
+  opacity: 0.6;
+}
+
+.tab-bar-tab .tab-bar-tab-close:hover {
+  opacity: 1;
+  background: var(--gray-200);
+  color: var(--text-primary);
+}
+
+/* ── Tab content (keep-alive panels) ─────────────────────────────── */
+.tab-content-panel {
+  height: 100%;
+}
+
+.tab-content-panel--active {
+  display: block;
+}
+
 /* ── Main Content ──────────────────────────────────────────────────────── */
 .main-content {
   flex: 1;
@@ -384,6 +488,7 @@ a:hover { color: var(--primary-500); }
   overflow-x: hidden;
   padding: var(--content-padding);
   background: var(--surface-page);
+  padding-top: 0px;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

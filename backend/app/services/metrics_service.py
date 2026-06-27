@@ -83,7 +83,10 @@ def get_pipeline_summary(
         select(
             PipelineRun.pipeline_type,
             func.avg(
-                (func.unixepoch(PipelineRun.finished_at) - func.unixepoch(PipelineRun.started_at)) * 1000
+                (
+                    func.extract('epoch', PipelineRun.finished_at)
+                    - func.extract('epoch', PipelineRun.started_at)
+                ) * 1000
             ).label("avg_ms"),
         )
         .where(
@@ -179,7 +182,6 @@ def get_llm_summary(
         .where(
             LLMCallLog.created_at >= cutoff,
             LLMCallLog.conflict_flags_json.isnot(None),
-            func.json_type(LLMCallLog.conflict_flags_json).isnot(None),
         )
     ).one()
     conflict_count = int(conflict_row.conflict_count or 0)
@@ -208,7 +210,6 @@ def get_llm_summary(
         .where(
             LLMCallLog.created_at >= cutoff,
             LLMCallLog.conflict_flags_json.isnot(None),
-            func.json_type(LLMCallLog.conflict_flags_json).isnot(None),
         )
         .group_by(LLMCallLog.pipeline_type)
     ).all()

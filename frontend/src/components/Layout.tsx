@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react';
-import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   DashboardOutlined,
   AppstoreOutlined,
@@ -22,6 +22,7 @@ import {
 } from '@ant-design/icons';
 
 import { SystemAlertBanner } from './SystemAlertBanner';
+import { TabProvider, TabBar, TabContent, resolveTabTitle, useTabs } from '../features/tabs';
 
 type NavItem = { key: string; label: string; labelEn: string; icon: ReactNode };
 type NavGroup = {
@@ -86,10 +87,13 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-export default function Layout() {
+function LayoutInner() {
   const navigate = useNavigate();
   const location = useLocation();
   const activeKey = '/' + (location.pathname.split('/')[1] || '');
+  const { openTab } = useTabs();
+
+  const mountedRef = useRef(false);
 
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const dropdownRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -111,12 +115,22 @@ export default function Layout() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [handleClickOutside]);
 
+  /* 首次挂载时，为当前 URL 创建一个 tab */
+  useEffect(() => {
+    if (mountedRef.current) return;
+    mountedRef.current = true;
+    if (location.pathname !== '/') {
+      openTab(location.pathname, resolveTabTitle(location.pathname));
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const toggleDropdown = (label: string) => {
     setOpenDropdown((prev) => (prev === label ? null : label));
   };
 
   const handleNavClick = (key: string) => {
     setOpenDropdown(null);
+    openTab(key, resolveTabTitle(key));
     navigate(key);
   };
 
@@ -218,10 +232,22 @@ export default function Layout() {
         <div className="topnav-version">v2.0</div>
       </header>
 
+      <TabBar />
+
       <main className="main-content">
         <SystemAlertBanner />
-        <Outlet />
+        <TabContent />
       </main>
     </div>
+  );
+}
+
+/* ── Outer shell: provides TabProvider context for tab management ── */
+
+export default function Layout() {
+  return (
+    <TabProvider>
+      <LayoutInner />
+    </TabProvider>
   );
 }

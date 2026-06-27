@@ -740,7 +740,6 @@ export default function TaskCenterPage() {
       </Row>
 
       <Tabs
-        type="card"
         activeKey={activeTabKey}
         onChange={(key) => setActiveTabKey(key)}
         items={[
