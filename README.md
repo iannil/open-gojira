@@ -175,7 +175,7 @@ pytest -k "test_xxx"       # 单个测试
 
 ### 2.7 启动后第一件事
 
-打开 **http://localhost:7149/data-management**，确认数据是否已同步。如果还没同步，跳到 [第 3 章](#3-首次数据同步)。
+打开 `http://localhost:7149/data-management`，确认数据是否已同步。如果还没同步，跳到 [第 3 章](#3-首次数据同步)。
 
 ---
 
@@ -234,7 +234,7 @@ curl -X POST 'http://localhost:7150/api/data-management/pipeline/dividends/start
 
 ### 3.3 用 UI 启动
 
-打开 **http://localhost:7149/data-management**，在「Pipeline 控制」Tab 中：
+打开 `http://localhost:7149/data-management`，在「Pipeline 控制」Tab 中：
 1. 选择 pipeline 类型
 2. 点「启动」
 3. 在「运行历史」看进度
